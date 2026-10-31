@@ -21,6 +21,7 @@ import com.polymath.voidlauncher.core.TelemetryMonitor
 import com.polymath.voidlauncher.core.TermuxIpcDispatcher
 import com.polymath.voidlauncher.databinding.ActivityVoidLauncherBinding
 import com.polymath.voidlauncher.model.AppEntry
+import com.polymath.voidlauncher.ui.AppFilterAdapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
