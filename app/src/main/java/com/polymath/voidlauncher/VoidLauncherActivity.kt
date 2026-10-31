@@ -738,11 +738,12 @@ class VoidLauncherActivity : AppCompatActivity() {
         telemetryJob?.cancel()
         telemetryJob = lifecycleScope.launch {
             telemetryMonitor.monitorTelemetry().collectLatest { snap ->
-                binding.tvClock.text = snap.formattedTime
-                binding.tvBatteryTemp.text = "▲ ${snap.batteryPercent}% [${snap.batteryTempCelsius}°C]"
-                binding.tvMemory.text = "RAM: ${snap.usedRamGb}G"
+                binding.tvClock.text = snap.timestampFormatted
+                binding.tvBatteryTemp.text = "▲ ${snap.batteryPercent}% [${snap.batteryTemperatureC}°C]"
+                val usedGb = String.format(java.util.Locale.US, "%.1f", snap.ramUsedMb / 1024.0)
+                binding.tvMemory.text = "RAM: ${usedGb}G"
 
-                if (snap.batteryTempCelsius > config.thermalLimitCelsius) {
+                if (snap.batteryTemperatureC > config.thermalLimitCelsius) {
                     glyphManager.triggerThermalWarning()
                 }
 
