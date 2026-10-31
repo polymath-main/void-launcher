@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="pitch_black">#000000</color>
+    <color name="surface_card">#0A0A0A</color>
+    <color name="surface_card_selected">#141414</color>
+    <color name="surface_border">#222222</color>
+    <color name="surface_border_active">#444444</color>
+    
+    <color name="text_primary">#F4F4F5</color>
+    <color name="text_secondary">#71717A</color>
+    <color name="text_muted">#3F3F46</color>
+    
+    <color name="void_crimson">#E11D48</color>
+    <color name="amber_warning">#F59E0B</color>
+    <color name="phosphor_green">#10B981</color>
+    <color name="cyan_hud">#06B6D4</color>
+</resources>

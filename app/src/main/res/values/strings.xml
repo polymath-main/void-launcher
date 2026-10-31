@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VoidLauncher</string>
+    <string name="omni_hint">>_ search apps or enter :cmd</string>
+    <string name="identity_void">[VOID]</string>
+    <string name="identity_main">[MAIN]</string>
+    <string name="daemon_status_unknown">NODEOS: CHECKING</string>
+    <string name="daemon_status_alive">NODEOS: ALIVE</string>
+    <string name="daemon_status_offline">NODEOS: OFFLINE</string>
+</resources>
