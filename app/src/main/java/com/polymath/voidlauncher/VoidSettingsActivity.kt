@@ -95,27 +95,40 @@ class VoidSettingsActivity : AppCompatActivity() {
         return resolveInfo?.activityInfo?.packageName == packageName
     }
 
+    @Suppress("DEPRECATION")
     private fun requestSetDefaultLauncher() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = getSystemService(RoleManager::class.java)
             if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
                 if (!roleManager.isRoleHeld(RoleManager.ROLE_HOME)) {
                     val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)
-                    startActivity(intent)
+                    startActivityForResult(intent, REQUEST_DEFAULT_LAUNCHER)
                     return
                 }
             }
         }
 
         try {
-            startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
+            startActivityForResult(Intent(Settings.ACTION_HOME_SETTINGS), REQUEST_DEFAULT_LAUNCHER)
         } catch (_: Exception) {
             try {
-                startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+                startActivityForResult(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS), REQUEST_DEFAULT_LAUNCHER)
             } catch (_: Exception) {
                 startActivity(Intent(Settings.ACTION_SETTINGS))
             }
         }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_DEFAULT_LAUNCHER) {
+            refreshSystemStatus()
+        }
+    }
+
+    companion object {
+        private const val REQUEST_DEFAULT_LAUNCHER = 1002
     }
 
     private fun setupSpinners() {
@@ -126,6 +139,30 @@ class VoidSettingsActivity : AppCompatActivity() {
         val homeModes = arrayOf("COCKPIT", "MINIMAL", "FILES")
         val homeAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, homeModes)
         binding.spnHomeMode.adapter = homeAdapter
+
+        val gestureActions = arrayOf(
+            "NONE", "OPEN_DRAWER", "OPEN_FILES", "OPEN_SEARCH",
+            "OPEN_SETTINGS", "OPEN_TERMINAL", "NOTIFICATIONS",
+            "EXPAND_STATUS_BAR", "TOGGLE_MINIMAL", "TOGGLE_IDENTITY"
+        )
+        fun makeGestureAdapter() = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, gestureActions)
+
+        binding.spnGestureSwipeUp.adapter    = makeGestureAdapter()
+        binding.spnGestureSwipeDown.adapter  = makeGestureAdapter()
+        binding.spnGestureSwipeLeft.adapter  = makeGestureAdapter()
+        binding.spnGestureSwipeRight.adapter = makeGestureAdapter()
+        binding.spnGestureDoubleTap.adapter  = makeGestureAdapter()
+        binding.spnGestureLongPress.adapter  = makeGestureAdapter()
+    }
+
+    private fun selectGestureAction(spinner: android.widget.Spinner, action: String) {
+        val adapter = spinner.adapter ?: return
+        for (i in 0 until adapter.count) {
+            if (adapter.getItem(i).toString().equals(action, ignoreCase = true)) {
+                spinner.setSelection(i)
+                break
+            }
+        }
     }
 
     private fun populateUiFromConfig(cfg: LauncherConfig) {
@@ -163,6 +200,22 @@ class VoidSettingsActivity : AppCompatActivity() {
         binding.switchFilterOngoing.isChecked = cfg.filterOngoingNotifications
         binding.switchShowDock.isChecked = cfg.showDock
         binding.switchShowDigitKeypad.isChecked = cfg.showDigitKeypad
+
+        // Homescreen Customizations
+        binding.switchUseWallpaper.isChecked = cfg.useSystemWallpaper
+        binding.seekCardRadius.progress = cfg.cockpitCardRadiusDp.toInt().coerceIn(0, 40)
+        binding.tvCardRadiusLabel.text = "Card Radius: ${cfg.cockpitCardRadiusDp.toInt()}dp"
+        binding.switchShowStatusTime.isChecked = cfg.showStatusBarTime
+        binding.switchShowStatusBattery.isChecked = cfg.showStatusBarBattery
+        binding.switchShowStatusRam.isChecked = cfg.showStatusBarRam
+
+        // Gesture Controls
+        selectGestureAction(binding.spnGestureSwipeUp,    cfg.gestureSwipeUp)
+        selectGestureAction(binding.spnGestureSwipeDown,  cfg.gestureSwipeDown)
+        selectGestureAction(binding.spnGestureSwipeLeft,  cfg.gestureSwipeLeft)
+        selectGestureAction(binding.spnGestureSwipeRight, cfg.gestureSwipeRight)
+        selectGestureAction(binding.spnGestureDoubleTap,  cfg.gestureDoubleTap)
+        selectGestureAction(binding.spnGestureLongPress,  cfg.gestureLongPress)
 
         binding.etFilesDefaultPath.setText(cfg.filesDefaultPath)
         binding.switchFilesShowHidden.isChecked = cfg.filesShowHidden
@@ -216,6 +269,14 @@ class VoidSettingsActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        binding.seekCardRadius.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                binding.tvCardRadiusLabel.text = "Card Radius: ${progress}dp"
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+
         binding.btnSettingsSave.setOnClickListener {
             saveAndApply()
         }
@@ -264,6 +325,19 @@ class VoidSettingsActivity : AppCompatActivity() {
             filterOngoingNotifications = binding.switchFilterOngoing.isChecked,
             showDock = binding.switchShowDock.isChecked,
             showDigitKeypad = binding.switchShowDigitKeypad.isChecked,
+            // Homescreen Customizations
+            useSystemWallpaper = binding.switchUseWallpaper.isChecked,
+            cockpitCardRadiusDp = binding.seekCardRadius.progress.toFloat().coerceIn(0f, 40f),
+            showStatusBarTime = binding.switchShowStatusTime.isChecked,
+            showStatusBarBattery = binding.switchShowStatusBattery.isChecked,
+            showStatusBarRam = binding.switchShowStatusRam.isChecked,
+            // Gesture Controls
+            gestureSwipeUp    = binding.spnGestureSwipeUp.selectedItem?.toString()    ?: "OPEN_DRAWER",
+            gestureSwipeDown  = binding.spnGestureSwipeDown.selectedItem?.toString()  ?: "NOTIFICATIONS",
+            gestureSwipeLeft  = binding.spnGestureSwipeLeft.selectedItem?.toString()  ?: "OPEN_DRAWER",
+            gestureSwipeRight = binding.spnGestureSwipeRight.selectedItem?.toString() ?: "OPEN_FILES",
+            gestureDoubleTap  = binding.spnGestureDoubleTap.selectedItem?.toString()  ?: "TOGGLE_MINIMAL",
+            gestureLongPress  = binding.spnGestureLongPress.selectedItem?.toString()  ?: "OPEN_SETTINGS",
             filesDefaultPath = filesPath,
             filesShowHidden = binding.switchFilesShowHidden.isChecked,
             thermalLimitCelsius = thermal,

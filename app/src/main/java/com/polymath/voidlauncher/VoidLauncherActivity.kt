@@ -15,8 +15,11 @@ import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -38,6 +41,7 @@ import com.polymath.voidlauncher.core.NodeOsBridge
 import com.polymath.voidlauncher.core.NothingGlyphManager
 import com.polymath.voidlauncher.core.TelemetryMonitor
 import com.polymath.voidlauncher.core.TermuxIpcDispatcher
+import com.polymath.voidlauncher.core.VoidGestureDetector
 import com.polymath.voidlauncher.core.VoidNotificationListenerService
 import com.polymath.voidlauncher.databinding.ActivityVoidLauncherBinding
 import com.polymath.voidlauncher.model.AppEntry
@@ -77,6 +81,13 @@ class VoidLauncherActivity : AppCompatActivity() {
     private var config: LauncherConfig = LauncherConfig()
     private var currentFilesPath: String = ""
     private var isDrawerOpen: Boolean = false
+    private var isMinimalMode: Boolean = false
+
+    private lateinit var gestureDetector: VoidGestureDetector
+
+    companion object {
+        private const val REQUEST_DEFAULT_LAUNCHER = 1002
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -196,6 +207,16 @@ class VoidLauncherActivity : AppCompatActivity() {
         )
         binding.rvNotifications.layoutManager = LinearLayoutManager(this)
         binding.rvNotifications.adapter = notificationAdapter
+
+        // Gesture detector
+        gestureDetector = VoidGestureDetector(this, object : VoidGestureDetector.GestureCallbacks {
+            override fun onSwipeUp()    = handleGestureAction(config.gestureSwipeUp)
+            override fun onSwipeDown()  = handleGestureAction(config.gestureSwipeDown)
+            override fun onSwipeLeft()  = handleGestureAction(config.gestureSwipeLeft)
+            override fun onSwipeRight() = handleGestureAction(config.gestureSwipeRight)
+            override fun onDoubleTap()  = handleGestureAction(config.gestureDoubleTap)
+            override fun onLongPress()  = handleGestureAction(config.gestureLongPress)
+        })
     }
 
     // ── Visual & Configuration Application ──────────────────
@@ -264,6 +285,22 @@ class VoidLauncherActivity : AppCompatActivity() {
         // Scrubber visibility
         binding.alphabetScrubber.visibility = if (config.enableAtoZScrubber) View.VISIBLE else View.GONE
 
+        // ── Homescreen Customizations ──
+        // System wallpaper
+        if (config.useSystemWallpaper) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
+            binding.rootLayout.setBackgroundColor(Color.TRANSPARENT)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
+            binding.rootLayout.setBackgroundColor(c.backgroundInt)
+        }
+
+        // Status bar element visibility
+        binding.tvClock.visibility = if (config.showStatusBarTime) View.VISIBLE else View.GONE
+        binding.tvMemory.visibility = if (config.showStatusBarRam) View.VISIBLE else View.GONE
+        // Battery temp reuses tvBatteryTemp — derive from tvMemory sibling; fall back gracefully
+        binding.tvBatteryTemp.visibility = if (config.showStatusBarBattery) View.VISIBLE else View.GONE
+
         // Default home mode
         applyHomeMode()
 
@@ -284,26 +321,35 @@ class VoidLauncherActivity : AppCompatActivity() {
         return resolveInfo?.activityInfo?.packageName == packageName
     }
 
+    @Suppress("DEPRECATION")
     private fun requestSetDefaultLauncher() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = getSystemService(RoleManager::class.java)
             if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
                 if (!roleManager.isRoleHeld(RoleManager.ROLE_HOME)) {
                     val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)
-                    startActivity(intent)
+                    startActivityForResult(intent, REQUEST_DEFAULT_LAUNCHER)
                     return
                 }
             }
         }
 
         try {
-            startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
+            startActivityForResult(Intent(Settings.ACTION_HOME_SETTINGS), REQUEST_DEFAULT_LAUNCHER)
         } catch (_: Exception) {
             try {
-                startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+                startActivityForResult(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS), REQUEST_DEFAULT_LAUNCHER)
             } catch (_: Exception) {
                 startActivity(Intent(Settings.ACTION_SETTINGS))
             }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_DEFAULT_LAUNCHER) {
+            checkDefaultLauncherStatus()
         }
     }
 
@@ -385,7 +431,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         val drawable = GradientDrawable().apply {
             setColor(surfaceColor)
             setStroke(dpToPx(1), borderColor)
-            cornerRadius = dpToPxF(14f)
+            cornerRadius = dpToPxF(config.cockpitCardRadiusDp)
         }
         view.background = drawable
     }
@@ -997,5 +1043,61 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     private fun dpToPxF(dp: Float): Float {
         return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics)
+    }
+
+    // ── Gesture Controls ─────────────────────────────────────
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        // Route to gesture detector only when omni input is not actively focused
+        if (!binding.etOmniInput.isFocused) {
+            gestureDetector.onTouchEvent(ev)
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun handleGestureAction(action: String) {
+        when (action.uppercase()) {
+            "OPEN_DRAWER"       -> toggleRightDrawer()
+            "OPEN_FILES"        -> toggleFilesBrowser()
+            "OPEN_SEARCH"       -> { binding.etOmniInput.requestFocus(); showKeyboard() }
+            "OPEN_SETTINGS"     -> openSettings()
+            "OPEN_TERMINAL"     -> termuxIpc.openTermux()
+            "NOTIFICATIONS"     -> VoidNotificationListenerService.openAccessSettings(this)
+            "EXPAND_STATUS_BAR" -> expandStatusBar()
+            "TOGGLE_MINIMAL"    -> toggleMinimalMode()
+            "TOGGLE_IDENTITY"   -> { nodeOsBridge.toggleIdentityMode(); applyIdentityBadge() }
+            "NONE"              -> {}
+        }
+    }
+
+    private fun toggleMinimalMode() {
+        isMinimalMode = !isMinimalMode
+        if (isMinimalMode) {
+            binding.telemetryCard.visibility = View.GONE
+            binding.intentCard.visibility = View.GONE
+            binding.notificationsCard.visibility = View.GONE
+            binding.bareIntegerDock.visibility = View.GONE
+            binding.digitKeypadRow.visibility = View.GONE
+        } else {
+            applyConfig()
+        }
+    }
+
+    private fun showKeyboard() {
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.showSoftInput(binding.etOmniInput, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun expandStatusBar() {
+        try {
+            val sbService = getSystemService("statusbar")
+            sbService?.let {
+                val cls = Class.forName("android.app.StatusBarManager")
+                cls.getMethod("expandNotificationsPanel").invoke(it)
+            }
+        } catch (_: Exception) {
+            // Not available on all devices — silently ignore
+        }
     }
 }

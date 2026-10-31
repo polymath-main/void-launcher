@@ -39,6 +39,18 @@
   "filter_ongoing_notifications": true,
   "show_dock": true,
   "show_digit_keypad": true,
+  "use_system_wallpaper": false,
+  "cockpit_card_radius_dp": 14.0,
+  "show_status_bar_time": true,
+  "show_status_bar_battery": true,
+  "show_status_bar_ram": true,
+
+  "gesture_swipe_up": "OPEN_DRAWER",
+  "gesture_swipe_down": "NOTIFICATIONS",
+  "gesture_swipe_left": "OPEN_DRAWER",
+  "gesture_swipe_right": "OPEN_FILES",
+  "gesture_double_tap": "TOGGLE_MINIMAL",
+  "gesture_long_press": "OPEN_SETTINGS",
 
   "show_app_icons": true,
   "app_icon_style": "original",

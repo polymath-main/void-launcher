@@ -165,6 +165,17 @@ class ConfigManager(private val context: Context) {
             defaultWorkspacePath = json.optString("default_workspace_path", "/data/data/com.termux/files/home/Projects"),
             workflowJsonPath = json.optString("workflow_json_path", "/data/data/com.termux/files/home/Projects/workflow.json"),
             nodeosDbPath = json.optString("nodeos_db_path", "/data/data/com.termux/files/home/Projects/agy_nodeos.db"),
+            useSystemWallpaper = json.optBoolean("use_system_wallpaper", false),
+            cockpitCardRadiusDp = json.optDouble("cockpit_card_radius_dp", 14.0).toFloat(),
+            showStatusBarTime = json.optBoolean("show_status_bar_time", true),
+            showStatusBarBattery = json.optBoolean("show_status_bar_battery", true),
+            showStatusBarRam = json.optBoolean("show_status_bar_ram", true),
+            gestureSwipeUp = json.optString("gesture_swipe_up", "OPEN_DRAWER"),
+            gestureSwipeDown = json.optString("gesture_swipe_down", "NOTIFICATIONS"),
+            gestureSwipeLeft = json.optString("gesture_swipe_left", "OPEN_DRAWER"),
+            gestureSwipeRight = json.optString("gesture_swipe_right", "OPEN_FILES"),
+            gestureDoubleTap = json.optString("gesture_double_tap", "TOGGLE_MINIMAL"),
+            gestureLongPress = json.optString("gesture_long_press", "OPEN_SETTINGS"),
             enableGlyphPulse = json.optBoolean("enable_glyph_pulse", true),
             enableHaptics = json.optBoolean("enable_haptics", true),
             clockFormat = json.optString("clock_format", "HH:mm:ss"),
@@ -262,6 +273,19 @@ class ConfigManager(private val context: Context) {
         json.put("filter_ongoing_notifications", config.filterOngoingNotifications)
         json.put("show_digit_keypad", config.showDigitKeypad)
         json.put("show_dock", config.showDock)
+        json.put("use_system_wallpaper", config.useSystemWallpaper)
+        json.put("cockpit_card_radius_dp", config.cockpitCardRadiusDp.toDouble())
+        json.put("show_status_bar_time", config.showStatusBarTime)
+        json.put("show_status_bar_battery", config.showStatusBarBattery)
+        json.put("show_status_bar_ram", config.showStatusBarRam)
+
+        // Gesture Controls
+        json.put("gesture_swipe_up", config.gestureSwipeUp)
+        json.put("gesture_swipe_down", config.gestureSwipeDown)
+        json.put("gesture_swipe_left", config.gestureSwipeLeft)
+        json.put("gesture_swipe_right", config.gestureSwipeRight)
+        json.put("gesture_double_tap", config.gestureDoubleTap)
+        json.put("gesture_long_press", config.gestureLongPress)
 
         // Drawer & App Icon Customizations
         json.put("show_app_icons", config.showAppIcons)

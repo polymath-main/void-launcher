@@ -31,6 +31,19 @@ data class LauncherConfig(
     val filterOngoingNotifications: Boolean = true,
     val showDigitKeypad: Boolean = true,
     val showDock: Boolean = true,
+    val useSystemWallpaper: Boolean = false,     // Render over system Android wallpaper
+    val cockpitCardRadiusDp: Float = 14f,        // Corner radius of HUD cards
+    val showStatusBarTime: Boolean = true,
+    val showStatusBarBattery: Boolean = true,
+    val showStatusBarRam: Boolean = true,
+
+    // ── Gesture Controls ─────────────────────────────────────
+    val gestureSwipeUp: String = "OPEN_DRAWER",      // OPEN_DRAWER | OPEN_SEARCH | OPEN_FILES | NONE
+    val gestureSwipeDown: String = "NOTIFICATIONS",  // NOTIFICATIONS | EXPAND_STATUS_BAR | OPEN_SEARCH | OPEN_SETTINGS | NONE
+    val gestureSwipeLeft: String = "OPEN_DRAWER",    // OPEN_DRAWER | OPEN_FILES | NONE
+    val gestureSwipeRight: String = "OPEN_FILES",    // OPEN_FILES | OPEN_DRAWER | TOGGLE_IDENTITY | NONE
+    val gestureDoubleTap: String = "TOGGLE_MINIMAL", // TOGGLE_MINIMAL | OPEN_SETTINGS | OPEN_TERMINAL | NONE
+    val gestureLongPress: String = "OPEN_SETTINGS",  // OPEN_SETTINGS | OPEN_DRAWER | TOGGLE_FILES | NONE
 
     // ── App Icons & Drawer Customizations ────────────────────
     val showAppIcons: Boolean = true,
