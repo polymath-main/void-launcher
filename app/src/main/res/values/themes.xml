@@ -3,10 +3,22 @@
     <style name="Theme.VoidLauncher" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowBackground">@color/pitch_black</item>
         <item name="android:colorBackground">@color/pitch_black</item>
-        <item name="android:statusBarColor">@color/pitch_black</item>
-        <item name="android:navigationBarColor">@color/pitch_black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:fontFamily">monospace</item>
+
+        <!-- Material3 Color Overrides for Sovereign Cockpit -->
+        <item name="colorPrimary">@color/void_crimson</item>
+        <item name="colorOnPrimary">@color/text_primary</item>
+        <item name="colorSecondary">@color/cyan_accent</item>
+        <item name="colorOnSecondary">@color/text_primary</item>
+        <item name="colorSurface">@color/cockpit_surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorSurfaceVariant">@color/cockpit_surface_pressed</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorOutline">@color/cockpit_border</item>
     </style>
 </resources>

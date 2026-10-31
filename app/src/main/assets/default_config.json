@@ -1,0 +1,59 @@
+{
+  "colors": {
+    "background":      "#000000",
+    "surface":         "#080808",
+    "surface_pressed": "#171717",
+    "border":          "#1A1A1A",
+    "border_active":   "#333333",
+    "text_primary":    "#F4F4F5",
+    "text_secondary":  "#A1A1AA",
+    "text_muted":      "#52525B",
+    "accent":          "#E11D48",
+    "accent_surface":  "#4C0519",
+    "secondary":       "#06B6D4",
+    "secondary_surface": "#083344",
+    "safe":            "#10B981",
+    "warning":         "#F59E0B",
+    "critical":        "#E11D48"
+  },
+
+  "font_family": "monospace",
+  "hud_font_size_sp": 11.0,
+  "dock_font_size_sp": 12.5,
+  "omni_font_size_sp": 12.5,
+
+  "dock_slots": [
+    { "index": 1, "label": "TERMINAL",   "subtitle": "Termux · VoidTerm",  "package_name": "com.termux",                     "action": "launch_termux" },
+    { "index": 2, "label": "FILESYSTEM", "subtitle": "Polymath FS",        "package_name": "com.aistudio.filesystem.pmfsxz", "action": "launch_package" },
+    { "index": 3, "label": "BROWSER",    "subtitle": "WebAuth & Links",    "package_name": "",                                "action": "open_browser" },
+    { "index": 4, "label": "COMMS",      "subtitle": "Dialer & Comms",     "package_name": "",                                "action": "open_dialer" },
+    { "index": 5, "label": "SETTINGS",   "subtitle": "System Controls",    "package_name": "",                                "action": "open_settings" }
+  ],
+
+  "show_telemetry_bar": true,
+  "show_nodeos_card": true,
+  "show_intent_card": true,
+  "show_digit_keypad": true,
+
+  "thermal_limit_celsius": 39.0,
+
+  "default_identity": "VOID",
+  "identity_void_label": "[VOID]",
+  "identity_main_label": "[MAIN]",
+
+  "omni_bar_hint": ">_ search apps or enter :cmd",
+  "omni_prompt_symbol": ">_ ",
+  "omni_fuzzy_max_results": 5,
+
+  "default_workspace_path": "/data/data/com.termux/files/home/Projects",
+  "workflow_json_path":     "/data/data/com.termux/files/home/Projects/workflow.json",
+  "nodeos_db_path":         "/data/data/com.termux/files/home/Projects/agy_nodeos.db",
+
+  "enable_glyph_pulse": true,
+  "enable_haptics": true,
+
+  "clock_format": "HH:mm:ss",
+  "clock_suffix": " UTC+6",
+
+  "telemetry_poll_ms": 1500
+}

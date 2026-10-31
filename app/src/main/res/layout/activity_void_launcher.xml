@@ -6,26 +6,25 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/pitch_black"
-    android:padding="16dp">
+    android:clipToPadding="false">
 
-    <!-- Zone 1: Host Telemetry HUD Card -->
+    <!-- Top Cockpit Container -->
     <LinearLayout
-        android:id="@+id/telemetryCard"
+        android:id="@+id/topCockpitLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/bg_cockpit_card"
         android:orientation="vertical"
-        android:padding="12dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Line 1: Hardware & Thermal Metrics -->
+        <!-- Line 0: Real-time Host Telemetry Status Bar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:paddingBottom="8dp">
 
             <TextView
                 android:id="@+id/tvClock"
@@ -36,15 +35,16 @@
                 android:textColor="@color/text_primary"
                 android:textSize="12sp"
                 android:textStyle="bold"
-                tools:text="17:30 UTC+6" />
+                tools:text="18:07:32 UTC+6" />
 
             <TextView
                 android:id="@+id/tvBatteryTemp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
-                android:textColor="@color/phosphor_green"
+                android:textColor="@color/emerald_safe"
                 android:textSize="12sp"
+                android:textStyle="bold"
                 tools:text="▲ 42% [34.2°C]" />
 
             <TextView
@@ -53,145 +53,153 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:fontFamily="monospace"
-                android:textColor="@color/text_secondary"
-                android:textSize="11sp"
-                tools:text="RAM: 4.8G/12G" />
-        </LinearLayout>
-
-        <!-- Divider -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
-            android:background="@color/surface_border" />
-
-        <!-- Line 2: Daemon & State Graph Status -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:id="@+id/tvDaemonStatus"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="monospace"
-                android:textColor="@color/cyan_hud"
-                android:textSize="11sp"
-                android:text="● NODEOS: CHECKING" />
-
-            <TextView
-                android:id="@+id/tvAstCount"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="monospace"
-                android:textColor="@color/text_secondary"
-                android:textSize="11sp"
-                android:text="AST: ~1.4K" />
-        </LinearLayout>
-
-        <!-- Line 3: Workspace & Git Context -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:id="@+id/tvWorkspace"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="monospace"
-                android:textColor="@color/text_secondary"
-                android:textSize="11sp"
-                android:text="CWD: ~/Projects" />
-
-            <TextView
-                android:id="@+id/tvGitBranch"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="monospace"
                 android:textColor="@color/text_muted"
                 android:textSize="11sp"
-                android:text="git: main" />
+                tools:text="RAM: 4.8G" />
         </LinearLayout>
-    </LinearLayout>
 
-    <!-- Zone 2: Intent & Identity Stream Card -->
-    <LinearLayout
-        android:id="@+id/intentCard"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:background="@drawable/bg_cockpit_card"
-        android:orientation="vertical"
-        android:padding="12dp"
-        app:layout_constraintTop_toBottomOf="@id/telemetryCard"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
+        <!-- Zone 1: NodeOS & Telemetry HUD Card -->
         <LinearLayout
+            android:id="@+id/telemetryCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:background="@drawable/bg_cockpit_card"
+            android:orientation="vertical"
+            android:padding="12dp">
 
-            <TextView
-                android:id="@+id/tvIdentityBadge"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/surface_border"
-                android:paddingStart="6dp"
-                android:paddingEnd="6dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:fontFamily="monospace"
-                android:textColor="@color/void_crimson"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:text="[VOID]" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <TextView
-                android:layout_width="0dp"
+                <TextView
+                    android:id="@+id/tvDaemonStatus"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/cyan_accent"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:text="● NODEOS: ALIVE" />
+
+                <TextView
+                    android:id="@+id/tvAstCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="AST: 1,428" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                android:background="@color/cockpit_border" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:fontFamily="monospace"
-                android:textColor="@color/text_secondary"
-                android:textSize="11sp"
-                android:text="ACTIVE WORKFLOW INTENT" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvWorkspace"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:text="CWD: ~/Projects" />
+
+                <TextView
+                    android:id="@+id/tvGitBranch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="git: main" />
+            </LinearLayout>
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvActiveIntent"
+        <!-- Zone 2: Intent & Identity Stream Card -->
+        <LinearLayout
+            android:id="@+id/intentCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:fontFamily="monospace"
-            android:textColor="@color/text_primary"
-            android:textSize="12sp"
-            android:text="Ready for execution." />
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_cockpit_card"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvIdentityBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_identity_badge"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/void_crimson"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:text="[VOID]" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_muted"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.08"
+                    android:text="ACTIVE WORKFLOW INTENT" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvActiveIntent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp"
+                android:lineSpacingExtra="2dp"
+                android:text="Ready for execution." />
+        </LinearLayout>
     </LinearLayout>
 
-    <!-- Zone 3: Dynamic Fuzzy Search App List (Overlay) -->
+    <!-- Zone 3: Dynamic Fuzzy Search App List Overlay -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvAppFilter"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
+        android:background="@drawable/bg_cockpit_card"
+        android:padding="6dp"
         android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/intentCard"
-        app:layout_constraintBottom_toTopOf="@id/bareIntegerDock"
+        app:layout_constraintTop_toBottomOf="@id/topCockpitLayout"
+        app:layout_constraintBottom_toTopOf="@id/bottomAnchorLayout"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Terminal Output Collapsible Card (When running commands) -->
+    <!-- Terminal Output Panel -->
     <TextView
         android:id="@+id/tvTerminalOutput"
         android:layout_width="match_parent"
@@ -199,131 +207,328 @@
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
         android:background="@drawable/bg_cockpit_card"
-        android:padding="8dp"
+        android:padding="10dp"
         android:fontFamily="monospace"
-        android:textColor="@color/text_secondary"
-        android:textSize="10sp"
+        android:textColor="@color/cyan_accent"
+        android:textSize="11sp"
         android:visibility="gone"
         android:scrollbars="vertical"
-        app:layout_constraintTop_toBottomOf="@id/intentCard"
-        app:layout_constraintBottom_toTopOf="@id/bareIntegerDock" />
+        app:layout_constraintTop_toBottomOf="@id/topCockpitLayout"
+        app:layout_constraintBottom_toTopOf="@id/bottomAnchorLayout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Zone 4: Bare-Integer Fast Dock (Bottom 40% Anchor) -->
+    <!-- Bottom Anchored Zone (Bottom 40% One-Thumb Reach) -->
     <LinearLayout
-        android:id="@+id/bareIntegerDock"
+        android:id="@+id/bottomAnchorLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_marginBottom="12dp"
-        app:layout_constraintBottom_toTopOf="@id/omniBarLayout"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <TextView
-            android:id="@+id/btnSlot1"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:fontFamily="monospace"
-            android:textColor="@color/text_primary"
-            android:textSize="13sp"
-            android:text="[1] TERMINAL      · Termux / VoidTerm" />
-
-        <TextView
-            android:id="@+id/btnSlot2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:fontFamily="monospace"
-            android:textColor="@color/text_primary"
-            android:textSize="13sp"
-            android:text="[2] FILESYSTEM    · Polymath FS" />
-
-        <TextView
-            android:id="@+id/btnSlot3"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:fontFamily="monospace"
-            android:textColor="@color/text_primary"
-            android:textSize="13sp"
-            android:text="[3] BROWSER       · WebAuth &amp; Links" />
-
-        <TextView
-            android:id="@+id/btnSlot4"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:fontFamily="monospace"
-            android:textColor="@color/text_primary"
-            android:textSize="13sp"
-            android:text="[4] COMMS         · Comms &amp; Messages" />
-
-        <TextView
-            android:id="@+id/btnSlot5"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:fontFamily="monospace"
-            android:textColor="@color/text_primary"
-            android:textSize="13sp"
-            android:text="[5] SETTINGS      · System Controls" />
-    </LinearLayout>
-
-    <!-- Zone 5: Omni-Command Bar & Bare Integer Bar -->
-    <LinearLayout
-        android:id="@+id/omniBarLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/bg_omni_bar"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- Zone 4: Bare-Integer Fast Dock -->
+        <LinearLayout
+            android:id="@+id/bareIntegerDock"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:textColor="@color/void_crimson"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:text=">_ " />
+            android:orientation="vertical"
+            android:layout_marginBottom="8dp">
 
-        <EditText
-            android:id="@+id/etOmniInput"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@null"
-            android:fontFamily="monospace"
-            android:textColor="@color/text_primary"
-            android:textColorHint="@color/text_muted"
-            android:textSize="13sp"
-            android:hint="@string/omni_hint"
-            android:imeOptions="actionGo"
-            android:inputType="textNoSuggestions|textVisiblePassword"
-            android:maxLines="1" />
+            <LinearLayout
+                android:id="@+id/btnSlot1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_bare_slot"
+                android:orientation="horizontal"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:gravity="center_vertical">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12.5sp"
+                    android:text="[1] TERMINAL" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:text="Termux · VoidTerm" />
+            </LinearLayout>
 
-        <TextView
-            android:id="@+id/btnExecute"
-            android:layout_width="wrap_content"
+            <LinearLayout
+                android:id="@+id/btnSlot2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_bare_slot"
+                android:orientation="horizontal"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:gravity="center_vertical">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12.5sp"
+                    android:text="[2] FILESYSTEM" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:text="Polymath FS" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btnSlot3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_bare_slot"
+                android:orientation="horizontal"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:gravity="center_vertical">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12.5sp"
+                    android:text="[3] BROWSER" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:text="WebAuth &amp; Links" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btnSlot4"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_bare_slot"
+                android:orientation="horizontal"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:gravity="center_vertical">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12.5sp"
+                    android:text="[4] COMMS" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:text="Dialer &amp; Comms" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btnSlot5"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_bare_slot"
+                android:orientation="horizontal"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:gravity="center_vertical">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12.5sp"
+                    android:text="[5] SETTINGS" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:text="System Controls" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Fast Numerical Jump Row (Hardware / Screen Keypad) -->
+        <LinearLayout
+            android:id="@+id/digitKeypadRow"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="6dp"
-            android:fontFamily="monospace"
-            android:textColor="@color/cyan_hud"
-            android:textSize="13sp"
-            android:text="[RUN]" />
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/keyDigit1"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/bg_digit_btn"
+                android:gravity="center"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:text="1" />
+
+            <TextView
+                android:id="@+id/keyDigit2"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/bg_digit_btn"
+                android:gravity="center"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:text="2" />
+
+            <TextView
+                android:id="@+id/keyDigit3"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/bg_digit_btn"
+                android:gravity="center"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:text="3" />
+
+            <TextView
+                android:id="@+id/keyDigit4"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/bg_digit_btn"
+                android:gravity="center"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:text="4" />
+
+            <TextView
+                android:id="@+id/keyDigit5"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/bg_digit_btn"
+                android:gravity="center"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:text="5" />
+
+            <TextView
+                android:id="@+id/keyColon"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/bg_digit_btn"
+                android:gravity="center"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:text=":" />
+
+            <TextView
+                android:id="@+id/keyBackspace"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_digit_btn"
+                android:gravity="center"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_muted"
+                android:textSize="12sp"
+                android:text="⌫" />
+        </LinearLayout>
+
+        <!-- Zone 5: Omni-Command Bar -->
+        <LinearLayout
+            android:id="@+id/omniBarLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_omni_bar"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:text=">_ " />
+
+            <EditText
+                android:id="@+id/etOmniInput"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@null"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_muted"
+                android:textSize="12.5sp"
+                android:hint="@string/omni_hint"
+                android:imeOptions="actionGo"
+                android:inputType="textNoSuggestions|textVisiblePassword"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/btnExecute"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="8dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/cyan_accent"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:text="[GO]" />
+        </LinearLayout>
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

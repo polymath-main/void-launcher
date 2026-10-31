@@ -13,13 +13,20 @@ class NodeOsBridge(private val context: Context) {
         const val PREF_IDENTITY_MODE = "pref_identity_mode"
         const val IDENTITY_VOID = "VOID"
         const val IDENTITY_MAIN = "MAIN"
-
-        const val DEFAULT_WORKFLOW_PATH = "/data/data/com.termux/files/home/Projects/workflow.json"
-        const val DEFAULT_NODEOS_DB = "/data/data/com.termux/files/home/Projects/agy_nodeos.db"
     }
+
+    // Configurable paths — updated from LauncherConfig at runtime
+    var workflowPath: String = "/data/data/com.termux/files/home/Projects/workflow.json"
+    var nodeosDbPath: String = "/data/data/com.termux/files/home/Projects/agy_nodeos.db"
 
     fun getIdentityMode(): String {
         return prefs.getString(PREF_IDENTITY_MODE, IDENTITY_VOID) ?: IDENTITY_VOID
+    }
+
+    fun setDefaultIdentity(identity: String) {
+        if (!prefs.contains(PREF_IDENTITY_MODE)) {
+            prefs.edit().putString(PREF_IDENTITY_MODE, identity).apply()
+        }
     }
 
     fun toggleIdentityMode(): String {
@@ -30,19 +37,17 @@ class NodeOsBridge(private val context: Context) {
     }
 
     /**
-     * Reads current intent and AST status from host files if accessible,
-     * or returns clean default operational status.
+     * Reads current intent and AST status from host files if accessible.
      */
     fun pollIntentStatus(): IntentStatus {
         var activeTask = "Sovereign Cockpit Ready"
         var taskStatus = "idle"
         var gitBranch = "main"
-        var astNodes = 1428
+        var astNodes = 0
         var daemonAlive = false
 
-        // Check if workflow.json is accessible
         try {
-            val workflowFile = File(DEFAULT_WORKFLOW_PATH)
+            val workflowFile = File(workflowPath)
             if (workflowFile.exists() && workflowFile.canRead()) {
                 val content = workflowFile.readText()
                 val json = JSONObject(content)
@@ -51,11 +56,13 @@ class NodeOsBridge(private val context: Context) {
             }
         } catch (_: Exception) {}
 
-        // Check agy_nodeos.db existence for daemon presence
         try {
-            val dbFile = File(DEFAULT_NODEOS_DB)
+            val dbFile = File(nodeosDbPath)
             if (dbFile.exists()) {
                 daemonAlive = true
+                // Rough AST node count from file size heuristic
+                val sizeKb = dbFile.length() / 1024
+                astNodes = if (sizeKb > 0) (sizeKb / 3).toInt().coerceAtLeast(1) else 0
             }
         } catch (_: Exception) {}
 

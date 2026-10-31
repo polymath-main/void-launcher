@@ -1,17 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="pitch_black">#000000</color>
-    <color name="surface_card">#0A0A0A</color>
-    <color name="surface_card_selected">#141414</color>
-    <color name="surface_border">#222222</color>
-    <color name="surface_border_active">#444444</color>
+    <color name="cockpit_surface">#080808</color>
+    <color name="cockpit_surface_pressed">#171717</color>
+    <color name="cockpit_border">#1A1A1A</color>
+    <color name="cockpit_border_active">#333333</color>
     
     <color name="text_primary">#F4F4F5</color>
-    <color name="text_secondary">#71717A</color>
-    <color name="text_muted">#3F3F46</color>
+    <color name="text_secondary">#A1A1AA</color>
+    <color name="text_muted">#52525B</color>
     
     <color name="void_crimson">#E11D48</color>
-    <color name="amber_warning">#F59E0B</color>
-    <color name="phosphor_green">#10B981</color>
+    <color name="void_crimson_surface">#4C0519</color>
+    <color name="cyan_accent">#06B6D4</color>
     <color name="cyan_hud">#06B6D4</color>
+    <color name="cyan_surface">#083344</color>
+    <color name="emerald_safe">#10B981</color>
+    <color name="phosphor_green">#10B981</color>
+    <color name="amber_warn">#F59E0B</color>
+    <color name="amber_warning">#F59E0B</color>
 </resources>
