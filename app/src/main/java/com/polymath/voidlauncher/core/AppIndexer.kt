@@ -2,7 +2,6 @@ package com.polymath.voidlauncher.core
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import com.polymath.voidlauncher.model.AppEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,6 +11,7 @@ class AppIndexer(private val context: Context) {
 
     private val packageManager = context.packageManager
     private val cachedApps = mutableListOf<AppEntry>()
+    private val sectionMap = mutableMapOf<Char, Int>()
 
     suspend fun refreshIndex(): List<AppEntry> = withContext(Dispatchers.IO) {
         val launcherIntent = Intent(Intent.ACTION_MAIN, null).apply {
@@ -27,17 +27,34 @@ class AppIndexer(private val context: Context) {
 
             val label = resolveInfo.loadLabel(packageManager).toString()
             val activityName = resolveInfo.activityInfo.name
+            val icon = try {
+                resolveInfo.loadIcon(packageManager)
+            } catch (_: Exception) {
+                null
+            }
 
             AppEntry(
                 label = label,
                 packageName = pkg,
-                activityName = activityName
+                activityName = activityName,
+                icon = icon
             )
         }.sortedBy { it.label.lowercase(Locale.ROOT) }
+
+        // Compute alphabetical section map for rapid scrubbing
+        val sections = mutableMapOf<Char, Int>()
+        for ((idx, app) in apps.withIndex()) {
+            val header = app.sectionHeader
+            if (!sections.containsKey(header)) {
+                sections[header] = idx
+            }
+        }
 
         synchronized(cachedApps) {
             cachedApps.clear()
             cachedApps.addAll(apps)
+            sectionMap.clear()
+            sectionMap.putAll(sections)
         }
 
         apps
@@ -46,6 +63,12 @@ class AppIndexer(private val context: Context) {
     fun getAllApps(): List<AppEntry> {
         synchronized(cachedApps) {
             return ArrayList(cachedApps)
+        }
+    }
+
+    fun getSectionPositions(): Map<Char, Int> {
+        synchronized(cachedApps) {
+            return HashMap(sectionMap)
         }
     }
 
@@ -61,11 +84,8 @@ class AppIndexer(private val context: Context) {
                 val labelLower = app.label.lowercase(Locale.ROOT)
                 val pkgLower = app.packageName.lowercase(Locale.ROOT)
                 
-                // 1. Prefix match
                 labelLower.startsWith(cleanQuery) ||
-                // 2. Contains match
                 labelLower.contains(cleanQuery) ||
-                // 3. Package name match
                 pkgLower.contains(cleanQuery)
             }.take(maxResults)
         }

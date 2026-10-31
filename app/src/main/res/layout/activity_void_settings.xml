@@ -1,0 +1,698 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/settingsRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/pitch_black"
+    android:orientation="vertical"
+    android:fitsSystemWindows="true">
+
+    <!-- Top Action Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:background="@color/cockpit_surface"
+        android:elevation="2dp">
+
+        <TextView
+            android:id="@+id/btnSettingsBack"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:fontFamily="monospace"
+            android:textColor="@color/void_crimson"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:text="← BACK" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:fontFamily="monospace"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:text="VOID CONFIG EDITOR" />
+
+        <TextView
+            android:id="@+id/btnSettingsSave"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_identity_badge"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:fontFamily="monospace"
+            android:textColor="@color/void_crimson"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:text="[SAVE]" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- SECTION: THEME & COLOR PALETTE -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="01. THEME &amp; COLOR PALETTE" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/bg_cockpit_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <!-- Preset Chips -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_muted"
+                    android:textSize="10sp"
+                    android:text="COLOR ACCENT PRESETS" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="10dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/presetCrimson"
+                        android:layout_width="0dp"
+                        android:layout_height="28dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/bg_digit_btn"
+                        android:gravity="center"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/void_crimson"
+                        android:textSize="10sp"
+                        android:text="Crimson" />
+
+                    <TextView
+                        android:id="@+id/presetCyan"
+                        android:layout_width="0dp"
+                        android:layout_height="28dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/bg_digit_btn"
+                        android:gravity="center"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/cyan_accent"
+                        android:textSize="10sp"
+                        android:text="Cyan" />
+
+                    <TextView
+                        android:id="@+id/presetGreen"
+                        android:layout_width="0dp"
+                        android:layout_height="28dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/bg_digit_btn"
+                        android:gravity="center"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/emerald_safe"
+                        android:textSize="10sp"
+                        android:text="Phosphor" />
+
+                    <TextView
+                        android:id="@+id/presetAmber"
+                        android:layout_width="0dp"
+                        android:layout_height="28dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_digit_btn"
+                        android:gravity="center"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/amber_warn"
+                        android:textSize="10sp"
+                        android:text="Amber" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:text="Accent Color Hex:" />
+                    <EditText
+                        android:id="@+id/etAccentColor"
+                        android:layout_width="100dp"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:text="#E11D48" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:text="Secondary Color Hex:" />
+                    <EditText
+                        android:id="@+id/etSecondaryColor"
+                        android:layout_width="100dp"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:text="#06B6D4" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:text="Surface Background Hex:" />
+                    <EditText
+                        android:id="@+id/etSurfaceColor"
+                        android:layout_width="100dp"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:text="#080808" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- SECTION: DRAWER & TRANSPARENCY -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="02. RIGHT DRAWER &amp; TRANSPARENCY" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/bg_cockpit_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Drawer Edge Transparent Gradient" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchDrawerEdge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:id="@+id/tvDrawerOpacityLabel"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:text="Drawer Opacity: 90%" />
+                    <SeekBar
+                        android:id="@+id/seekDrawerOpacity"
+                        android:layout_width="140dp"
+                        android:layout_height="wrap_content"
+                        android:max="100"
+                        android:progress="90" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Show App Icons in Drawer &amp; Search" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchShowAppIcons"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:text="App Icon Style:" />
+                    <Spinner
+                        android:id="@+id/spnIconStyle"
+                        android:layout_width="140dp"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Enable A-Z Alphabetical Scrub Bar" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchAtoZScrubber"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- SECTION: DEFAULT HOME CUSTOMIZATIONS -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="03. DEFAULT HOME SCREEN CUSTOMIZATIONS" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/bg_cockpit_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:text="Default View Mode:" />
+                    <Spinner
+                        android:id="@+id/spnHomeMode"
+                        android:layout_width="140dp"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="@color/cockpit_border" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Show Host Telemetry HUD Bar" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchShowTelemetry"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Show NodeOS Daemon Card" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchShowNodeOs"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Show Active Workflow Intent Card" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchShowIntent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Show Bare-Integer Fast Dock" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchShowDock"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Show On-Screen Digit Keypad" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchShowDigitKeypad"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- SECTION: FILE BROWSER & WORKSPACE -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="04. FILE BROWSER &amp; WORKSPACE" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/bg_cockpit_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="Files Default Start Path:" />
+
+                <EditText
+                    android:id="@+id/etFilesDefaultPath"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="11sp"
+                    android:text="/data/data/com.termux/files/home/Projects" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Show Hidden Dotfiles" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchFilesShowHidden"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- SECTION: HARDWARE & ADVANCED -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="05. HARDWARE &amp; THERMAL" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/bg_cockpit_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:text="Thermal Limit (°C):" />
+                    <EditText
+                        android:id="@+id/etThermalLimit"
+                        android:layout_width="80dp"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:inputType="numberDecimal"
+                        android:text="39.0" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Nothing Glyph LED Pulses" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchGlyphPulse"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Haptic Touch Feedback" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchHaptics"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Reset & Export Buttons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="24dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/btnResetDefaults"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/amber_warn"
+                    android:textSize="11sp"
+                    android:text="RESET DEFAULTS" />
+
+                <TextView
+                    android:id="@+id/btnExportJson"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/cyan_accent"
+                    android:textSize="11sp"
+                    android:text="EXPORT TO TERMUX" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>

@@ -23,17 +23,29 @@
   "omni_font_size_sp": 12.5,
 
   "dock_slots": [
-    { "index": 1, "label": "TERMINAL",   "subtitle": "Termux · VoidTerm",  "package_name": "com.termux",                     "action": "launch_termux" },
-    { "index": 2, "label": "FILESYSTEM", "subtitle": "Polymath FS",        "package_name": "com.aistudio.filesystem.pmfsxz", "action": "launch_package" },
-    { "index": 3, "label": "BROWSER",    "subtitle": "WebAuth & Links",    "package_name": "",                                "action": "open_browser" },
-    { "index": 4, "label": "COMMS",      "subtitle": "Dialer & Comms",     "package_name": "",                                "action": "open_dialer" },
-    { "index": 5, "label": "SETTINGS",   "subtitle": "System Controls",    "package_name": "",                                "action": "open_settings" }
+    { "index": 1, "label": "TERMINAL", "subtitle": "Termux · VoidTerm",  "package_name": "com.termux",  "action": "launch_termux" },
+    { "index": 2, "label": "FILES",    "subtitle": "Browse Projects",    "package_name": "",            "action": "open_files" },
+    { "index": 3, "label": "DRAWER",   "subtitle": "All Applications",  "package_name": "",            "action": "open_drawer" },
+    { "index": 4, "label": "BROWSER",  "subtitle": "WebAuth & Links",    "package_name": "",            "action": "open_browser" },
+    { "index": 5, "label": "SETTINGS", "subtitle": "Void Customizer",   "package_name": "",            "action": "open_settings" }
   ],
 
+  "default_home_mode": "COCKPIT",
   "show_telemetry_bar": true,
   "show_nodeos_card": true,
   "show_intent_card": true,
+  "show_dock": true,
   "show_digit_keypad": true,
+
+  "show_app_icons": true,
+  "app_icon_style": "original",
+  "drawer_alpha": 0.90,
+  "drawer_edge_transparent": true,
+  "drawer_width_percent": 85,
+  "enable_atoz_scrubber": true,
+
+  "files_default_path": "/data/data/com.termux/files/home/Projects",
+  "files_show_hidden": true,
 
   "thermal_limit_celsius": 39.0,
 

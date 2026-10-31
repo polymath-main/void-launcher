@@ -138,10 +138,20 @@ class ConfigManager(private val context: Context) {
             dockFontSizeSp = json.optDouble("dock_font_size_sp", 12.5).toFloat(),
             omniFontSizeSp = json.optDouble("omni_font_size_sp", 12.5).toFloat(),
             dockSlots = dockSlots,
+            defaultHomeMode = json.optString("default_home_mode", "COCKPIT"),
             showTelemetryBar = json.optBoolean("show_telemetry_bar", true),
             showNodeOsCard = json.optBoolean("show_nodeos_card", true),
             showIntentCard = json.optBoolean("show_intent_card", true),
             showDigitKeypad = json.optBoolean("show_digit_keypad", true),
+            showDock = json.optBoolean("show_dock", true),
+            showAppIcons = json.optBoolean("show_app_icons", true),
+            appIconStyle = json.optString("app_icon_style", "original"),
+            drawerAlpha = json.optDouble("drawer_alpha", 0.90).toFloat(),
+            drawerEdgeTransparent = json.optBoolean("drawer_edge_transparent", true),
+            drawerWidthPercent = json.optInt("drawer_width_percent", 85),
+            enableAtoZScrubber = json.optBoolean("enable_atoz_scrubber", true),
+            filesDefaultPath = json.optString("files_default_path", "/data/data/com.termux/files/home/Projects"),
+            filesShowHidden = json.optBoolean("files_show_hidden", true),
             thermalLimitCelsius = json.optDouble("thermal_limit_celsius", 39.0).toFloat(),
             defaultIdentity = json.optString("default_identity", "VOID"),
             identityVoidLabel = json.optString("identity_void_label", "[VOID]"),
@@ -239,11 +249,25 @@ class ConfigManager(private val context: Context) {
         }
         json.put("dock_slots", dockArr)
 
-        // HUD
+        // HUD & Home Customizations
+        json.put("default_home_mode", config.defaultHomeMode)
         json.put("show_telemetry_bar", config.showTelemetryBar)
         json.put("show_nodeos_card", config.showNodeOsCard)
         json.put("show_intent_card", config.showIntentCard)
         json.put("show_digit_keypad", config.showDigitKeypad)
+        json.put("show_dock", config.showDock)
+
+        // Drawer & App Icon Customizations
+        json.put("show_app_icons", config.showAppIcons)
+        json.put("app_icon_style", config.appIconStyle)
+        json.put("drawer_alpha", config.drawerAlpha.toDouble())
+        json.put("drawer_edge_transparent", config.drawerEdgeTransparent)
+        json.put("drawer_width_percent", config.drawerWidthPercent)
+        json.put("enable_atoz_scrubber", config.enableAtoZScrubber)
+
+        // File Browser Customizations
+        json.put("files_default_path", config.filesDefaultPath)
+        json.put("files_show_hidden", config.filesShowHidden)
 
         // Thermal
         json.put("thermal_limit_celsius", config.thermalLimitCelsius.toDouble())

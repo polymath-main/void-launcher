@@ -15,6 +15,10 @@ class BareIntegerRouter(
 
     private var slots: List<DockSlot> = defaultDockSlots()
 
+    var onOpenFilesRequested: (() -> Unit)? = null
+    var onOpenDrawerRequested: (() -> Unit)? = null
+    var onOpenSettingsRequested: (() -> Unit)? = null
+
     fun updateSlots(newSlots: List<DockSlot>) {
         slots = newSlots
     }
@@ -33,6 +37,18 @@ class BareIntegerRouter(
         return when (slot.action) {
             "launch_termux" -> {
                 termuxIpc.launchTermuxInteractive()
+                true
+            }
+            "open_files" -> {
+                onOpenFilesRequested?.invoke()
+                true
+            }
+            "open_drawer" -> {
+                onOpenDrawerRequested?.invoke()
+                true
+            }
+            "open_settings" -> {
+                onOpenSettingsRequested?.invoke()
                 true
             }
             "launch_package" -> {
@@ -54,15 +70,7 @@ class BareIntegerRouter(
                 context.startActivity(dialerIntent)
                 true
             }
-            "open_settings" -> {
-                val settingsIntent = Intent(Settings.ACTION_SETTINGS).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(settingsIntent)
-                true
-            }
             "termux_command" -> {
-                // packageName field doubles as the command string
                 termuxIpc.dispatchCommand(slot.packageName, inBackground = false)
                 true
             }

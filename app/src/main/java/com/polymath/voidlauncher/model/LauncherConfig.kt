@@ -5,8 +5,8 @@ import android.graphics.Color
 /**
  * Complete visual & behavioral configuration for VoidLauncher.
  *
- * Users can edit ~/.voidlauncher/config.json from Termux and
- * the launcher hot-reloads on resume.
+ * Users can edit ~/.voidlauncher/config.json from Termux or
+ * configure directly via the built-in Void Settings UI.
  */
 data class LauncherConfig(
     // ── Color Palette ────────────────────────────────────────
@@ -21,11 +21,25 @@ data class LauncherConfig(
     // ── Dock Slots (1..N, max 7) ─────────────────────────────
     val dockSlots: List<DockSlot> = defaultDockSlots(),
 
-    // ── HUD Visibility Toggles ───────────────────────────────
+    // ── Default Home Screen Customizations ───────────────────
+    val defaultHomeMode: String = "COCKPIT",     // COCKPIT | MINIMAL | FILES
     val showTelemetryBar: Boolean = true,
     val showNodeOsCard: Boolean = true,
     val showIntentCard: Boolean = true,
     val showDigitKeypad: Boolean = true,
+    val showDock: Boolean = true,
+
+    // ── App Icons & Drawer Customizations ────────────────────
+    val showAppIcons: Boolean = true,
+    val appIconStyle: String = "original",      // original | monochrome | tinted
+    val drawerAlpha: Float = 0.90f,             // 0.0f (transparent) to 1.0f (opaque)
+    val drawerEdgeTransparent: Boolean = true,  // Gradient fade on drawer leading edge
+    val drawerWidthPercent: Int = 85,           // Width % of right edge drawer (50..100)
+    val enableAtoZScrubber: Boolean = true,     // Fast alphabetical vertical scrub bar
+
+    // ── Built-in Files Browser Customizations ────────────────
+    val filesDefaultPath: String = "/data/data/com.termux/files/home/Projects",
+    val filesShowHidden: Boolean = true,
 
     // ── Thermal Envelope ─────────────────────────────────────
     val thermalLimitCelsius: Float = 39.0f,
@@ -104,13 +118,13 @@ data class DockSlot(
     val label: String,
     val subtitle: String,
     val packageName: String,             // target package or special action key
-    val action: String = "launch_package" // launch_package | launch_termux | open_browser | open_dialer | open_settings | termux_command
+    val action: String = "launch_package" // launch_package | launch_termux | open_browser | open_dialer | open_settings | open_files | open_drawer | termux_command
 )
 
 fun defaultDockSlots(): List<DockSlot> = listOf(
     DockSlot(1, "TERMINAL",   "Termux · VoidTerm",  "com.termux",                        "launch_termux"),
-    DockSlot(2, "FILESYSTEM", "Polymath FS",         "com.aistudio.filesystem.pmfsxz",    "launch_package"),
-    DockSlot(3, "BROWSER",    "WebAuth & Links",     "",                                   "open_browser"),
-    DockSlot(4, "COMMS",      "Dialer & Comms",      "",                                   "open_dialer"),
-    DockSlot(5, "SETTINGS",   "System Controls",     "",                                   "open_settings")
+    DockSlot(2, "FILES",      "Browse Projects",    "",                                   "open_files"),
+    DockSlot(3, "DRAWER",     "All Installed Apps", "",                                   "open_drawer"),
+    DockSlot(4, "BROWSER",    "WebAuth & Links",     "",                                   "open_browser"),
+    DockSlot(5, "SETTINGS",   "Void Customizer",     "",                                   "open_settings")
 )

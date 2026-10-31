@@ -56,6 +56,17 @@
                 android:textColor="@color/text_muted"
                 android:textSize="11sp"
                 tools:text="RAM: 4.8G" />
+
+            <TextView
+                android:id="@+id/btnQuickSettings"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:padding="2dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:text="⚙" />
         </LinearLayout>
 
         <!-- Zone 1: NodeOS & Telemetry HUD Card -->
@@ -184,6 +195,88 @@
         </LinearLayout>
     </LinearLayout>
 
+    <!-- Zone: Built-in Files Browser Container -->
+    <LinearLayout
+        android:id="@+id/filesBrowserLayout"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/bg_cockpit_card"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/topCockpitLayout"
+        app:layout_constraintBottom_toTopOf="@id/bottomAnchorLayout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Files Header Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="6dp">
+
+            <TextView
+                android:id="@+id/btnFilesUp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="4dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/cyan_accent"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:text="↑ UP" />
+
+            <TextView
+                android:id="@+id/tvFilesCurrentPath"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_primary"
+                android:textSize="11sp"
+                android:maxLines="1"
+                android:ellipsize="start"
+                android:text="~/Projects" />
+
+            <TextView
+                android:id="@+id/btnFilesNewFolder"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="4dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:text="+DIR" />
+
+            <TextView
+                android:id="@+id/btnFilesClose"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:padding="4dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="13sp"
+                android:text="✕" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/cockpit_border" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvFiles"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="4dp" />
+    </LinearLayout>
+
     <!-- Zone 3: Dynamic Fuzzy Search App List Overlay -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvAppFilter"
@@ -218,7 +311,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Bottom Anchored Zone (Bottom 40% One-Thumb Reach) -->
+    <!-- Bottom Anchored Zone (Sits directly on top of keyboard space) -->
     <LinearLayout
         android:id="@+id/bottomAnchorLayout"
         android:layout_width="match_parent"
@@ -282,14 +375,14 @@
                     android:fontFamily="monospace"
                     android:textColor="@color/text_primary"
                     android:textSize="12.5sp"
-                    android:text="[2] FILESYSTEM" />
+                    android:text="[2] FILES" />
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:fontFamily="monospace"
                     android:textColor="@color/text_muted"
                     android:textSize="11sp"
-                    android:text="Polymath FS" />
+                    android:text="Browse Projects" />
             </LinearLayout>
 
             <LinearLayout
@@ -310,14 +403,14 @@
                     android:fontFamily="monospace"
                     android:textColor="@color/text_primary"
                     android:textSize="12.5sp"
-                    android:text="[3] BROWSER" />
+                    android:text="[3] DRAWER" />
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:fontFamily="monospace"
                     android:textColor="@color/text_muted"
                     android:textSize="11sp"
-                    android:text="WebAuth &amp; Links" />
+                    android:text="All Applications" />
             </LinearLayout>
 
             <LinearLayout
@@ -338,14 +431,14 @@
                     android:fontFamily="monospace"
                     android:textColor="@color/text_primary"
                     android:textSize="12.5sp"
-                    android:text="[4] COMMS" />
+                    android:text="[4] BROWSER" />
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:fontFamily="monospace"
                     android:textColor="@color/text_muted"
                     android:textSize="11sp"
-                    android:text="Dialer &amp; Comms" />
+                    android:text="WebAuth &amp; Links" />
             </LinearLayout>
 
             <LinearLayout
@@ -373,11 +466,11 @@
                     android:fontFamily="monospace"
                     android:textColor="@color/text_muted"
                     android:textSize="11sp"
-                    android:text="System Controls" />
+                    android:text="Void Customizer" />
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Fast Numerical Jump Row (Hardware / Screen Keypad) -->
+        <!-- Fast Numerical Jump Row (Keypad) -->
         <LinearLayout
             android:id="@+id/digitKeypadRow"
             android:layout_width="match_parent"
@@ -477,7 +570,7 @@
                 android:text="⌫" />
         </LinearLayout>
 
-        <!-- Zone 5: Omni-Command Bar -->
+        <!-- Zone 5: Omni-Command Bar (Directly Above Keyboard) -->
         <LinearLayout
             android:id="@+id/omniBarLayout"
             android:layout_width="match_parent"
@@ -530,5 +623,100 @@
         </LinearLayout>
 
     </LinearLayout>
+
+    <!-- Right-Edge Vertical App Drawer (Collapsible Sliding Overlay) -->
+    <LinearLayout
+        android:id="@+id/rightDrawerLayout"
+        android:layout_width="300dp"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@color/cockpit_surface"
+        android:elevation="8dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Drawer Top Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:text="ALL APPLICATIONS" />
+
+            <TextView
+                android:id="@+id/tvDrawerAppCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="10dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_muted"
+                android:textSize="11sp"
+                android:text="0 APPS" />
+
+            <TextView
+                android:id="@+id/btnDrawerClose"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="6dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="14sp"
+                android:text="✕" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/cockpit_border" />
+
+        <!-- Drawer Content: Apps Recycler + A-Z Alphabet Scrubber on far right edge -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvDrawerApps"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_toStartOf="@id/alphabetScrubber"
+                android:paddingBottom="24dp"
+                android:clipToPadding="false" />
+
+            <com.polymath.voidlauncher.ui.AlphabetScrubberView
+                android:id="@+id/alphabetScrubber"
+                android:layout_width="22dp"
+                android:layout_height="match_parent"
+                android:layout_alignParentEnd="true"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp" />
+        </RelativeLayout>
+    </LinearLayout>
+
+    <!-- Right Screen Edge Tab Handle (Quick Drawer Opener) -->
+    <TextView
+        android:id="@+id/btnDrawerTabHandle"
+        android:layout_width="16dp"
+        android:layout_height="64dp"
+        android:background="@drawable/bg_digit_btn"
+        android:gravity="center"
+        android:fontFamily="monospace"
+        android:textColor="@color/void_crimson"
+        android:textSize="10sp"
+        android:text="‹"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
