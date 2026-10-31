@@ -1,15 +1,12 @@
 package com.polymath.voidlauncher
 
 import android.app.role.RoleManager
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -254,29 +251,15 @@ class VoidLauncherActivity : AppCompatActivity() {
         // Keypad buttons
         applyDigitKeypadColors()
 
-        // Drawer background alpha & edge gradient
-        val drawerBgColor = Color.argb(
-            (config.drawerAlpha * 255).toInt().coerceIn(0, 255),
-            0, 0, 0
-        )
-        binding.rightDrawerLayout.setBackgroundColor(drawerBgColor)
-
-        if (config.drawerEdgeTransparent) {
-            val gradient = GradientDrawable(
-                GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(Color.TRANSPARENT, drawerBgColor)
-            )
-            binding.drawerEdgeGradient.background = gradient
-            binding.drawerEdgeGradient.visibility = View.VISIBLE
-        } else {
-            binding.drawerEdgeGradient.visibility = View.GONE
-        }
+        // Drawer background alpha
+        val drawerAlphaInt = (config.drawerAlpha * 255).toInt().coerceIn(0, 255)
+        binding.rightDrawerLayout.setBackgroundColor(Color.argb(drawerAlphaInt, 8, 8, 8))
 
         // Apply app icon customizations to adapters
-        appAdapter.setShowIcons(config.showAppIcons)
-        drawerAdapter.setShowIcons(config.showAppIcons)
-        appAdapter.setIconStyle(config.appIconStyle)
-        drawerAdapter.setIconStyle(config.appIconStyle)
+        appAdapter.showIcons = config.showAppIcons
+        drawerAdapter.showIcons = config.showAppIcons
+        appAdapter.iconStyle = config.appIconStyle
+        drawerAdapter.iconStyle = config.appIconStyle
 
         // Scrubber visibility
         binding.alphabetScrubber.visibility = if (config.enableAtoZScrubber) View.VISIBLE else View.GONE
@@ -754,17 +737,16 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun startTelemetryFlow() {
         telemetryJob?.cancel()
         telemetryJob = lifecycleScope.launch {
-            telemetryMonitor.telemetryFlow.collectLatest { snap ->
+            telemetryMonitor.monitorTelemetry().collectLatest { snap ->
                 binding.tvClock.text = snap.formattedTime
                 binding.tvBatteryTemp.text = "▲ ${snap.batteryPercent}% [${snap.batteryTempCelsius}°C]"
                 binding.tvMemory.text = "RAM: ${snap.usedRamGb}G"
 
-                if (snap.isCharging) {
-                    glyphManager.pulseChargingState()
+                if (snap.batteryTempCelsius > config.thermalLimitCelsius) {
+                    glyphManager.triggerThermalWarning()
                 }
 
                 // NodeOS Daemon and Ast update
-                nodeOsBridge.pollDaemonState()
                 updateNodeOsHudView()
             }
         }
@@ -804,27 +786,17 @@ class VoidLauncherActivity : AppCompatActivity() {
     }
 
     private fun updateNodeOsHudView() {
-        val isAlive = nodeOsBridge.isDaemonAlive()
-        binding.tvDaemonStatus.text = if (isAlive) "● NODEOS: ALIVE" else "○ NODEOS: OFFLINE"
+        val status = nodeOsBridge.pollIntentStatus()
+        binding.tvDaemonStatus.text = if (status.isDaemonAlive) "● NODEOS: ALIVE" else "○ NODEOS: OFFLINE"
         binding.tvDaemonStatus.setTextColor(
-            if (isAlive) config.colors.secondaryInt else config.colors.criticalInt
+            if (status.isDaemonAlive) config.colors.secondaryInt else config.colors.criticalInt
         )
 
-        val astCount = nodeOsBridge.queryAstSymbolCount()
-        binding.tvAstCount.text = "AST: $astCount"
-        binding.tvWorkspace.text = "CWD: ${nodeOsBridge.currentWorkspace.replace("/data/data/com.termux/files/home", "~")}"
-        binding.tvGitBranch.text = "git: ${nodeOsBridge.activeGitBranch}"
+        binding.tvAstCount.text = "AST: ${status.astNodeCount}"
+        binding.tvWorkspace.text = "CWD: ${status.workspacePath}"
+        binding.tvGitBranch.text = "git: ${status.gitBranch}"
 
-        updateIntentView()
-    }
-
-    private fun updateIntentView() {
-        val intent = nodeOsBridge.pollWorkflowIntent()
-        if (intent != null) {
-            binding.tvActiveIntent.text = "[${intent.status.uppercase()}] ${intent.taskDescription}"
-        } else {
-            binding.tvActiveIntent.text = "Ready for execution."
-        }
+        binding.tvActiveIntent.text = "[${status.taskStatus.uppercase()}] ${status.activeTaskTitle}"
     }
 
     private fun refreshIndexAsync() {
@@ -853,7 +825,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         binding.filesBrowserLayout.visibility = View.GONE
         binding.tvTerminalOutput.visibility = View.GONE
 
-        val matches = appIndexer.filterApps(text, limit = config.omniFuzzyMaxResults)
+        val matches = appIndexer.filterApps(text, maxResults = config.omniFuzzyMaxResults)
         appAdapter.submitList(matches)
         binding.rvAppFilter.visibility = if (matches.isNotEmpty()) View.VISIBLE else View.GONE
     }
@@ -952,7 +924,6 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun launchApp(entry: AppEntry) {
         val intent = packageManager.getLaunchIntentForPackage(entry.packageName)
         if (intent != null) {
-            glyphManager.pulseOnAppLaunch()
             startActivity(intent)
         } else {
             Toast.makeText(this, "Cannot launch ${entry.label}", Toast.LENGTH_SHORT).show()
@@ -1000,7 +971,6 @@ class VoidLauncherActivity : AppCompatActivity() {
         }
         VoidNotificationListenerService.triggerRefresh()
         resetOmniInput()
-        updateIntentView()
     }
 
     @Suppress("DEPRECATION")
