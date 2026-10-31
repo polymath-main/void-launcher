@@ -1,34 +1,49 @@
 # VoidLauncher — Architecture & Technical Specifications
 
-## 1. Component Hierarchy
+> **Version**: 1.1.0 (Hardened Sovereign Cockpit, Built-in Config Editor, VFS Files Browser, Right-Edge App Drawer with A-Z Scrubber, IME Insets Elevation)  
+> **Target OS**: Android 16 (API 35/36) / Linux 5.15 aarch64 (Bionic libc)  
+> **Hardware Target**: Nothing Phone (2a) [A142] · Dimensity 7200 Pro · 12 GB RAM · AMOLED 120Hz  
+> **Repository**: [`https://github.com/polymath-main/void-launcher`](https://github.com/polymath-main/void-launcher)
+
+---
+
+## 1. Component Hierarchy & Module Map
 
 ```
 com.polymath.voidlauncher/
-├── VoidLauncherActivity.kt        # Root launcher lifecycle & window controller
+├── VoidLauncherActivity.kt            # Root launcher lifecycle, layout & IME window orchestration
+├── VoidSettingsActivity.kt            # Built-in visual & behavioral configuration editor
 ├── core/
-│   ├── AppIndexer.kt              # PackageManager query & in-memory fuzzy finder
-│   ├── BareIntegerRouter.kt       # Bare integer 1..N action dispatcher
-│   ├── ConfigManager.kt           # 4-tier configuration loader & hot-reload engine
-│   ├── NodeOsBridge.kt            # NodeOS daemon state, workflow.json & identity mode
-│   ├── NothingGlyphManager.kt     # Hardware Glyph LED controller
-│   ├── TelemetryMonitor.kt        # Coroutine flow probing battery, temp & RAM
-│   └── TermuxIpcDispatcher.kt     # com.termux.RUN_COMMAND intent bridge
+│   ├── AppIndexer.kt                  # PackageManager query, icon loader & fuzzy finder
+│   ├── BareIntegerRouter.kt           # Bare integer 1..N action dispatcher & intent router
+│   ├── ConfigManager.kt               # 4-tier configuration loader & dynamic hot-reload engine
+│   ├── FileManager.kt                 # Filesystem browser, operations (mkdir, rename, delete) & text preview
+│   ├── NodeOsBridge.kt                # NodeOS daemon state, workflow.json & identity mode switcher
+│   ├── NothingGlyphManager.kt         # Hardware Glyph LED controller
+│   ├── TelemetryMonitor.kt            # Coroutine flow probing battery, temp (<39°C) & RAM
+│   └── TermuxIpcDispatcher.kt         # com.termux.RUN_COMMAND intent bridge
 ├── model/
-│   ├── AppEntry.kt                # Application descriptor
-│   ├── IntentStatus.kt            # Workspace intent & NodeOS daemon metadata
-│   ├── LauncherConfig.kt          # Full visual, layout, and behavioral config schema
-│   └── TelemetrySnapshot.kt       # System vital snapshot
+│   ├── AppEntry.kt                    # Application descriptor, icon holder & section header
+│   ├── FileItem.kt                    # File/folder descriptor with metadata & formatting
+│   ├── IntentStatus.kt                # Workspace intent & NodeOS daemon metadata
+│   ├── LauncherConfig.kt              # Full visual, layout, and behavioral config schema
+│   └── TelemetrySnapshot.kt           # System vital snapshot
 └── ui/
-    └── AppFilterAdapter.kt        # RecyclerView adapter for fast search list
+    ├── AlphabetScrubberView.kt        # Right-edge vertical A-Z touch scrubber with haptics
+    ├── AppFilterAdapter.kt            # Search overlay adapter with configurable icon styles
+    ├── DrawerAppAdapter.kt            # Right-edge vertical apps drawer adapter
+    └── FileBrowserAdapter.kt          # Filesystem listing adapter with context operations
 ```
+
+---
 
 ## 2. IPC Integration: Termux RUN_COMMAND
 
 ```
-┌─────────────────────┐       Intent (com.termux.RUN_COMMAND)       ┌────────────────────────┐
-│ VoidLauncherActivity│ ──────────────────────────────────────────> │ Termux RunCommandService│
-│   (:sh / :work)     │                                             │   (Bionic / Bash)      │
-└─────────────────────┘                                             └────────────────────────┘
+┌─────────────────────────┐       Intent (com.termux.RUN_COMMAND)       ┌────────────────────────┐
+│  VoidLauncherActivity   │ ──────────────────────────────────────────> │ Termux RunCommandService│
+│  (:sh / :work / files)  │                                             │   (Bionic / Bash)      │
+└─────────────────────────┘                                             └────────────────────────┘
 ```
 
 The launcher dispatches commands with:
@@ -36,11 +51,15 @@ The launcher dispatches commands with:
 - `com.termux.RUN_COMMAND_WORKDIR`: `/data/data/com.termux/files/home/Projects`
 - `com.termux.RUN_COMMAND_BACKGROUND`: `true` for headless jobs, `false` for interactive terminal sessions.
 
+---
+
 ## 3. Thermal Envelope Guard
 
 Android 16 restricts access to `/sys/class/thermal/` without root. VoidLauncher uses `Intent.ACTION_BATTERY_CHANGED` to retrieve `BatteryManager.EXTRA_TEMPERATURE` in tenths of a degree Celsius:
 - If `temp <= 39.0°C`: Status text is Phosphor Green (`#10B981`).
-- If `temp > 39.0°C`: Status text turns Void Crimson (`#E11D48`), alerting the user to throttle heavy background workloads.
+- If `temp > 39.0°C`: Status text turns Void Crimson (`#E11D48`), alerting the user to throttle heavy background workloads and triggering Nothing Glyph LED alert pulses.
+
+---
 
 ## 4. Configuration Resolution Chain
 
@@ -50,4 +69,20 @@ VoidLauncher implements a 4-tier configuration resolution engine:
 3. **Bundled Asset**: `assets/default_config.json`
 4. **Hardcoded Fallbacks**: Default Kotlin models in `LauncherConfig.kt`
 
-Every time `VoidLauncherActivity.onResume()` triggers, `ConfigManager.loadConfig()` checks the file timestamp/content. If changes are detected, it updates colors, redraws card surfaces, re-binds dock slots, and refreshes the HUD in sub-millisecond time.
+Every time `VoidLauncherActivity.onResume()` triggers, `ConfigManager.loadConfig()` checks the file timestamp/content. If changes are detected, it updates colors, redraws card surfaces, re-binds dock slots, adjusts drawer transparency, and refreshes the HUD in sub-millisecond time.
+
+---
+
+## 5. Right-Edge App Drawer & A-Z Scrubber
+
+- **Drawer Layout**: Collapsible vertical overlay anchored to the right edge with user-defined width (`drawer_width_percent`, default 85%).
+- **Edge Transparency & Gradient**: Supports user-configurable `drawer_alpha` (0.0 to 1.0) and `drawer_edge_transparent` (subtle gradient fade on the leading edge).
+- **Alphabetical Scrubbing**: `AlphabetScrubberView` maps vertical touch coordinates directly to letter indices in `AppIndexer.getSectionPositions()`, smoothly scrolling to target packages with haptic feedback.
+
+---
+
+## 6. Window Insets & Soft Keyboard Elevation
+
+Using Android `WindowInsetsCompat.Type.ime()`, `VoidLauncherActivity` dynamically calculates the soft keyboard's bounding height:
+- When the keyboard rises, `bottomAnchorLayout` (containing the omni-command bar) lifts smoothly to sit flush on top of the keyboard space.
+- When the keyboard closes, it settles back above the system navigation bar without layout jitter or clipping.
