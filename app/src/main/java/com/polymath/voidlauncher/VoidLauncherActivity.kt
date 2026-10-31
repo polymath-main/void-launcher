@@ -1,14 +1,18 @@
 package com.polymath.voidlauncher
 
+import android.app.role.RoleManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.TypedValue
@@ -37,6 +41,7 @@ import com.polymath.voidlauncher.core.NodeOsBridge
 import com.polymath.voidlauncher.core.NothingGlyphManager
 import com.polymath.voidlauncher.core.TelemetryMonitor
 import com.polymath.voidlauncher.core.TermuxIpcDispatcher
+import com.polymath.voidlauncher.core.VoidNotificationListenerService
 import com.polymath.voidlauncher.databinding.ActivityVoidLauncherBinding
 import com.polymath.voidlauncher.model.AppEntry
 import com.polymath.voidlauncher.model.FileItem
@@ -44,6 +49,7 @@ import com.polymath.voidlauncher.model.LauncherConfig
 import com.polymath.voidlauncher.ui.AppFilterAdapter
 import com.polymath.voidlauncher.ui.DrawerAppAdapter
 import com.polymath.voidlauncher.ui.FileBrowserAdapter
+import com.polymath.voidlauncher.ui.NotificationAdapter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
@@ -67,8 +73,10 @@ class VoidLauncherActivity : AppCompatActivity() {
     private lateinit var appAdapter: AppFilterAdapter
     private lateinit var drawerAdapter: DrawerAppAdapter
     private lateinit var fileAdapter: FileBrowserAdapter
+    private lateinit var notificationAdapter: NotificationAdapter
 
     private var telemetryJob: Job? = null
+    private var notificationJob: Job? = null
     private var config: LauncherConfig = LauncherConfig()
     private var currentFilesPath: String = ""
     private var isDrawerOpen: Boolean = false
@@ -89,6 +97,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         setupListeners()
         applyConfig()
         startTelemetryFlow()
+        startNotificationsFlow()
         refreshIndexAsync()
     }
 
@@ -138,7 +147,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         glyphManager = NothingGlyphManager(this)
         fileManager = FileManager(this)
 
-        currentFilesPath = config.filesDefaultPath
+        currentFilesPath = fileManager.resolveAccessiblePath(config.filesDefaultPath)
 
         // Push config into subsystems
         nodeOsBridge.workflowPath = config.workflowJsonPath
@@ -174,6 +183,22 @@ class VoidLauncherActivity : AppCompatActivity() {
         )
         binding.rvFiles.layoutManager = LinearLayoutManager(this)
         binding.rvFiles.adapter = fileAdapter
+
+        // Notification cockpit adapter
+        notificationAdapter = NotificationAdapter(
+            onItemClick = { item ->
+                try {
+                    item.contentIntent?.send()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Cannot launch alert: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDismissClick = { item ->
+                VoidNotificationListenerService.dismiss(item.key)
+            }
+        )
+        binding.rvNotifications.layoutManager = LinearLayoutManager(this)
+        binding.rvNotifications.adapter = notificationAdapter
     }
 
     // ── Visual & Configuration Application ──────────────────
@@ -191,6 +216,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         // Cards visibility
         binding.telemetryCard.visibility = if (config.showNodeOsCard) View.VISIBLE else View.GONE
         binding.intentCard.visibility = if (config.showIntentCard) View.VISIBLE else View.GONE
+        binding.notificationsCard.visibility = if (config.showNotificationsCard) View.VISIBLE else View.GONE
         binding.bareIntegerDock.visibility = if (config.showDock) View.VISIBLE else View.GONE
         binding.digitKeypadRow.visibility = if (config.showDigitKeypad) View.VISIBLE else View.GONE
 
@@ -206,6 +232,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         // Card backgrounds
         applyCardBackground(binding.telemetryCard, c.surfaceInt, c.borderInt)
         applyCardBackground(binding.intentCard, c.surfaceInt, c.borderInt)
+        applyCardBackground(binding.notificationsCard, c.surfaceInt, c.borderInt)
         applyCardBackground(binding.filesBrowserLayout, c.surfaceInt, c.borderInt)
 
         // Identity badge
@@ -221,79 +248,79 @@ class VoidLauncherActivity : AppCompatActivity() {
         promptView?.text = config.omniPromptSymbol
         promptView?.setTextColor(c.accentInt)
 
-        // Typography
-        val tf = resolveTypeface(config.fontFamily)
-        binding.tvClock.typeface = tf
-        binding.tvBatteryTemp.typeface = tf
-        binding.etOmniInput.typeface = tf
-        binding.tvClock.setTextSize(TypedValue.COMPLEX_UNIT_SP, config.hudFontSizeSp)
-        binding.tvMemory.setTextSize(TypedValue.COMPLEX_UNIT_SP, config.hudFontSizeSp)
-        binding.etOmniInput.setTextSize(TypedValue.COMPLEX_UNIT_SP, config.omniFontSizeSp)
-
-        // App filter adapter styling
-        appAdapter.showIcons = config.showAppIcons
-        appAdapter.iconStyle = config.appIconStyle
-        appAdapter.tintColor = c.accentInt
-
-        // Drawer adapter styling
-        drawerAdapter.showIcons = config.showAppIcons
-        drawerAdapter.iconStyle = config.appIconStyle
-        drawerAdapter.tintColor = c.accentInt
-
-        // Alphabet scrubber
-        binding.alphabetScrubber.visibility = if (config.enableAtoZScrubber) View.VISIBLE else View.GONE
-        binding.alphabetScrubber.setAccentColor(c.accentInt)
-        binding.alphabetScrubber.setTextColor(c.textMutedInt)
-
-        // Drawer layout dimensions and background transparency/gradient
-        applyDrawerStyle()
-
         // Rebuild dock slots
         rebuildDockSlots()
 
-        // Apply digit keypad
+        // Keypad buttons
         applyDigitKeypadColors()
 
-        // Apply default home mode view
-        applyHomeMode()
-
-        // Update intent view
-        updateIntentView()
-    }
-
-    private fun applyDrawerStyle() {
-        val c = config.colors
-        val screenWidth = resources.displayMetrics.widthPixels
-        val drawerWidth = (screenWidth * (config.drawerWidthPercent.coerceIn(50, 100) / 100f)).toInt()
-
-        val params = binding.rightDrawerLayout.layoutParams
-        params.width = drawerWidth
-        binding.rightDrawerLayout.layoutParams = params
-
-        // Compute drawer background with user-configured alpha and optional edge gradient
-        val alphaInt = (config.drawerAlpha.coerceIn(0f, 1f) * 255).toInt()
-        val surfaceColorWithAlpha = Color.argb(
-            alphaInt,
-            Color.red(c.surfaceInt),
-            Color.green(c.surfaceInt),
-            Color.blue(c.surfaceInt)
+        // Drawer background alpha & edge gradient
+        val drawerBgColor = Color.argb(
+            (config.drawerAlpha * 255).toInt().coerceIn(0, 255),
+            0, 0, 0
         )
+        binding.rightDrawerLayout.setBackgroundColor(drawerBgColor)
 
         if (config.drawerEdgeTransparent) {
-            // Gradient from transparent on left edge to surfaceColor on right
-            val transparentEdge = Color.argb(
-                (alphaInt * 0.2f).toInt(),
-                Color.red(c.surfaceInt),
-                Color.green(c.surfaceInt),
-                Color.blue(c.surfaceInt)
-            )
             val gradient = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(transparentEdge, surfaceColorWithAlpha, surfaceColorWithAlpha)
+                intArrayOf(Color.TRANSPARENT, drawerBgColor)
             )
-            binding.rightDrawerLayout.background = gradient
+            binding.drawerEdgeGradient.background = gradient
+            binding.drawerEdgeGradient.visibility = View.VISIBLE
         } else {
-            binding.rightDrawerLayout.setBackgroundColor(surfaceColorWithAlpha)
+            binding.drawerEdgeGradient.visibility = View.GONE
+        }
+
+        // Apply app icon customizations to adapters
+        appAdapter.setShowIcons(config.showAppIcons)
+        drawerAdapter.setShowIcons(config.showAppIcons)
+        appAdapter.setIconStyle(config.appIconStyle)
+        drawerAdapter.setIconStyle(config.appIconStyle)
+
+        // Scrubber visibility
+        binding.alphabetScrubber.visibility = if (config.enableAtoZScrubber) View.VISIBLE else View.GONE
+
+        // Default home mode
+        applyHomeMode()
+
+        // Check default launcher status
+        checkDefaultLauncherStatus()
+    }
+
+    private fun checkDefaultLauncherStatus() {
+        val isDefault = isDefaultLauncher()
+        binding.bannerDefaultLauncher.visibility = if (!isDefault) View.VISIBLE else View.GONE
+    }
+
+    private fun isDefaultLauncher(): Boolean {
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+        }
+        val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        return resolveInfo?.activityInfo?.packageName == packageName
+    }
+
+    private fun requestSetDefaultLauncher() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
+                if (!roleManager.isRoleHeld(RoleManager.ROLE_HOME)) {
+                    val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)
+                    startActivity(intent)
+                    return
+                }
+            }
+        }
+
+        try {
+            startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+            } catch (_: Exception) {
+                startActivity(Intent(Settings.ACTION_SETTINGS))
+            }
         }
     }
 
@@ -302,6 +329,7 @@ class VoidLauncherActivity : AppCompatActivity() {
             "MINIMAL" -> {
                 binding.telemetryCard.visibility = View.GONE
                 binding.intentCard.visibility = View.GONE
+                binding.notificationsCard.visibility = View.GONE
                 binding.bareIntegerDock.visibility = View.GONE
                 binding.filesBrowserLayout.visibility = View.GONE
             }
@@ -388,18 +416,15 @@ class VoidLauncherActivity : AppCompatActivity() {
         view.background = drawable
     }
 
-    private fun resolveTypeface(family: String): Typeface {
-        return when (family.lowercase()) {
-            "monospace"   -> Typeface.MONOSPACE
-            "sans-serif"  -> Typeface.SANS_SERIF
-            "serif"       -> Typeface.SERIF
-            else          -> Typeface.MONOSPACE
-        }
-    }
-
     // ── Listeners ──────────────────────────────────────────
 
     private fun setupListeners() {
+        // Default Launcher Banner Action
+        binding.btnSetDefaultLauncher.setOnClickListener {
+            haptic(it)
+            requestSetDefaultLauncher()
+        }
+
         // Built-in settings button in HUD
         binding.btnQuickSettings.setOnClickListener {
             haptic(it)
@@ -439,6 +464,17 @@ class VoidLauncherActivity : AppCompatActivity() {
             val newMode = nodeOsBridge.toggleIdentityMode()
             applyIdentityBadge()
             Toast.makeText(this, "Identity: $newMode", Toast.LENGTH_SHORT).show()
+        }
+
+        // Notification Cockpit Controls
+        binding.btnNotifClearAll.setOnClickListener {
+            haptic(it)
+            VoidNotificationListenerService.dismissAll()
+        }
+
+        binding.btnGrantNotifAccess.setOnClickListener {
+            haptic(it)
+            VoidNotificationListenerService.openAccessSettings(this)
         }
 
         // Omni Input Text Watcher
@@ -483,7 +519,7 @@ class VoidLauncherActivity : AppCompatActivity() {
             }
         }
 
-        // Files Browser Header Buttons
+        // Files Browser Header Buttons & Quick Root Chips
         binding.btnFilesUp.setOnClickListener {
             haptic(it)
             val parent = File(currentFilesPath).parentFile
@@ -501,6 +537,31 @@ class VoidLauncherActivity : AppCompatActivity() {
 
         binding.btnFilesClose.setOnClickListener {
             showFilesBrowser(false)
+        }
+
+        binding.btnChipSdcard.setOnClickListener {
+            haptic(it)
+            loadFilesDirectory(FileManager.PATH_SDCARD)
+        }
+
+        binding.btnChipDownload.setOnClickListener {
+            haptic(it)
+            loadFilesDirectory(FileManager.PATH_DOWNLOADS)
+        }
+
+        binding.btnChipProjects.setOnClickListener {
+            haptic(it)
+            loadFilesDirectory(FileManager.PATH_PROJECTS)
+        }
+
+        binding.btnChipTermux.setOnClickListener {
+            haptic(it)
+            loadFilesDirectory(FileManager.PATH_TERMUX_HOME)
+        }
+
+        binding.btnGrantStoragePermission.setOnClickListener {
+            haptic(it)
+            fileManager.requestStoragePermission(this)
         }
     }
 
@@ -547,13 +608,29 @@ class VoidLauncherActivity : AppCompatActivity() {
     }
 
     private fun loadFilesDirectory(path: String) {
-        currentFilesPath = path
-        binding.tvFilesCurrentPath.text = path.replace("/data/data/com.termux/files/home", "~")
+        val targetPath = fileManager.resolveAccessiblePath(path)
+        currentFilesPath = targetPath
+        binding.tvFilesCurrentPath.text = targetPath.replace("/data/data/com.termux/files/home", "~")
+
+        val hasStorage = fileManager.hasStoragePermission()
+        binding.storagePermissionCard.visibility = if (hasStorage) View.GONE else View.VISIBLE
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val items = fileManager.listDirectory(path, showHidden = config.filesShowHidden)
+            val items = fileManager.listDirectory(targetPath, showHidden = config.filesShowHidden)
             withContext(Dispatchers.Main) {
                 fileAdapter.submitList(items)
+                if (items.isEmpty()) {
+                    binding.tvFilesEmptyState.visibility = View.VISIBLE
+                    if (fileManager.isTermuxPrivatePath(targetPath)) {
+                        binding.tvFilesEmptyState.text = "Termux private directory (~/Projects) is restricted by Android OS DAC.\nTap [OPEN IN TERMUX] or switch to /sdcard."
+                    } else if (!hasStorage) {
+                        binding.tvFilesEmptyState.text = "All Files Access permission required to list /sdcard contents."
+                    } else {
+                        binding.tvFilesEmptyState.text = "Directory is empty: $targetPath"
+                    }
+                } else {
+                    binding.tvFilesEmptyState.visibility = View.GONE
+                }
             }
         }
     }
@@ -605,7 +682,6 @@ class VoidLauncherActivity : AppCompatActivity() {
                     }
                 }
             }
-            .setNegativeButton("Cancel", null)
             .show()
     }
 
@@ -652,7 +728,7 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     private fun showCreateDirectoryDialog() {
         val input = EditText(this).apply {
-            hint = "directory_name"
+            hint = "Folder name"
         }
         AlertDialog.Builder(this)
             .setTitle("Create New Directory")
@@ -673,50 +749,128 @@ class VoidLauncherActivity : AppCompatActivity() {
             .show()
     }
 
-    // ── Omni Input ──────────────────────────────────────────
+    // ── Telemetry & Polling Flows ───────────────────────────
+
+    private fun startTelemetryFlow() {
+        telemetryJob?.cancel()
+        telemetryJob = lifecycleScope.launch {
+            telemetryMonitor.telemetryFlow.collectLatest { snap ->
+                binding.tvClock.text = snap.formattedTime
+                binding.tvBatteryTemp.text = "▲ ${snap.batteryPercent}% [${snap.batteryTempCelsius}°C]"
+                binding.tvMemory.text = "RAM: ${snap.usedRamGb}G"
+
+                if (snap.isCharging) {
+                    glyphManager.pulseChargingState()
+                }
+
+                // NodeOS Daemon and Ast update
+                nodeOsBridge.pollDaemonState()
+                updateNodeOsHudView()
+            }
+        }
+    }
+
+    private fun startNotificationsFlow() {
+        notificationJob?.cancel()
+        notificationJob = lifecycleScope.launch {
+            VoidNotificationListenerService.notificationsFlow.collect { rawList ->
+                val isAccessGranted = VoidNotificationListenerService.isAccessGranted(this@VoidLauncherActivity)
+                if (!isAccessGranted) {
+                    binding.notifPermissionPrompt.visibility = View.VISIBLE
+                    binding.tvNotifEmpty.visibility = View.GONE
+                    binding.rvNotifications.visibility = View.GONE
+                    binding.tvNotifHeader.text = "● NOTIFICATIONS (ACCESS OFF)"
+                    return@collect
+                }
+
+                binding.notifPermissionPrompt.visibility = View.GONE
+                val filtered = rawList.filter { notif ->
+                    if (config.filterOngoingNotifications && notif.isOngoing) false else true
+                }.take(config.notificationsMaxCount)
+
+                binding.tvNotifHeader.text = "● NOTIFICATIONS (${filtered.size})"
+
+                if (filtered.isEmpty()) {
+                    binding.tvNotifEmpty.visibility = View.VISIBLE
+                    binding.rvNotifications.visibility = View.GONE
+                    notificationAdapter.submitList(emptyList())
+                } else {
+                    binding.tvNotifEmpty.visibility = View.GONE
+                    binding.rvNotifications.visibility = View.VISIBLE
+                    notificationAdapter.submitList(filtered)
+                }
+            }
+        }
+    }
+
+    private fun updateNodeOsHudView() {
+        val isAlive = nodeOsBridge.isDaemonAlive()
+        binding.tvDaemonStatus.text = if (isAlive) "● NODEOS: ALIVE" else "○ NODEOS: OFFLINE"
+        binding.tvDaemonStatus.setTextColor(
+            if (isAlive) config.colors.secondaryInt else config.colors.criticalInt
+        )
+
+        val astCount = nodeOsBridge.queryAstSymbolCount()
+        binding.tvAstCount.text = "AST: $astCount"
+        binding.tvWorkspace.text = "CWD: ${nodeOsBridge.currentWorkspace.replace("/data/data/com.termux/files/home", "~")}"
+        binding.tvGitBranch.text = "git: ${nodeOsBridge.activeGitBranch}"
+
+        updateIntentView()
+    }
+
+    private fun updateIntentView() {
+        val intent = nodeOsBridge.pollWorkflowIntent()
+        if (intent != null) {
+            binding.tvActiveIntent.text = "[${intent.status.uppercase()}] ${intent.taskDescription}"
+        } else {
+            binding.tvActiveIntent.text = "Ready for execution."
+        }
+    }
+
+    private fun refreshIndexAsync() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            appIndexer.refreshIndex()
+        }
+    }
+
+    // ── Omni-Bar Operations ─────────────────────────────────
 
     private fun handleOmniTextChange(text: String) {
-        val trimmed = text.trim()
-        if (trimmed.isEmpty()) {
+        if (text.startsWith(":")) {
             binding.rvAppFilter.visibility = View.GONE
             binding.tvTerminalOutput.visibility = View.GONE
+            return
+        }
+
+        if (text.isEmpty()) {
+            binding.rvAppFilter.visibility = View.GONE
             if (config.showDock) binding.bareIntegerDock.visibility = View.VISIBLE
             return
         }
 
-        if (trimmed.startsWith(":")) {
-            binding.rvAppFilter.visibility = View.GONE
-            if (config.showDock) binding.bareIntegerDock.visibility = View.VISIBLE
-            return
-        }
+        // Fuzzy filter apps
+        binding.bareIntegerDock.visibility = View.GONE
+        binding.filesBrowserLayout.visibility = View.GONE
+        binding.tvTerminalOutput.visibility = View.GONE
 
-        // App search mode
-        val matches = appIndexer.filterApps(trimmed, config.omniFuzzyMaxResults)
-        if (matches.isNotEmpty()) {
-            binding.rvAppFilter.visibility = View.VISIBLE
-            binding.bareIntegerDock.visibility = View.GONE
-            binding.tvTerminalOutput.visibility = View.GONE
-            binding.filesBrowserLayout.visibility = View.GONE
-            appAdapter.submitList(matches)
-        } else {
-            binding.rvAppFilter.visibility = View.GONE
-            if (config.showDock) binding.bareIntegerDock.visibility = View.VISIBLE
-        }
+        val matches = appIndexer.filterApps(text, limit = config.omniFuzzyMaxResults)
+        appAdapter.submitList(matches)
+        binding.rvAppFilter.visibility = if (matches.isNotEmpty()) View.VISIBLE else View.GONE
     }
 
     private fun handleOmniSubmit(rawInput: String) {
         val query = rawInput.trim()
         if (query.isEmpty()) return
 
-        // 1. Bare integer
-        val digit = query.toIntOrNull()
-        if (digit != null && digit in 1..config.dockSlots.size) {
-            bareIntegerRouter.routeInteger(digit)
+        // 1. Bare integer fast intercept
+        val integerCommand = query.toIntOrNull()
+        if (integerCommand != null) {
+            bareIntegerRouter.routeInteger(integerCommand)
             resetOmniInput()
             return
         }
 
-        // 2. Command mode
+        // 2. Colon commands
         if (query.startsWith(":")) {
             handleCommandMode(query.substring(1).trim())
             resetOmniInput()
@@ -744,6 +898,12 @@ class VoidLauncherActivity : AppCompatActivity() {
                 val projectName = command.removePrefix("work ").trim()
                 termuxIpc.openProjectInTermux(projectName)
                 showTerminalOutput("[WORKSPACE]: ~/Projects/$projectName")
+            }
+            command == "default" || command == "home" -> {
+                requestSetDefaultLauncher()
+            }
+            command == "notif" || command == "notifications" || command == "alerts" -> {
+                VoidNotificationListenerService.openAccessSettings(this)
             }
             command == "files" || command == "ls" -> {
                 toggleFilesBrowser()
@@ -789,92 +949,37 @@ class VoidLauncherActivity : AppCompatActivity() {
         resetOmniInput()
     }
 
-    private fun haptic(view: View) {
-        if (config.enableHaptics) {
-            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+    private fun launchApp(entry: AppEntry) {
+        val intent = packageManager.getLaunchIntentForPackage(entry.packageName)
+        if (intent != null) {
+            glyphManager.pulseOnAppLaunch()
+            startActivity(intent)
+        } else {
+            Toast.makeText(this, "Cannot launch ${entry.label}", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun showTerminalOutput(text: String) {
         binding.tvTerminalOutput.text = text
-        binding.tvTerminalOutput.setTextColor(config.colors.secondaryInt)
         binding.tvTerminalOutput.visibility = View.VISIBLE
         binding.rvAppFilter.visibility = View.GONE
-        binding.filesBrowserLayout.visibility = View.GONE
-    }
-
-    private fun launchApp(entry: AppEntry) {
-        try {
-            val intent = packageManager.getLaunchIntentForPackage(entry.packageName)
-            if (intent != null) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-                resetOmniInput()
-            }
-        } catch (e: Exception) {
-            Toast.makeText(this, "Launch error: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
+        binding.bareIntegerDock.visibility = View.GONE
     }
 
     private fun resetOmniInput() {
         binding.etOmniInput.setText("")
         binding.rvAppFilter.visibility = View.GONE
         binding.tvTerminalOutput.visibility = View.GONE
-        if (config.showDock) binding.bareIntegerDock.visibility = View.VISIBLE
-    }
-
-    private fun refreshIndexAsync() {
-        lifecycleScope.launch {
-            val apps = appIndexer.refreshIndex()
-            withContext(Dispatchers.Main) {
-                drawerAdapter.submitList(apps)
-                binding.tvDrawerAppCount.text = "${apps.size} APPS"
-            }
+        if (config.showDock && binding.filesBrowserLayout.visibility != View.VISIBLE) {
+            binding.bareIntegerDock.visibility = View.VISIBLE
         }
     }
 
-    // ── Telemetry Flow ──────────────────────────────────────
-
-    private fun startTelemetryFlow() {
-        telemetryJob?.cancel()
-        telemetryJob = lifecycleScope.launch {
-            telemetryMonitor.monitorTelemetry(pollIntervalMs = config.telemetryPollMs).collectLatest { snap ->
-                binding.tvClock.text = "${snap.timestampFormatted}${config.clockSuffix}"
-
-                binding.tvBatteryTemp.text = "▲ ${snap.batteryPercent}% [${snap.batteryTemperatureC}°C]"
-
-                val isSafe = snap.batteryTemperatureC <= config.thermalLimitCelsius
-                binding.tvBatteryTemp.setTextColor(
-                    if (isSafe) config.colors.safeInt else config.colors.criticalInt
-                )
-                if (!isSafe && config.enableGlyphPulse) {
-                    glyphManager.triggerThermalWarning()
-                }
-
-                binding.tvMemory.text = "RAM: ${snap.ramUsedMb}M/${snap.ramTotalMb}M"
-            }
+    private fun haptic(view: View) {
+        if (config.enableHaptics) {
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
         }
     }
-
-    private fun updateIntentView() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val status = nodeOsBridge.pollIntentStatus()
-            withContext(Dispatchers.Main) {
-                binding.tvActiveIntent.text = status.activeTaskTitle
-
-                binding.tvDaemonStatus.text = if (status.isDaemonAlive) "● NODEOS: ALIVE" else "● NODEOS: OFFLINE"
-                binding.tvDaemonStatus.setTextColor(
-                    if (status.isDaemonAlive) config.colors.secondaryInt else config.colors.warningInt
-                )
-
-                binding.tvAstCount.text = "AST: ${status.astNodeCount} nodes"
-                binding.tvWorkspace.text = "CWD: ${status.workspacePath}"
-                binding.tvGitBranch.text = "git: ${status.gitBranch}"
-            }
-        }
-    }
-
-    // ── Lifecycle ────────────────────────────────────────────
 
     override fun onResume() {
         super.onResume()
@@ -887,7 +992,13 @@ class VoidLauncherActivity : AppCompatActivity() {
             bareIntegerRouter.updateSlots(config.dockSlots)
             applyConfig()
             startTelemetryFlow()
+            startNotificationsFlow()
+        } else {
+            checkDefaultLauncherStatus()
+            val hasStorage = fileManager.hasStoragePermission()
+            binding.storagePermissionCard.visibility = if (hasStorage) View.GONE else View.VISIBLE
         }
+        VoidNotificationListenerService.triggerRefresh()
         resetOmniInput()
         updateIntentView()
     }

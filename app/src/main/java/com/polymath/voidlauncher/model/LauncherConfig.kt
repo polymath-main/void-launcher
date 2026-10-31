@@ -26,6 +26,9 @@ data class LauncherConfig(
     val showTelemetryBar: Boolean = true,
     val showNodeOsCard: Boolean = true,
     val showIntentCard: Boolean = true,
+    val showNotificationsCard: Boolean = true,
+    val notificationsMaxCount: Int = 5,
+    val filterOngoingNotifications: Boolean = true,
     val showDigitKeypad: Boolean = true,
     val showDock: Boolean = true,
 
@@ -38,7 +41,7 @@ data class LauncherConfig(
     val enableAtoZScrubber: Boolean = true,     // Fast alphabetical vertical scrub bar
 
     // ── Built-in Files Browser Customizations ────────────────
-    val filesDefaultPath: String = "/data/data/com.termux/files/home/Projects",
+    val filesDefaultPath: String = "/storage/emulated/0",
     val filesShowHidden: Boolean = true,
 
     // ── Thermal Envelope ─────────────────────────────────────

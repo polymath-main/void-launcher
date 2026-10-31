@@ -1,11 +1,20 @@
 package com.polymath.voidlauncher
 
+import android.app.role.RoleManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.polymath.voidlauncher.core.ConfigManager
+import com.polymath.voidlauncher.core.FileManager
+import com.polymath.voidlauncher.core.VoidNotificationListenerService
 import com.polymath.voidlauncher.databinding.ActivityVoidSettingsBinding
 import com.polymath.voidlauncher.model.ColorPalette
 import com.polymath.voidlauncher.model.LauncherConfig
@@ -14,6 +23,7 @@ class VoidSettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityVoidSettingsBinding
     private lateinit var configManager: ConfigManager
+    private lateinit var fileManager: FileManager
     private var currentConfig: LauncherConfig = LauncherConfig()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,11 +32,90 @@ class VoidSettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         configManager = ConfigManager(this)
+        fileManager = FileManager(this)
         currentConfig = configManager.loadConfig()
 
         setupSpinners()
         populateUiFromConfig(currentConfig)
         setupListeners()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshSystemStatus()
+    }
+
+    private fun refreshSystemStatus() {
+        // 1. Default Launcher Status
+        val isDefault = isDefaultLauncher()
+        if (isDefault) {
+            binding.tvDefaultLauncherStatus.text = "Default Launcher: [ACTIVE]"
+            binding.tvDefaultLauncherStatus.setTextColor(Color.parseColor("#10B981"))
+            binding.btnSetDefaultLauncherSettings.text = "ACTIVE"
+            binding.btnSetDefaultLauncherSettings.isEnabled = false
+        } else {
+            binding.tvDefaultLauncherStatus.text = "Default Launcher: [NOT DEFAULT]"
+            binding.tvDefaultLauncherStatus.setTextColor(Color.parseColor("#E11D48"))
+            binding.btnSetDefaultLauncherSettings.text = "SET DEFAULT ➔"
+            binding.btnSetDefaultLauncherSettings.isEnabled = true
+        }
+
+        // 2. Storage Permission Status
+        val hasStorage = fileManager.hasStoragePermission()
+        if (hasStorage) {
+            binding.tvStoragePermissionStatus.text = "All Files Access: [GRANTED]"
+            binding.tvStoragePermissionStatus.setTextColor(Color.parseColor("#10B981"))
+            binding.btnGrantStorageSettings.text = "GRANTED"
+            binding.btnGrantStorageSettings.isEnabled = false
+        } else {
+            binding.tvStoragePermissionStatus.text = "All Files Access: [REQUIRED]"
+            binding.tvStoragePermissionStatus.setTextColor(Color.parseColor("#E11D48"))
+            binding.btnGrantStorageSettings.text = "GRANT ➔"
+            binding.btnGrantStorageSettings.isEnabled = true
+        }
+
+        // 3. Notification Listener Status
+        val hasNotif = VoidNotificationListenerService.isAccessGranted(this)
+        if (hasNotif) {
+            binding.tvNotifListenerStatus.text = "Notification Listener: [ACTIVE]"
+            binding.tvNotifListenerStatus.setTextColor(Color.parseColor("#10B981"))
+            binding.btnConfigureNotifListener.text = "ACTIVE"
+        } else {
+            binding.tvNotifListenerStatus.text = "Notification Listener: [DISABLED]"
+            binding.tvNotifListenerStatus.setTextColor(Color.parseColor("#F59E0B"))
+            binding.btnConfigureNotifListener.text = "ENABLE ➔"
+        }
+    }
+
+    private fun isDefaultLauncher(): Boolean {
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+        }
+        val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        return resolveInfo?.activityInfo?.packageName == packageName
+    }
+
+    private fun requestSetDefaultLauncher() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
+                if (!roleManager.isRoleHeld(RoleManager.ROLE_HOME)) {
+                    val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)
+                    startActivity(intent)
+                    return
+                }
+            }
+        }
+
+        try {
+            startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+            } catch (_: Exception) {
+                startActivity(Intent(Settings.ACTION_SETTINGS))
+            }
+        }
     }
 
     private fun setupSpinners() {
@@ -70,6 +159,8 @@ class VoidSettingsActivity : AppCompatActivity() {
         binding.switchShowTelemetry.isChecked = cfg.showTelemetryBar
         binding.switchShowNodeOs.isChecked = cfg.showNodeOsCard
         binding.switchShowIntent.isChecked = cfg.showIntentCard
+        binding.switchShowNotifications.isChecked = cfg.showNotificationsCard
+        binding.switchFilterOngoing.isChecked = cfg.filterOngoingNotifications
         binding.switchShowDock.isChecked = cfg.showDock
         binding.switchShowDigitKeypad.isChecked = cfg.showDigitKeypad
 
@@ -79,10 +170,25 @@ class VoidSettingsActivity : AppCompatActivity() {
         binding.etThermalLimit.setText(cfg.thermalLimitCelsius.toString())
         binding.switchGlyphPulse.isChecked = cfg.enableGlyphPulse
         binding.switchHaptics.isChecked = cfg.enableHaptics
+
+        refreshSystemStatus()
     }
 
     private fun setupListeners() {
         binding.btnSettingsBack.setOnClickListener { finish() }
+
+        // System Roles & Permissions
+        binding.btnSetDefaultLauncherSettings.setOnClickListener {
+            requestSetDefaultLauncher()
+        }
+
+        binding.btnGrantStorageSettings.setOnClickListener {
+            fileManager.requestStoragePermission(this)
+        }
+
+        binding.btnConfigureNotifListener.setOnClickListener {
+            VoidNotificationListenerService.openAccessSettings(this)
+        }
 
         // Presets
         binding.presetCrimson.setOnClickListener {
@@ -154,6 +260,8 @@ class VoidSettingsActivity : AppCompatActivity() {
             showTelemetryBar = binding.switchShowTelemetry.isChecked,
             showNodeOsCard = binding.switchShowNodeOs.isChecked,
             showIntentCard = binding.switchShowIntent.isChecked,
+            showNotificationsCard = binding.switchShowNotifications.isChecked,
+            filterOngoingNotifications = binding.switchFilterOngoing.isChecked,
             showDock = binding.switchShowDock.isChecked,
             showDigitKeypad = binding.switchShowDigitKeypad.isChecked,
             filesDefaultPath = filesPath,

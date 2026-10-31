@@ -142,6 +142,9 @@ class ConfigManager(private val context: Context) {
             showTelemetryBar = json.optBoolean("show_telemetry_bar", true),
             showNodeOsCard = json.optBoolean("show_nodeos_card", true),
             showIntentCard = json.optBoolean("show_intent_card", true),
+            showNotificationsCard = json.optBoolean("show_notifications_card", true),
+            notificationsMaxCount = json.optInt("notifications_max_count", 5),
+            filterOngoingNotifications = json.optBoolean("filter_ongoing_notifications", true),
             showDigitKeypad = json.optBoolean("show_digit_keypad", true),
             showDock = json.optBoolean("show_dock", true),
             showAppIcons = json.optBoolean("show_app_icons", true),
@@ -150,7 +153,7 @@ class ConfigManager(private val context: Context) {
             drawerEdgeTransparent = json.optBoolean("drawer_edge_transparent", true),
             drawerWidthPercent = json.optInt("drawer_width_percent", 85),
             enableAtoZScrubber = json.optBoolean("enable_atoz_scrubber", true),
-            filesDefaultPath = json.optString("files_default_path", "/data/data/com.termux/files/home/Projects"),
+            filesDefaultPath = json.optString("files_default_path", "/storage/emulated/0"),
             filesShowHidden = json.optBoolean("files_show_hidden", true),
             thermalLimitCelsius = json.optDouble("thermal_limit_celsius", 39.0).toFloat(),
             defaultIdentity = json.optString("default_identity", "VOID"),
@@ -254,6 +257,9 @@ class ConfigManager(private val context: Context) {
         json.put("show_telemetry_bar", config.showTelemetryBar)
         json.put("show_nodeos_card", config.showNodeOsCard)
         json.put("show_intent_card", config.showIntentCard)
+        json.put("show_notifications_card", config.showNotificationsCard)
+        json.put("notifications_max_count", config.notificationsMaxCount)
+        json.put("filter_ongoing_notifications", config.filterOngoingNotifications)
         json.put("show_digit_keypad", config.showDigitKeypad)
         json.put("show_dock", config.showDock)
 

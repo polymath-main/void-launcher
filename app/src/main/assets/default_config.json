@@ -34,6 +34,9 @@
   "show_telemetry_bar": true,
   "show_nodeos_card": true,
   "show_intent_card": true,
+  "show_notifications_card": true,
+  "notifications_max_count": 5,
+  "filter_ongoing_notifications": true,
   "show_dock": true,
   "show_digit_keypad": true,
 
@@ -44,7 +47,7 @@
   "drawer_width_percent": 85,
   "enable_atoz_scrubber": true,
 
-  "files_default_path": "/data/data/com.termux/files/home/Projects",
+  "files_default_path": "/storage/emulated/0",
   "files_show_hidden": true,
 
   "thermal_limit_celsius": 39.0,

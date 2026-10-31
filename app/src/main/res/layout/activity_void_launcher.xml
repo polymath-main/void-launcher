@@ -69,6 +69,44 @@
                 android:text="⚙" />
         </LinearLayout>
 
+        <!-- Banner: Default Launcher Prompt (Shown when Void is not default launcher) -->
+        <LinearLayout
+            android:id="@+id/bannerDefaultLauncher"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_identity_badge"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="7dp"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="10.5sp"
+                android:textStyle="bold"
+                android:text="▲ VOID IS NOT DEFAULT LAUNCHER" />
+
+            <TextView
+                android:id="@+id/btnSetDefaultLauncher"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_bare_slot"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/cyan_accent"
+                android:textSize="10.5sp"
+                android:textStyle="bold"
+                android:text="SET DEFAULT ➔" />
+        </LinearLayout>
+
         <!-- Zone 1: NodeOS & Telemetry HUD Card -->
         <LinearLayout
             android:id="@+id/telemetryCard"
@@ -193,6 +231,98 @@
                 android:lineSpacingExtra="2dp"
                 android:text="Ready for execution." />
         </LinearLayout>
+
+        <!-- Zone: Notifications Manager Dashboard Card -->
+        <LinearLayout
+            android:id="@+id/notificationsCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_cockpit_card"
+            android:orientation="vertical"
+            android:padding="10dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvNotifHeader"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/cyan_accent"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:text="● NOTIFICATIONS (0)" />
+
+                <TextView
+                    android:id="@+id/btnNotifClearAll"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_muted"
+                    android:textSize="10.5sp"
+                    android:padding="2dp"
+                    android:text="CLEAR ALL" />
+            </LinearLayout>
+
+            <!-- Permission prompt if listener not enabled -->
+            <LinearLayout
+                android:id="@+id/notifPermissionPrompt"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="6dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/void_crimson"
+                    android:textSize="10.5sp"
+                    android:text="▲ NOTIFICATION ACCESS NOT GRANTED" />
+
+                <TextView
+                    android:id="@+id/btnGrantNotifAccess"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_bare_slot"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/cyan_accent"
+                    android:textSize="10.5sp"
+                    android:text="[ENABLE NOTIFICATION LISTENER ➔]" />
+            </LinearLayout>
+
+            <!-- Empty notifications state -->
+            <TextView
+                android:id="@+id/tvNotifEmpty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_muted"
+                android:textSize="11sp"
+                android:text="No active alerts · All clear" />
+
+            <!-- Active notifications list -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvNotifications"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:nestedScrollingEnabled="false"
+                android:visibility="gone" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Zone: Built-in Files Browser Container -->
@@ -217,7 +347,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingBottom="6dp">
+            android:paddingBottom="4dp">
 
             <TextView
                 android:id="@+id/btnFilesUp"
@@ -241,7 +371,7 @@
                 android:textSize="11sp"
                 android:maxLines="1"
                 android:ellipsize="start"
-                android:text="~/Projects" />
+                android:text="/storage/emulated/0" />
 
             <TextView
                 android:id="@+id/btnFilesNewFolder"
@@ -265,6 +395,133 @@
                 android:text="✕" />
         </LinearLayout>
 
+        <!-- Quick Root Jump Chips Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="6dp">
+
+            <TextView
+                android:id="@+id/btnChipSdcard"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_identity_badge"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/cyan_accent"
+                android:textSize="10sp"
+                android:text="/sdcard" />
+
+            <TextView
+                android:id="@+id/btnChipDownload"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_identity_badge"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                android:text="Downloads" />
+
+            <TextView
+                android:id="@+id/btnChipProjects"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_identity_badge"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                android:text="Projects" />
+
+            <TextView
+                android:id="@+id/btnChipTermux"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_identity_badge"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="10sp"
+                android:text="~Termux" />
+        </LinearLayout>
+
+        <!-- Storage Permission Notice Card (Shown if ungranted) -->
+        <LinearLayout
+            android:id="@+id/storagePermissionCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_bare_slot"
+            android:padding="8dp"
+            android:layout_marginBottom="6dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:text="▲ STORAGE PERMISSION REQUIRED" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                android:layout_marginTop="2dp"
+                android:text="Grant All Files Access so Void can browse and manage files on this device." />
+
+            <TextView
+                android:id="@+id/btnGrantStoragePermission"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_identity_badge"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/cyan_accent"
+                android:textSize="10.5sp"
+                android:textStyle="bold"
+                android:text="[GRANT PERMISSION ➔]" />
+        </LinearLayout>
+
+        <!-- Empty / Unreadable Directory Message -->
+        <TextView
+            android:id="@+id/tvFilesEmptyState"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:padding="16dp"
+            android:fontFamily="monospace"
+            android:textColor="@color/text_muted"
+            android:textSize="11sp"
+            android:visibility="gone"
+            android:text="No files found or directory unreadable." />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -273,7 +530,8 @@
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvFiles"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:layout_marginTop="4dp" />
     </LinearLayout>
 
