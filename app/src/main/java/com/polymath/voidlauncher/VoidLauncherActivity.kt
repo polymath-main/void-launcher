@@ -1061,7 +1061,7 @@ class VoidLauncherActivity : AppCompatActivity() {
             "OPEN_FILES"        -> toggleFilesBrowser()
             "OPEN_SEARCH"       -> { binding.etOmniInput.requestFocus(); showKeyboard() }
             "OPEN_SETTINGS"     -> openSettings()
-            "OPEN_TERMINAL"     -> termuxIpc.openTermux()
+            "OPEN_TERMINAL"     -> termuxIpc.launchTermuxInteractive()
             "NOTIFICATIONS"     -> VoidNotificationListenerService.openAccessSettings(this)
             "EXPAND_STATUS_BAR" -> expandStatusBar()
             "TOGGLE_MINIMAL"    -> toggleMinimalMode()
