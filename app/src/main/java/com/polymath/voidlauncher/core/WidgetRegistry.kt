@@ -9,7 +9,7 @@ import java.io.File
 /**
  * VoidWidget Registry (F-04).
  *
- * Discovers and coordinates pluggable card widgets from ~/.voidlauncher/widgets/*.widget.json.
+ * Discovers and coordinates pluggable card widgets from ~/.voidlauncher/widgets/ (widget.json descriptors).
  */
 class WidgetRegistry(private val context: Context) {
 
