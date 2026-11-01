@@ -39,6 +39,16 @@ class PersonaManager(private val context: Context) {
             workspacePath = "/data/data/com.termux/files/home/Projects",
             glyphPatternName = "MAIN_ACCENT"
         )
+
+        val DEFAULT_STILL = PersonaProfile(
+            id = "still",
+            label = "[STILL]",
+            subtitle = "Obsidian OLED Minimalist",
+            accentColor = "#007AFF",
+            secondaryColor = "#8E8E93",
+            workspacePath = "/data/data/com.termux/files/home/Projects",
+            glyphPatternName = "FOCUS_MODE_ON"
+        )
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -47,6 +57,7 @@ class PersonaManager(private val context: Context) {
     init {
         registerProfile(DEFAULT_VOID)
         registerProfile(DEFAULT_MAIN)
+        registerProfile(DEFAULT_STILL)
         loadExternalProfiles()
     }
 

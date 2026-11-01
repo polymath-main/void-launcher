@@ -85,10 +85,11 @@
   "identity_main_label": "[MAIN]",
   "active_persona": "void",
   "personas": [
-    { "id": "void",   "label": "[VOID]",   "subtitle": "Runtimes & Compilers", "accent": "#E11D48", "secondary": "#06B6D4", "workspace": "/data/data/com.termux/files/home/Projects" },
-    { "id": "main",   "label": "[MAIN]",   "subtitle": "SaaS & Production",    "accent": "#06B6D4", "secondary": "#10B981", "workspace": "/data/data/com.termux/files/home/Projects" },
-    { "id": "agent",  "label": "[AGENT]",  "subtitle": "Autonomous Loops",     "accent": "#8B5CF6", "secondary": "#06B6D4", "workspace": "/data/data/com.termux/files/home/Projects" },
-    { "id": "client", "label": "[CLIENT]", "subtitle": "PodPitch Workspace",   "accent": "#F59E0B", "secondary": "#10B981", "workspace": "/data/data/com.termux/files/home/Projects/PodPitch" }
+    { "id": "void",   "label": "[VOID]",   "subtitle": "Runtimes & Compilers",       "accent": "#E11D48", "secondary": "#06B6D4", "workspace": "/data/data/com.termux/files/home/Projects" },
+    { "id": "still",  "label": "[STILL]",  "subtitle": "Obsidian OLED Minimalist",   "accent": "#007AFF", "secondary": "#8E8E93", "workspace": "/data/data/com.termux/files/home/Projects" },
+    { "id": "main",   "label": "[MAIN]",   "subtitle": "SaaS & Production",          "accent": "#06B6D4", "secondary": "#10B981", "workspace": "/data/data/com.termux/files/home/Projects" },
+    { "id": "agent",  "label": "[AGENT]",  "subtitle": "Autonomous Loops",           "accent": "#8B5CF6", "secondary": "#06B6D4", "workspace": "/data/data/com.termux/files/home/Projects" },
+    { "id": "client", "label": "[CLIENT]", "subtitle": "PodPitch Workspace",         "accent": "#F59E0B", "secondary": "#10B981", "workspace": "/data/data/com.termux/files/home/Projects/PodPitch" }
   ],
 
   "omni_bar_hint": ">_ search apps or enter :cmd",
