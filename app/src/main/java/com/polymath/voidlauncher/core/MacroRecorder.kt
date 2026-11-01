@@ -17,7 +17,6 @@ class MacroRecorder(private val context: Context) {
 
     companion object {
         private const val TAG = "MacroRecorder"
-        private val DEFAULT_MACROS_DIR: String get() = VoidPaths.MACROS
     }
 
     var isRecording: Boolean = false
@@ -43,7 +42,7 @@ class MacroRecorder(private val context: Context) {
         Log.d(TAG, "Recorded macro step: $step")
     }
 
-    fun stopRecording(macrosDir: String = DEFAULT_MACROS_DIR): String? {
+    fun stopRecording(macrosDir: String = VoidPaths.MACROS): String? {
         if (!isRecording) return null
         val name = currentMacroName ?: "macro_${System.currentTimeMillis()}"
         isRecording = false
@@ -68,7 +67,7 @@ class MacroRecorder(private val context: Context) {
         }
     }
 
-    fun loadMacro(name: String, macrosDir: String = DEFAULT_MACROS_DIR): List<String> {
+    fun loadMacro(name: String, macrosDir: String = VoidPaths.MACROS): List<String> {
         val file = File(macrosDir, "$name.json")
         if (!file.exists() || !file.canRead()) return emptyList()
 
@@ -86,7 +85,7 @@ class MacroRecorder(private val context: Context) {
         }
     }
 
-    fun playMacro(name: String, macrosDir: String = DEFAULT_MACROS_DIR, onStep: (String) -> Unit): Boolean {
+    fun playMacro(name: String, macrosDir: String = VoidPaths.MACROS, onStep: (String) -> Unit): Boolean {
         val steps = loadMacro(name, macrosDir)
         if (steps.isEmpty()) return false
 

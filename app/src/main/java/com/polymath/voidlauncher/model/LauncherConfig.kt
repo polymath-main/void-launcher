@@ -1,29 +1,53 @@
 package com.polymath.voidlauncher.model
 
+import android.content.Context
 import android.graphics.Color
 import android.os.Environment
+import android.util.Log
 import java.io.File
 
 /**
- * App-accessible storage paths.
+ * App-owned storage paths.
  *
- * The app CANNOT read `/data/data/com.termux/...` (that is Termux's private
- * sandbox and is unreachable even with MANAGE_EXTERNAL_STORAGE). All writable
- * VOID data therefore lives under shared storage at `/.voidlauncher`, which
- * both the app and Termux (`$HOME/storage`) can reach.
+ * Everything lives under the app's own config folder so the launcher can always
+ * read/write it without runtime permissions:
+ *
+ *   /sdcard/Android/data/<pkg>/files/config/config.json
+ *
+ * The legacy shared/Termux locations are kept read-only for one-time migration.
  */
 object VoidPaths {
-    val HOME: String
+    private const val TAG = "VoidPaths"
+
+    @Volatile
+    private var baseDir: String? = null
+
+    /** Used only if [init] has not run yet. */
+    private val fallbackHome: String
         get() = File(Environment.getExternalStorageDirectory(), ".voidlauncher").absolutePath
+
+    fun init(context: Context) {
+        val dir = context.getExternalFilesDir("config") ?: File(context.filesDir, "config")
+        try { dir.mkdirs() } catch (_: Exception) {}
+        baseDir = dir.absolutePath
+        Log.i(TAG, "VOID config home = ${dir.absolutePath}")
+    }
+
+    /** Primary app-owned config folder. */
+    val HOME: String get() = baseDir ?: fallbackHome
 
     val CONFIG: String get() = "$HOME/config.json"
     val MACROS: String get() = "$HOME/macros"
     val WIDGETS: String get() = "$HOME/widgets"
+    val PERSONAS: String get() = "$HOME/personas"
     val GLYPH_PATTERNS: String get() = "$HOME/glyph_patterns.json"
     val FOCUS_SCHEDULE: String get() = "$HOME/focus_schedule.json"
 
-    /** Legacy (pre-relocation) Termux-sandbox copy, kept as a read-only fallback. */
-    const val LEGACY_CONFIG_FILE = "/data/data/com.termux/files/home/.voidlauncher/config.json"
+    /** Legacy config locations for read-only migration. */
+    val LEGACY_CONFIG_FILES: List<String> = listOf(
+        File(Environment.getExternalStorageDirectory(), ".voidlauncher/config.json").absolutePath,
+        "/data/data/com.termux/files/home/.voidlauncher/config.json"
+    )
 }
 
 /**
@@ -35,6 +59,9 @@ object VoidPaths {
 data class LauncherConfig(
     // ── Color Palette ────────────────────────────────────────
     val colors: ColorPalette = ColorPalette(),
+
+    // ── Theme Engine (Appearance Studio) ─────────────────────
+    val themeId: String = "void",               // preset id | "custom"
 
     // ── Typography ───────────────────────────────────────────
     val fontFamily: String = "monospace",       // monospace | sans-serif | serif | cursive

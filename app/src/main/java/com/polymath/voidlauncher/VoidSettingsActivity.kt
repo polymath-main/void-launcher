@@ -8,16 +8,20 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.View
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.polymath.voidlauncher.core.ConfigManager
 import com.polymath.voidlauncher.core.FileManager
+import com.polymath.voidlauncher.core.ThemeEngine
 import com.polymath.voidlauncher.core.VoidNotificationListenerService
 import com.polymath.voidlauncher.databinding.ActivityVoidSettingsBinding
 import com.polymath.voidlauncher.model.ColorPalette
 import com.polymath.voidlauncher.model.LauncherConfig
+import com.polymath.voidlauncher.model.VoidPaths
 
 class VoidSettingsActivity : AppCompatActivity() {
 
@@ -25,6 +29,8 @@ class VoidSettingsActivity : AppCompatActivity() {
     private lateinit var configManager: ConfigManager
     private lateinit var fileManager: FileManager
     private var currentConfig: LauncherConfig = LauncherConfig()
+    private var pendingThemeId: String = "void"
+    private var suppressThemeCallback: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,6 +43,7 @@ class VoidSettingsActivity : AppCompatActivity() {
 
         setupSpinners()
         populateUiFromConfig(currentConfig)
+        attachThemeListener()
         setupListeners()
     }
 
@@ -132,6 +139,10 @@ class VoidSettingsActivity : AppCompatActivity() {
     }
 
     private fun setupSpinners() {
+        // Theme Engine presets (+ Custom)
+        val themeNames = ThemeEngine.presets.map { it.name } + "Custom"
+        binding.spnTheme.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, themeNames)
+
         val iconStyles = arrayOf("original", "monochrome", "tinted")
         val iconAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, iconStyles)
         binding.spnIconStyle.adapter = iconAdapter
@@ -155,6 +166,33 @@ class VoidSettingsActivity : AppCompatActivity() {
         binding.spnGestureLongPress.adapter  = makeGestureAdapter()
     }
 
+    /** Attached AFTER the initial selection so restoring the spinner doesn't clobber colors. */
+    private fun attachThemeListener() {
+        binding.spnTheme.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (suppressThemeCallback) return
+                val preset = ThemeEngine.presets.getOrNull(position)
+                if (preset != null) {
+                    pendingThemeId = preset.id
+                    binding.etAccentColor.setText(preset.palette.accent)
+                    binding.etSecondaryColor.setText(preset.palette.secondary)
+                    binding.etSurfaceColor.setText(preset.palette.surface)
+                } else {
+                    pendingThemeId = ThemeEngine.CUSTOM_ID
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    /** Marks the current colors as a custom scheme (deselects presets). */
+    private fun markCustomTheme() {
+        pendingThemeId = ThemeEngine.CUSTOM_ID
+        suppressThemeCallback = true
+        binding.spnTheme.setSelection(ThemeEngine.presets.size)
+        suppressThemeCallback = false
+    }
+
     private fun selectGestureAction(spinner: android.widget.Spinner, action: String) {
         val adapter = spinner.adapter ?: return
         for (i in 0 until adapter.count) {
@@ -171,6 +209,13 @@ class VoidSettingsActivity : AppCompatActivity() {
         binding.etAccentColor.setText(c.accent)
         binding.etSecondaryColor.setText(c.secondary)
         binding.etSurfaceColor.setText(c.surface)
+
+        // Theme Engine selection
+        pendingThemeId = cfg.themeId
+        val themeIdx = ThemeEngine.presets.indexOfFirst { it.id.equals(cfg.themeId, ignoreCase = true) }
+        suppressThemeCallback = true
+        binding.spnTheme.setSelection(if (themeIdx >= 0) themeIdx else ThemeEngine.presets.size)
+        suppressThemeCallback = false
 
         binding.switchDrawerEdge.isChecked = cfg.drawerEdgeTransparent
         val opacityPercent = (cfg.drawerAlpha * 100).toInt().coerceIn(0, 100)
@@ -244,22 +289,26 @@ class VoidSettingsActivity : AppCompatActivity() {
             VoidNotificationListenerService.openAccessSettings(this)
         }
 
-        // Presets
+        // Presets (manual accents → custom scheme)
         binding.presetCrimson.setOnClickListener {
             binding.etAccentColor.setText("#E11D48")
             binding.etSecondaryColor.setText("#06B6D4")
+            markCustomTheme()
         }
         binding.presetCyan.setOnClickListener {
             binding.etAccentColor.setText("#06B6D4")
             binding.etSecondaryColor.setText("#E11D48")
+            markCustomTheme()
         }
         binding.presetGreen.setOnClickListener {
             binding.etAccentColor.setText("#10B981")
             binding.etSecondaryColor.setText("#06B6D4")
+            markCustomTheme()
         }
         binding.presetAmber.setOnClickListener {
             binding.etAccentColor.setText("#F59E0B")
             binding.etSecondaryColor.setText("#E11D48")
+            markCustomTheme()
         }
 
         binding.seekDrawerOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -290,16 +339,19 @@ class VoidSettingsActivity : AppCompatActivity() {
 
         binding.btnExportJson.setOnClickListener {
             configManager.exportDefaultConfig()
-            Toast.makeText(this, "Exported template to ~/.voidlauncher/config.json", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Exported template to ${VoidPaths.CONFIG}", Toast.LENGTH_LONG).show()
         }
     }
 
-    private fun saveAndApply() {
+    private fun buildUpdatedConfig(): LauncherConfig {
         val accent = binding.etAccentColor.text.toString().trim().ifEmpty { "#E11D48" }
         val secondary = binding.etSecondaryColor.text.toString().trim().ifEmpty { "#06B6D4" }
         val surface = binding.etSurfaceColor.text.toString().trim().ifEmpty { "#080808" }
 
-        val newColors = currentConfig.colors.copy(
+        // Theme engine: preset palette is the base, the three hex fields override it.
+        val preset = ThemeEngine.byId(pendingThemeId)
+        val basePalette = preset?.palette ?: currentConfig.colors
+        val newColors = basePalette.copy(
             accent = accent,
             secondary = secondary,
             surface = surface
@@ -311,8 +363,9 @@ class VoidSettingsActivity : AppCompatActivity() {
         val thermal = binding.etThermalLimit.text.toString().toFloatOrNull() ?: 39.0f
         val filesPath = binding.etFilesDefaultPath.text.toString().trim().ifEmpty { currentConfig.filesDefaultPath }
 
-        val updated = currentConfig.copy(
+        return currentConfig.copy(
             colors = newColors,
+            themeId = pendingThemeId,
             drawerAlpha = opacity,
             drawerEdgeTransparent = binding.switchDrawerEdge.isChecked,
             showAppIcons = binding.switchShowAppIcons.isChecked,
@@ -345,10 +398,25 @@ class VoidSettingsActivity : AppCompatActivity() {
             enableGlyphPulse = binding.switchGlyphPulse.isChecked,
             enableHaptics = binding.switchHaptics.isChecked
         )
+    }
 
+    /** Persists the on-screen form. Called by SAVE and automatically on leave (instant apply). */
+    private fun persist(finishAfter: Boolean) {
+        val updated = buildUpdatedConfig()
+        currentConfig = updated
         configManager.saveConfig(updated)
-        Toast.makeText(this, "Configuration Saved & Applied", Toast.LENGTH_SHORT).show()
         setResult(RESULT_OK)
-        finish()
+        if (finishAfter) finish()
+    }
+
+    private fun saveAndApply() {
+        persist(true)
+        Toast.makeText(this, "Configuration Saved & Applied", Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Instant apply: leaving Settings persists the current form, no SAVE required.
+        persist(false)
     }
 }

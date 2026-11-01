@@ -32,6 +32,9 @@ class DrawerAppAdapter(
         notifyDataSetChanged()
     }
 
+    /** Re-binds visible rows after appearance settings change (icons / style / tint). */
+    fun refreshAppearance() = notifyDataSetChanged()
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): DrawerViewHolder {
         val binding = ItemDrawerAppBinding.inflate(
             LayoutInflater.from(parent.context),

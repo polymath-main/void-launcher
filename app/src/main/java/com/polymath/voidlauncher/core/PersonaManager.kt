@@ -19,7 +19,7 @@ class PersonaManager(private val context: Context) {
         private const val TAG = "PersonaManager"
         private const val PREFS_NAME = "void_persona_prefs"
         private const val KEY_ACTIVE_PERSONA = "active_persona_id"
-        private val EXTERNAL_PERSONAS_DIR: String get() = "${VoidPaths.HOME}/personas"
+        private val EXTERNAL_PERSONAS_DIR: String get() = VoidPaths.PERSONAS
 
         val DEFAULT_VOID = PersonaProfile(
             id = "void",

@@ -92,10 +92,16 @@ class ConfigManager(private val context: Context) {
     // ── File readers ──────────────────────────────────────────
 
     private fun readExternalConfig(): JSONObject? {
-        // Primary: shared storage (/sdcard/.voidlauncher/config.json)
+        // Primary: app-owned config folder
         readJsonFile(File(EXTERNAL_CONFIG_FILE))?.let { return it }
-        // Legacy: Termux sandbox copy (only readable if elevated access is ever granted)
-        return readJsonFile(File(VoidPaths.LEGACY_CONFIG_FILE))
+        // Migration: legacy locations (older shared dir, Termux sandbox)
+        for (legacy in VoidPaths.LEGACY_CONFIG_FILES) {
+            readJsonFile(File(legacy))?.let {
+                Log.i(TAG, "Migrating legacy config from $legacy")
+                return it
+            }
+        }
+        return null
     }
 
     private fun readJsonFile(file: File): JSONObject? {
@@ -139,6 +145,7 @@ class ConfigManager(private val context: Context) {
 
         return LauncherConfig(
             colors = colors,
+            themeId = json.optString("theme_id", "void"),
             fontFamily = json.optString("font_family", "monospace"),
             hudFontSizeSp = json.optDouble("hud_font_size_sp", 11.0).toFloat(),
             dockFontSizeSp = json.optDouble("dock_font_size_sp", 12.5).toFloat(),
@@ -309,6 +316,7 @@ class ConfigManager(private val context: Context) {
             put("critical", config.colors.critical)
         }
         json.put("colors", colorsJson)
+        json.put("theme_id", config.themeId)
 
         // Typography
         json.put("font_family", config.fontFamily)

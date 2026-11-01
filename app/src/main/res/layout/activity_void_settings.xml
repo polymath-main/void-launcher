@@ -216,6 +216,27 @@
                 android:orientation="vertical"
                 android:padding="12dp">
 
+                <!-- Theme Preset -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:text="Theme Preset:" />
+                    <Spinner
+                        android:id="@+id/spnTheme"
+                        android:layout_width="160dp"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
                 <!-- Preset Chips -->
                 <TextView
                     android:layout_width="wrap_content"

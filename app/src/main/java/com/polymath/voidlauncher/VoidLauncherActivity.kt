@@ -61,6 +61,7 @@ import com.polymath.voidlauncher.core.PersonaManager
 import com.polymath.voidlauncher.core.PowerProfileAdaptor
 import com.polymath.voidlauncher.core.TelemetryMonitor
 import com.polymath.voidlauncher.core.TermuxIpcDispatcher
+import com.polymath.voidlauncher.core.ThemeEngine
 import com.polymath.voidlauncher.core.ThermalGuardian
 import com.polymath.voidlauncher.core.VoidGestureDetector
 import com.polymath.voidlauncher.core.VoidNotificationListenerService
@@ -459,11 +460,15 @@ class VoidLauncherActivity : AppCompatActivity() {
         voidTermPanel.rows = config.voidTermRows
         voidTermPanel.cols = config.voidTermCols
 
-        // Apply app icon customizations to adapters
+        // Apply app icon customizations to adapters (with tint + live refresh)
         appAdapter.showIcons = config.showAppIcons
         drawerAdapter.showIcons = config.showAppIcons
         appAdapter.iconStyle = config.appIconStyle
         drawerAdapter.iconStyle = config.appIconStyle
+        appAdapter.tintColor = c.accentInt
+        drawerAdapter.tintColor = c.accentInt
+        appAdapter.refreshAppearance()
+        drawerAdapter.refreshAppearance()
 
         // Scrubber visibility
         binding.alphabetScrubber.visibility = if (config.enableAtoZScrubber) View.VISIBLE else View.GONE
@@ -1417,6 +1422,13 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun refreshIndexAsync() {
         lifecycleScope.launch(Dispatchers.IO) {
             appIndexer.refreshIndex()
+            val all = appIndexer.getAllApps()
+            withContext(Dispatchers.Main) {
+                if (isDrawerOpen) {
+                    drawerAdapter.submitList(all)
+                    binding.tvDrawerAppCount.text = "${all.size} APPS"
+                }
+            }
         }
     }
 
@@ -1628,6 +1640,46 @@ class VoidLauncherActivity : AppCompatActivity() {
             command == "focus" -> {
                 val activeBlock = focusScheduler.checkAndApplySchedule()
                 showTerminalOutput(if (activeBlock != null) "[FOCUS ACTIVE]: ${activeBlock.label} (${activeBlock.personaId})" else "[FOCUS]: No active scheduled focus block")
+            }
+            // Appearance Studio: theme engine
+            command == "themes" || command == "theme" -> {
+                val sb = StringBuilder("=== Themes ===\n\n")
+                for (t in ThemeEngine.presets) {
+                    val mark = if (t.id.equals(config.themeId, ignoreCase = true)) "●" else "○"
+                    sb.appendLine("$mark ${t.id.padEnd(10)} ${t.name}")
+                }
+                sb.appendLine("○ custom")
+                sb.append("\nType :theme <id> to apply")
+                showTerminalOutput(sb.toString())
+            }
+            command.startsWith("theme ") -> {
+                val id = command.removePrefix("theme ").trim()
+                if (id.equals(ThemeEngine.CUSTOM_ID, ignoreCase = true)) {
+                    config = config.copy(themeId = ThemeEngine.CUSTOM_ID)
+                    configManager.saveConfig(config)
+                    applyConfig()
+                    showTerminalOutput("[THEME]: custom (colors unchanged)")
+                } else {
+                    val preset = ThemeEngine.byId(id)
+                    if (preset != null) {
+                        config = config.copy(colors = preset.palette, themeId = preset.id)
+                        configManager.saveConfig(config)
+                        applyConfig()
+                        showTerminalOutput("[THEME APPLIED]: ${preset.name}")
+                    } else {
+                        showTerminalOutput("[ERROR]: Unknown theme '$id'. Type :themes")
+                    }
+                }
+            }
+            // View mode switching
+            command.startsWith("mode ") -> {
+                val mode = command.removePrefix("mode ").trim().uppercase()
+                if (mode in listOf("COCKPIT", "STILL", "MINIMAL", "FILES")) {
+                    setHomeMode(mode)
+                    showTerminalOutput("[MODE SWITCHED]: $mode")
+                } else {
+                    showTerminalOutput("[ERROR]: mode must be COCKPIT|STILL|MINIMAL|FILES")
+                }
             }
             command.startsWith("sh ") -> {
                 val shellCmd = command.removePrefix("sh ").trim()

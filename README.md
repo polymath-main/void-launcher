@@ -15,9 +15,15 @@ Built for edge software engineers and autonomous agent builders who treat their 
 
 - **100% Pitch Black AMOLED (`#000000`)**: Turns off inactive screen pixels to minimize thermals and maximize battery life during local ML/LLM runs.
 - **Hardware & Telemetry HUD**: Real-time monitoring of battery %, temperature (<39°C preflight guard), RAM/swap pressure, and active NodeOS daemon ping status.
-- **Hot-Reload User Customization (`/sdcard/.voidlauncher/config.json`)**:
-  - Live-reloads on save via a FileObserver — no app restart needed.
-  - Editable from Termux at `/sdcard/.voidlauncher/config.json` (or `~/storage/shared/.voidlauncher/config.json`).
+- **Hot-Reload User Customization (app config folder)**:
+  - Config lives at `/sdcard/Android/data/com.polymath.voidlauncher.debug/files/config/config.json`.
+  - Editable in-app via **Settings** (applies instantly on leave) or from Termux.
+  - A FileObserver live-reloads the launcher whenever the file is saved.
+- **Theme Engine (Appearance Studio)**:
+  - Presets: `void`, `obsidian`, `midnight`, `graphite`, `matrix`, `amber` (+ `custom`).
+  - Switch from **Settings → Theme Preset** or `:theme <id>`; list with `:themes`.
+  - Custom schemes: override accent / secondary / surface hex values.
+- **View Modes**: `COCKPIT`, `STILL`, `MINIMAL`, `FILES` — switch via Settings, `:still`/`:cockpit`/`:minimal`, or `:mode <mode>`.
   - Full control over color palette (accent, secondary, surface, border, warning, safe).
   - Configurable dock slots (up to 7 custom slots with custom labels, packages, actions, or direct Termux commands).
   - Configurable font family and sizes.
@@ -48,15 +54,16 @@ Built for edge software engineers and autonomous agent builders who treat their 
 Create or edit your config file from Termux:
 
 ```bash
-# From Termux (run `termux-setup-storage` once to grant storage access)
-mkdir -p /sdcard/.voidlauncher
-nano /sdcard/.voidlauncher/config.json
+# The launcher's app-owned config folder (no storage permission needed to read it
+# from the app; Termux can read it with All-files access).
+CFG=/sdcard/Android/data/com.polymath.voidlauncher.debug/files/config
+ls "$CFG"
+nano "$CFG/config.json"     # save → app hot-reloads immediately
 ```
 
-> **Note:** the launcher app cannot read Termux's private sandbox
-> (`/data/data/com.termux/...`). All VOID config/data lives under
-> `/sdcard/.voidlauncher/`, which both the app and Termux can access.
-> Grant the launcher "All files access" (MANAGE_EXTERNAL_STORAGE) when prompted.
+> **Note:** the launcher cannot read Termux's private sandbox
+> (`/data/data/com.termux/...`). Config, macros, widgets, personas and glyph
+> patterns all live under the app's `files/config/` folder.
 
 Or type `:config` in the launcher's omni-bar to export the full configuration template.
 
