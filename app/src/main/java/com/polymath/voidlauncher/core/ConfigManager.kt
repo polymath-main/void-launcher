@@ -5,24 +5,20 @@ import android.util.Log
 import com.polymath.voidlauncher.model.ColorPalette
 import com.polymath.voidlauncher.model.DockSlot
 import com.polymath.voidlauncher.model.LauncherConfig
+import com.polymath.voidlauncher.model.PersonaProfile
 import com.polymath.voidlauncher.model.defaultDockSlots
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
 /**
- * Manages VoidLauncher visual & behavioral configuration.
+ * Manages VoidLauncher visual & behavioral configuration (v2.0).
  *
  * Config resolution order (first found wins):
  *   1. External user override: ~/.voidlauncher/config.json
  *   2. App-internal data:      /data/data/<pkg>/files/config.json
  *   3. Bundled default:        assets/default_config.json
  *   4. Hardcoded Kotlin defaults
- *
- * Users can edit the JSON from Termux:
- *   nano ~/.voidlauncher/config.json
- *
- * The launcher hot-reloads on every onResume().
  */
 class ConfigManager(private val context: Context) {
 
@@ -131,6 +127,9 @@ class ConfigManager(private val context: Context) {
         val dockJson = json.optJSONArray("dock_slots")
         val dockSlots = if (dockJson != null) parseDockSlots(dockJson) else defaultDockSlots()
 
+        val personasJson = json.optJSONArray("personas")
+        val personas = if (personasJson != null) parsePersonas(personasJson) else emptyList()
+
         return LauncherConfig(
             colors = colors,
             fontFamily = json.optString("font_family", "monospace"),
@@ -156,12 +155,19 @@ class ConfigManager(private val context: Context) {
             filesDefaultPath = json.optString("files_default_path", "/storage/emulated/0"),
             filesShowHidden = json.optBoolean("files_show_hidden", true),
             thermalLimitCelsius = json.optDouble("thermal_limit_celsius", 39.0).toFloat(),
+            thermalGuardianEnabled = json.optBoolean("thermal_guardian_enabled", true),
+            thermalKillCommands = parseStringList(json.optJSONArray("thermal_kill_commands")),
+            thermalHysteresisCelsius = json.optDouble("thermal_hysteresis_celsius", 2.0).toFloat(),
             defaultIdentity = json.optString("default_identity", "VOID"),
             identityVoidLabel = json.optString("identity_void_label", "[VOID]"),
             identityMainLabel = json.optString("identity_main_label", "[MAIN]"),
+            activePersona = json.optString("active_persona", "void"),
+            personas = personas,
             omniBarHint = json.optString("omni_bar_hint", ">_ search apps or enter :cmd"),
             omniPromptSymbol = json.optString("omni_prompt_symbol", ">_ "),
             omniFuzzyMaxResults = json.optInt("omni_fuzzy_max_results", 5),
+            commandHistoryEnabled = json.optBoolean("command_history_enabled", true),
+            commandHistoryLimit = json.optInt("command_history_limit", 500),
             defaultWorkspacePath = json.optString("default_workspace_path", "/data/data/com.termux/files/home/Projects"),
             workflowJsonPath = json.optString("workflow_json_path", "/data/data/com.termux/files/home/Projects/workflow.json"),
             nodeosDbPath = json.optString("nodeos_db_path", "/data/data/com.termux/files/home/Projects/agy_nodeos.db"),
@@ -176,11 +182,35 @@ class ConfigManager(private val context: Context) {
             gestureSwipeRight = json.optString("gesture_swipe_right", "OPEN_FILES"),
             gestureDoubleTap = json.optString("gesture_double_tap", "TOGGLE_MINIMAL"),
             gestureLongPress = json.optString("gesture_long_press", "OPEN_SETTINGS"),
+            compoundGesturesEnabled = json.optBoolean("compound_gestures_enabled", true),
+            gestureTwoFingerUp = json.optString("gesture_two_finger_up", "OPEN_HUD"),
+            gesturePinchIn = json.optString("gesture_pinch_in", "TOGGLE_MINIMAL"),
+            gesturePinchOut = json.optString("gesture_pinch_out", "COCKPIT_MODE"),
+            gestureLeftEdgeSwipe = json.optString("gesture_left_edge_swipe", "OPEN_FILES"),
+            gestureRightEdgeSwipe = json.optString("gesture_right_edge_swipe", "OPEN_DRAWER"),
+            gestureBottomEdgeSwipe = json.optString("gesture_bottom_edge_swipe", "FOCUS_OMNI"),
             enableGlyphPulse = json.optBoolean("enable_glyph_pulse", true),
+            glyphPatternsPath = json.optString("glyph_patterns_path", "/data/data/com.termux/files/home/.voidlauncher/glyph_patterns.json"),
             enableHaptics = json.optBoolean("enable_haptics", true),
             clockFormat = json.optString("clock_format", "HH:mm:ss"),
             clockSuffix = json.optString("clock_suffix", " UTC+6"),
-            telemetryPollMs = json.optLong("telemetry_poll_ms", 1500L)
+            telemetryPollMs = json.optLong("telemetry_poll_ms", 1500L),
+            powerProfileAdaptive = json.optBoolean("power_profile_adaptive", true),
+            astGraphEnabled = json.optBoolean("ast_graph_enabled", false),
+            astGraphNodeCap = json.optInt("ast_graph_node_cap", 80),
+            agentOrchestratorEnabled = json.optBoolean("agent_orchestrator_enabled", true),
+            widgetsEnabled = json.optBoolean("widgets_enabled", false),
+            widgetsDirectory = json.optString("widgets_directory", "/data/data/com.termux/files/home/.voidlauncher/widgets"),
+            focusSchedulerEnabled = json.optBoolean("focus_scheduler_enabled", true),
+            focusSchedulePath = json.optString("focus_schedule_path", "/data/data/com.termux/files/home/.voidlauncher/focus_schedule.json"),
+            notifWhitelistPackages = parseStringList(json.optJSONArray("notif_whitelist_packages"), listOf("com.termux", "com.google.android.dialer")),
+            notifBlacklistPackages = parseStringList(json.optJSONArray("notif_blacklist_packages")),
+            notifPriorityKeywords = parseStringList(json.optJSONArray("notif_priority_keywords"), listOf("error", "failed", "agent", "completed", "critical", "warning")),
+            voidTermEnabled = json.optBoolean("voidterm_enabled", false),
+            voidTermRows = json.optInt("voidterm_rows", 8),
+            voidTermCols = json.optInt("voidterm_cols", 48),
+            macrosEnabled = json.optBoolean("macros_enabled", true),
+            macrosDirectory = json.optString("macros_directory", "/data/data/com.termux/files/home/.voidlauncher/macros")
         )
     }
 
@@ -217,6 +247,34 @@ class ConfigManager(private val context: Context) {
             ))
         }
         return if (slots.isEmpty()) defaultDockSlots() else slots
+    }
+
+    private fun parsePersonas(json: JSONArray): List<PersonaProfile> {
+        val list = mutableListOf<PersonaProfile>()
+        for (i in 0 until json.length()) {
+            val obj = json.optJSONObject(i) ?: continue
+            val id = obj.optString("id", "")
+            if (id.isEmpty()) continue
+            list.add(PersonaProfile(
+                id = id,
+                label = obj.optString("label", "[$id]"),
+                subtitle = obj.optString("subtitle", ""),
+                accentColor = obj.optString("accent", "#E11D48"),
+                secondaryColor = obj.optString("secondary", "#06B6D4"),
+                workspacePath = obj.optString("workspace", "/data/data/com.termux/files/home/Projects")
+            ))
+        }
+        return list
+    }
+
+    private fun parseStringList(json: JSONArray?, fallback: List<String> = emptyList()): List<String> {
+        if (json == null) return fallback
+        val list = mutableListOf<String>()
+        for (i in 0 until json.length()) {
+            val str = json.optString(i, "")
+            if (str.isNotEmpty()) list.add(str)
+        }
+        return if (list.isEmpty()) fallback else list
     }
 
     // ── JSON Serialization ────────────────────────────────────
@@ -287,6 +345,15 @@ class ConfigManager(private val context: Context) {
         json.put("gesture_double_tap", config.gestureDoubleTap)
         json.put("gesture_long_press", config.gestureLongPress)
 
+        // Compound Gestures
+        json.put("compound_gestures_enabled", config.compoundGesturesEnabled)
+        json.put("gesture_two_finger_up", config.gestureTwoFingerUp)
+        json.put("gesture_pinch_in", config.gesturePinchIn)
+        json.put("gesture_pinch_out", config.gesturePinchOut)
+        json.put("gesture_left_edge_swipe", config.gestureLeftEdgeSwipe)
+        json.put("gesture_right_edge_swipe", config.gestureRightEdgeSwipe)
+        json.put("gesture_bottom_edge_swipe", config.gestureBottomEdgeSwipe)
+
         // Drawer & App Icon Customizations
         json.put("show_app_icons", config.showAppIcons)
         json.put("app_icon_style", config.appIconStyle)
@@ -299,18 +366,26 @@ class ConfigManager(private val context: Context) {
         json.put("files_default_path", config.filesDefaultPath)
         json.put("files_show_hidden", config.filesShowHidden)
 
-        // Thermal
+        // Thermal & Guardian
         json.put("thermal_limit_celsius", config.thermalLimitCelsius.toDouble())
+        json.put("thermal_guardian_enabled", config.thermalGuardianEnabled)
+        val thermalKills = JSONArray()
+        for (cmd in config.thermalKillCommands) thermalKills.put(cmd)
+        json.put("thermal_kill_commands", thermalKills)
+        json.put("thermal_hysteresis_celsius", config.thermalHysteresisCelsius.toDouble())
 
-        // Identity
+        // Identity & Personas
         json.put("default_identity", config.defaultIdentity)
         json.put("identity_void_label", config.identityVoidLabel)
         json.put("identity_main_label", config.identityMainLabel)
+        json.put("active_persona", config.activePersona)
 
-        // Omni-Bar
+        // Omni-Bar & History
         json.put("omni_bar_hint", config.omniBarHint)
         json.put("omni_prompt_symbol", config.omniPromptSymbol)
         json.put("omni_fuzzy_max_results", config.omniFuzzyMaxResults)
+        json.put("command_history_enabled", config.commandHistoryEnabled)
+        json.put("command_history_limit", config.commandHistoryLimit)
 
         // Workspace
         json.put("default_workspace_path", config.defaultWorkspacePath)
@@ -319,14 +394,32 @@ class ConfigManager(private val context: Context) {
 
         // Glyph & Haptics
         json.put("enable_glyph_pulse", config.enableGlyphPulse)
+        json.put("glyph_patterns_path", config.glyphPatternsPath)
         json.put("enable_haptics", config.enableHaptics)
 
         // Clock
         json.put("clock_format", config.clockFormat)
         json.put("clock_suffix", config.clockSuffix)
 
-        // Advanced
+        // Telemetry & Power Profile
         json.put("telemetry_poll_ms", config.telemetryPollMs)
+        json.put("power_profile_adaptive", config.powerProfileAdaptive)
+
+        // AST Graph & Widgets
+        json.put("ast_graph_enabled", config.astGraphEnabled)
+        json.put("ast_graph_node_cap", config.astGraphNodeCap)
+        json.put("agent_orchestrator_enabled", config.agentOrchestratorEnabled)
+        json.put("widgets_enabled", config.widgetsEnabled)
+        json.put("widgets_directory", config.widgetsDirectory)
+        json.put("focus_scheduler_enabled", config.focusSchedulerEnabled)
+        json.put("focus_schedule_path", config.focusSchedulePath)
+
+        // VoidTerm & Macros
+        json.put("voidterm_enabled", config.voidTermEnabled)
+        json.put("voidterm_rows", config.voidTermRows)
+        json.put("voidterm_cols", config.voidTermCols)
+        json.put("macros_enabled", config.macrosEnabled)
+        json.put("macros_directory", config.macrosDirectory)
 
         return json
     }

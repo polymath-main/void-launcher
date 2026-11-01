@@ -3,7 +3,7 @@ package com.polymath.voidlauncher.model
 import android.graphics.Color
 
 /**
- * Complete visual & behavioral configuration for VoidLauncher.
+ * Complete visual & behavioral configuration for VoidLauncher (v2.0).
  *
  * Users can edit ~/.voidlauncher/config.json from Termux or
  * configure directly via the built-in Void Settings UI.
@@ -45,6 +45,15 @@ data class LauncherConfig(
     val gestureDoubleTap: String = "TOGGLE_MINIMAL", // TOGGLE_MINIMAL | OPEN_SETTINGS | OPEN_TERMINAL | NONE
     val gestureLongPress: String = "OPEN_SETTINGS",  // OPEN_SETTINGS | OPEN_DRAWER | TOGGLE_FILES | NONE
 
+    // Compound Gesture Extensions (F-07)
+    val compoundGesturesEnabled: Boolean = true,
+    val gestureTwoFingerUp: String = "OPEN_HUD",
+    val gesturePinchIn: String = "TOGGLE_MINIMAL",
+    val gesturePinchOut: String = "COCKPIT_MODE",
+    val gestureLeftEdgeSwipe: String = "OPEN_FILES",
+    val gestureRightEdgeSwipe: String = "OPEN_DRAWER",
+    val gestureBottomEdgeSwipe: String = "FOCUS_OMNI",
+
     // ── App Icons & Drawer Customizations ────────────────────
     val showAppIcons: Boolean = true,
     val appIconStyle: String = "original",      // original | monochrome | tinted
@@ -57,26 +66,34 @@ data class LauncherConfig(
     val filesDefaultPath: String = "/storage/emulated/0",
     val filesShowHidden: Boolean = true,
 
-    // ── Thermal Envelope ─────────────────────────────────────
+    // ── Thermal Envelope & Guardian (F-06) ───────────────────
     val thermalLimitCelsius: Float = 39.0f,
+    val thermalGuardianEnabled: Boolean = true,
+    val thermalKillCommands: List<String> = emptyList(),
+    val thermalHysteresisCelsius: Float = 2.0f,
 
-    // ── Identity ─────────────────────────────────────────────
+    // ── Identity & Smart Personas (F-02) ─────────────────────
     val defaultIdentity: String = "VOID",       // "VOID" or "MAIN"
     val identityVoidLabel: String = "[VOID]",
     val identityMainLabel: String = "[MAIN]",
+    val activePersona: String = "void",
+    val personas: List<PersonaProfile> = emptyList(),
 
-    // ── Omni-Bar ─────────────────────────────────────────────
+    // ── Omni-Bar & History (F-09) ────────────────────────────
     val omniBarHint: String = ">_ search apps or enter :cmd",
     val omniPromptSymbol: String = ">_ ",
     val omniFuzzyMaxResults: Int = 5,
+    val commandHistoryEnabled: Boolean = true,
+    val commandHistoryLimit: Int = 500,
 
     // ── Workspace ────────────────────────────────────────────
     val defaultWorkspacePath: String = "/data/data/com.termux/files/home/Projects",
     val workflowJsonPath: String = "/data/data/com.termux/files/home/Projects/workflow.json",
     val nodeosDbPath: String = "/data/data/com.termux/files/home/Projects/agy_nodeos.db",
 
-    // ── Glyph ────────────────────────────────────────────────
+    // ── Glyph & Choreographer (F-03) ─────────────────────────
     val enableGlyphPulse: Boolean = true,
+    val glyphPatternsPath: String = "/data/data/com.termux/files/home/.voidlauncher/glyph_patterns.json",
 
     // ── Haptics ──────────────────────────────────────────────
     val enableHaptics: Boolean = true,
@@ -85,8 +102,38 @@ data class LauncherConfig(
     val clockFormat: String = "HH:mm:ss",       // Java SimpleDateFormat pattern
     val clockSuffix: String = " UTC+6",
 
-    // ── Advanced ─────────────────────────────────────────────
-    val telemetryPollMs: Long = 1500L
+    // ── Telemetry & Power Profile (F-13) ─────────────────────
+    val telemetryPollMs: Long = 1500L,
+    val powerProfileAdaptive: Boolean = true,
+
+    // ── AST Graph View (F-05) ────────────────────────────────
+    val astGraphEnabled: Boolean = false,
+    val astGraphNodeCap: Int = 80,
+
+    // ── Agent Orchestrator (F-08) ────────────────────────────
+    val agentOrchestratorEnabled: Boolean = true,
+
+    // ── Widgets (F-04) ───────────────────────────────────────
+    val widgetsEnabled: Boolean = false,
+    val widgetsDirectory: String = "/data/data/com.termux/files/home/.voidlauncher/widgets",
+
+    // ── Focus Scheduler (F-10) ───────────────────────────────
+    val focusSchedulerEnabled: Boolean = true,
+    val focusSchedulePath: String = "/data/data/com.termux/files/home/.voidlauncher/focus_schedule.json",
+
+    // ── Notification Intelligence (F-11) ─────────────────────
+    val notifWhitelistPackages: List<String> = listOf("com.termux", "com.google.android.dialer"),
+    val notifBlacklistPackages: List<String> = emptyList(),
+    val notifPriorityKeywords: List<String> = listOf("error", "failed", "agent", "completed", "critical", "warning"),
+
+    // ── VoidTerm Embedded Panel (F-14) ───────────────────────
+    val voidTermEnabled: Boolean = false,
+    val voidTermRows: Int = 8,
+    val voidTermCols: Int = 48,
+
+    // ── Macro Recorder (F-15) ────────────────────────────────
+    val macrosEnabled: Boolean = true,
+    val macrosDirectory: String = "/data/data/com.termux/files/home/.voidlauncher/macros"
 )
 
 data class ColorPalette(

@@ -33,16 +33,31 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.polymath.voidlauncher.core.AgentOrchestrator
 import com.polymath.voidlauncher.core.AppIndexer
+import com.polymath.voidlauncher.core.AstGraphRenderer
 import com.polymath.voidlauncher.core.BareIntegerRouter
+import com.polymath.voidlauncher.core.CommandPalette
+import com.polymath.voidlauncher.core.CompoundGestureEngine
 import com.polymath.voidlauncher.core.ConfigManager
+import com.polymath.voidlauncher.core.ConfigSyncService
 import com.polymath.voidlauncher.core.FileManager
+import com.polymath.voidlauncher.core.FocusScheduler
+import com.polymath.voidlauncher.core.GlyphChoreographer
+import com.polymath.voidlauncher.core.LiveScriptEngine
+import com.polymath.voidlauncher.core.MacroRecorder
 import com.polymath.voidlauncher.core.NodeOsBridge
 import com.polymath.voidlauncher.core.NothingGlyphManager
+import com.polymath.voidlauncher.core.NotifIntelligence
+import com.polymath.voidlauncher.core.PersonaManager
+import com.polymath.voidlauncher.core.PowerProfileAdaptor
 import com.polymath.voidlauncher.core.TelemetryMonitor
 import com.polymath.voidlauncher.core.TermuxIpcDispatcher
+import com.polymath.voidlauncher.core.ThermalGuardian
 import com.polymath.voidlauncher.core.VoidGestureDetector
 import com.polymath.voidlauncher.core.VoidNotificationListenerService
+import com.polymath.voidlauncher.core.VoidTermPanel
+import com.polymath.voidlauncher.core.WidgetRegistry
 import com.polymath.voidlauncher.databinding.ActivityVoidLauncherBinding
 import com.polymath.voidlauncher.model.AppEntry
 import com.polymath.voidlauncher.model.FileItem
@@ -62,6 +77,7 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityVoidLauncherBinding
 
+    // Core v1 subsystems
     private lateinit var configManager: ConfigManager
     private lateinit var telemetryMonitor: TelemetryMonitor
     private lateinit var termuxIpc: TermuxIpcDispatcher
@@ -70,6 +86,23 @@ class VoidLauncherActivity : AppCompatActivity() {
     private lateinit var bareIntegerRouter: BareIntegerRouter
     private lateinit var glyphManager: NothingGlyphManager
     private lateinit var fileManager: FileManager
+
+    // Blueprint v2 subsystems
+    private lateinit var commandPalette: CommandPalette
+    private lateinit var thermalGuardian: ThermalGuardian
+    private lateinit var configSyncService: ConfigSyncService
+    private lateinit var powerProfileAdaptor: PowerProfileAdaptor
+    private lateinit var notifIntelligence: NotifIntelligence
+    private lateinit var personaManager: PersonaManager
+    private lateinit var glyphChoreographer: GlyphChoreographer
+    private lateinit var compoundGestureEngine: CompoundGestureEngine
+    private lateinit var astGraphRenderer: AstGraphRenderer
+    private lateinit var liveScriptEngine: LiveScriptEngine
+    private lateinit var agentOrchestrator: AgentOrchestrator
+    private lateinit var widgetRegistry: WidgetRegistry
+    private lateinit var focusScheduler: FocusScheduler
+    private lateinit var voidTermPanel: VoidTermPanel
+    private lateinit var macroRecorder: MacroRecorder
 
     private lateinit var appAdapter: AppFilterAdapter
     private lateinit var drawerAdapter: DrawerAppAdapter
@@ -82,8 +115,6 @@ class VoidLauncherActivity : AppCompatActivity() {
     private var currentFilesPath: String = ""
     private var isDrawerOpen: Boolean = false
     private var isMinimalMode: Boolean = false
-
-    private lateinit var gestureDetector: VoidGestureDetector
 
     companion object {
         private const val REQUEST_DEFAULT_LAUNCHER = 1002
@@ -107,11 +138,17 @@ class VoidLauncherActivity : AppCompatActivity() {
         startTelemetryFlow()
         startNotificationsFlow()
         refreshIndexAsync()
+
+        configSyncService.register()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        configSyncService.unregister()
     }
 
     /**
-     * Positions the omni-bar and keyboard input box smoothly directly on top of the keyboard space
-     * when the IME soft keyboard opens, without jitter or clipping.
+     * Positions the omni-bar smoothly directly on top of the soft keyboard space.
      */
     private fun setupWindowInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.rootLayout) { view, windowInsets ->
@@ -155,6 +192,35 @@ class VoidLauncherActivity : AppCompatActivity() {
         glyphManager = NothingGlyphManager(this)
         fileManager = FileManager(this)
 
+        // Initialize Blueprint v2 engines
+        commandPalette = CommandPalette(this)
+        thermalGuardian = ThermalGuardian(termuxIpc)
+        powerProfileAdaptor = PowerProfileAdaptor()
+        notifIntelligence = NotifIntelligence()
+        personaManager = PersonaManager(this).apply {
+            registerConfigProfiles(config.personas)
+        }
+        glyphChoreographer = GlyphChoreographer(this).apply {
+            loadCustomPatterns(config.glyphPatternsPath)
+        }
+        astGraphRenderer = AstGraphRenderer()
+        liveScriptEngine = LiveScriptEngine(this)
+        agentOrchestrator = AgentOrchestrator(this, termuxIpc).apply {
+            workflowPath = config.workflowJsonPath
+        }
+        widgetRegistry = WidgetRegistry(this).apply {
+            if (config.widgetsEnabled) loadWidgets(config.widgetsDirectory)
+        }
+        focusScheduler = FocusScheduler(this, personaManager, glyphChoreographer).apply {
+            if (config.focusSchedulerEnabled) loadSchedule(config.focusSchedulePath)
+        }
+        voidTermPanel = VoidTermPanel(this, termuxIpc)
+        macroRecorder = MacroRecorder(this)
+
+        configSyncService = ConfigSyncService(this) {
+            reloadConfigFromSync()
+        }
+
         currentFilesPath = fileManager.resolveAccessiblePath(config.filesDefaultPath)
 
         // Push config into subsystems
@@ -167,6 +233,12 @@ class VoidLauncherActivity : AppCompatActivity() {
         bareIntegerRouter.onOpenFilesRequested = { toggleFilesBrowser() }
         bareIntegerRouter.onOpenDrawerRequested = { toggleRightDrawer() }
         bareIntegerRouter.onOpenSettingsRequested = { openSettings() }
+
+        // Thermal throttle guardian callbacks
+        thermalGuardian.onThrottleTriggered = { tempC, summary ->
+            glyphChoreographer.play("THERMAL_WARNING")
+            Toast.makeText(this, "⚠ $summary", Toast.LENGTH_LONG).show()
+        }
 
         // App filter adapter (omni search)
         appAdapter = AppFilterAdapter { appEntry ->
@@ -187,7 +259,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         fileAdapter = FileBrowserAdapter(
             fileManager = fileManager,
             onItemClick = { fileItem -> handleFileItemClick(fileItem) },
-            onItemMoreClick = { fileItem, anchorView -> showFileOperationsDialog(fileItem) }
+            onItemMoreClick = { fileItem, _ -> showFileOperationsDialog(fileItem) }
         )
         binding.rvFiles.layoutManager = LinearLayoutManager(this)
         binding.rvFiles.adapter = fileAdapter
@@ -208,15 +280,27 @@ class VoidLauncherActivity : AppCompatActivity() {
         binding.rvNotifications.layoutManager = LinearLayoutManager(this)
         binding.rvNotifications.adapter = notificationAdapter
 
-        // Gesture detector
-        gestureDetector = VoidGestureDetector(this, object : VoidGestureDetector.GestureCallbacks {
-            override fun onSwipeUp()    = handleGestureAction(config.gestureSwipeUp)
-            override fun onSwipeDown()  = handleGestureAction(config.gestureSwipeDown)
-            override fun onSwipeLeft()  = handleGestureAction(config.gestureSwipeLeft)
-            override fun onSwipeRight() = handleGestureAction(config.gestureSwipeRight)
-            override fun onDoubleTap()  = handleGestureAction(config.gestureDoubleTap)
-            override fun onLongPress()  = handleGestureAction(config.gestureLongPress)
+        // Compound Gesture Engine (F-07)
+        compoundGestureEngine = CompoundGestureEngine(this, object : CompoundGestureEngine.CompoundGestureCallbacks {
+            override fun onSwipeUp()            = handleGestureAction(config.gestureSwipeUp)
+            override fun onSwipeDown()          = handleGestureAction(config.gestureSwipeDown)
+            override fun onSwipeLeft()          = handleGestureAction(config.gestureSwipeLeft)
+            override fun onSwipeRight()         = handleGestureAction(config.gestureSwipeRight)
+            override fun onDoubleTap()          = handleGestureAction(config.gestureDoubleTap)
+            override fun onLongPress()          = handleGestureAction(config.gestureLongPress)
+            override fun onPinchIn()            = handleGestureAction(config.gesturePinchIn)
+            override fun onPinchOut()           = handleGestureAction(config.gesturePinchOut)
+            override fun onTwoFingerSwipeUp()   = handleGestureAction(config.gestureTwoFingerUp)
+            override fun onLeftEdgeSwipe()      = handleGestureAction(config.gestureLeftEdgeSwipe)
+            override fun onRightEdgeSwipe()     = handleGestureAction(config.gestureRightEdgeSwipe)
+            override fun onBottomEdgeSwipe()    = handleGestureAction(config.gestureBottomEdgeSwipe)
         })
+    }
+
+    private fun reloadConfigFromSync() {
+        config = configManager.loadConfig()
+        applyConfig()
+        showTerminalOutput("[CONFIG AUTO-RELOADED VIA TERMUX BRIDGE]")
     }
 
     // ── Visual & Configuration Application ──────────────────
@@ -285,8 +369,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         // Scrubber visibility
         binding.alphabetScrubber.visibility = if (config.enableAtoZScrubber) View.VISIBLE else View.GONE
 
-        // ── Homescreen Customizations ──
-        // System wallpaper
+        // Wallpaper flag
         if (config.useSystemWallpaper) {
             window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
             binding.rootLayout.setBackgroundColor(Color.TRANSPARENT)
@@ -298,13 +381,9 @@ class VoidLauncherActivity : AppCompatActivity() {
         // Status bar element visibility
         binding.tvClock.visibility = if (config.showStatusBarTime) View.VISIBLE else View.GONE
         binding.tvMemory.visibility = if (config.showStatusBarRam) View.VISIBLE else View.GONE
-        // Battery temp reuses tvBatteryTemp — derive from tvMemory sibling; fall back gracefully
         binding.tvBatteryTemp.visibility = if (config.showStatusBarBattery) View.VISIBLE else View.GONE
 
-        // Default home mode
         applyHomeMode()
-
-        // Check default launcher status
         checkDefaultLauncherStatus()
     }
 
@@ -367,7 +446,6 @@ class VoidLauncherActivity : AppCompatActivity() {
                 loadFilesDirectory(currentFilesPath)
             }
             else -> {
-                // COCKPIT
                 binding.filesBrowserLayout.visibility = View.GONE
             }
         }
@@ -375,16 +453,11 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     private fun applyIdentityBadge() {
         val c = config.colors
-        val mode = nodeOsBridge.getIdentityMode()
-        if (mode == NodeOsBridge.IDENTITY_VOID) {
-            binding.tvIdentityBadge.text = config.identityVoidLabel
-            binding.tvIdentityBadge.setTextColor(c.accentInt)
-            applyBadgeBackground(binding.tvIdentityBadge, c.accentSurfaceInt, c.accentInt)
-        } else {
-            binding.tvIdentityBadge.text = config.identityMainLabel
-            binding.tvIdentityBadge.setTextColor(c.secondaryInt)
-            applyBadgeBackground(binding.tvIdentityBadge, c.secondarySurfaceInt, c.secondaryInt)
-        }
+        val persona = personaManager.getActivePersona()
+        binding.tvIdentityBadge.text = persona.label
+        val accentCol = Color.parseColor(persona.accentColor)
+        binding.tvIdentityBadge.setTextColor(accentCol)
+        applyBadgeBackground(binding.tvIdentityBadge, c.surfaceInt, accentCol)
     }
 
     private fun rebuildDockSlots() {
@@ -448,26 +521,22 @@ class VoidLauncherActivity : AppCompatActivity() {
     // ── Listeners ──────────────────────────────────────────
 
     private fun setupListeners() {
-        // Default Launcher Banner Action
         binding.btnSetDefaultLauncher.setOnClickListener {
             haptic(it)
             requestSetDefaultLauncher()
         }
 
-        // Built-in settings button in HUD
         binding.btnQuickSettings.setOnClickListener {
             haptic(it)
             openSettings()
         }
 
-        // Bare integer fast slots 1..5
         binding.btnSlot1.setOnClickListener { handleDigitKey(it, 1) }
         binding.btnSlot2.setOnClickListener { handleDigitKey(it, 2) }
         binding.btnSlot3.setOnClickListener { handleDigitKey(it, 3) }
         binding.btnSlot4.setOnClickListener { handleDigitKey(it, 4) }
         binding.btnSlot5.setOnClickListener { handleDigitKey(it, 5) }
 
-        // Fast numerical jump row
         binding.keyDigit1.setOnClickListener { handleDigitKey(it, 1) }
         binding.keyDigit2.setOnClickListener { handleDigitKey(it, 2) }
         binding.keyDigit3.setOnClickListener { handleDigitKey(it, 3) }
@@ -488,11 +557,12 @@ class VoidLauncherActivity : AppCompatActivity() {
             }
         }
 
-        // Dual identity toggle
+        // Smart Persona cycle toggle (F-02)
         binding.tvIdentityBadge.setOnClickListener {
-            val newMode = nodeOsBridge.toggleIdentityMode()
+            val newPersona = personaManager.cyclePersona()
             applyIdentityBadge()
-            Toast.makeText(this, "Identity: $newMode", Toast.LENGTH_SHORT).show()
+            glyphChoreographer.play("FOCUS_MODE_ON")
+            Toast.makeText(this, "Persona: ${newPersona.label} (${newPersona.subtitle})", Toast.LENGTH_SHORT).show()
         }
 
         // Notification Cockpit Controls
@@ -525,12 +595,10 @@ class VoidLauncherActivity : AppCompatActivity() {
             } else false
         }
 
-        // Run button
         binding.btnExecute.setOnClickListener {
             handleOmniSubmit(binding.etOmniInput.text.toString())
         }
 
-        // Right Drawer Listeners
         binding.btnDrawerTabHandle.setOnClickListener {
             haptic(it)
             toggleRightDrawer()
@@ -539,7 +607,6 @@ class VoidLauncherActivity : AppCompatActivity() {
             openRightDrawer(false)
         }
 
-        // Alphabet Scrubber Touch Scrubbing
         binding.alphabetScrubber.setOnLetterSelectedListener { letter ->
             val sectionMap = appIndexer.getSectionPositions()
             val targetPos = sectionMap[letter]
@@ -608,7 +675,6 @@ class VoidLauncherActivity : AppCompatActivity() {
             binding.tvDrawerAppCount.text = "${allApps.size} APPS"
             binding.rightDrawerLayout.visibility = View.VISIBLE
             binding.btnDrawerTabHandle.text = "›"
-            // Hide files browser if open
             binding.filesBrowserLayout.visibility = View.GONE
         } else {
             binding.rightDrawerLayout.visibility = View.GONE
@@ -668,7 +734,6 @@ class VoidLauncherActivity : AppCompatActivity() {
         if (item.isDirectory) {
             loadFilesDirectory(item.path)
         } else {
-            // Text preview or open
             val preview = fileManager.readTextPreview(item.path, maxLines = 40)
             showTerminalOutput("[FILE PREVIEW: ${item.name}]\n\n$preview")
         }
@@ -688,7 +753,6 @@ class VoidLauncherActivity : AppCompatActivity() {
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> {
-                        // Open in Termux
                         if (item.isDirectory) {
                             termuxIpc.dispatchCommand("cd \"${item.path}\" && exec bash", workDir = item.path, inBackground = false)
                         } else {
@@ -784,16 +848,30 @@ class VoidLauncherActivity : AppCompatActivity() {
         telemetryJob?.cancel()
         telemetryJob = lifecycleScope.launch {
             telemetryMonitor.monitorTelemetry().collectLatest { snap ->
+                val powerLevel = powerProfileAdaptor.evaluate(snap, config.thermalLimitCelsius)
+
                 binding.tvClock.text = snap.timestampFormatted
                 binding.tvBatteryTemp.text = "▲ ${snap.batteryPercent}% [${snap.batteryTemperatureC}°C]"
                 val usedGb = String.format(java.util.Locale.US, "%.1f", snap.ramUsedMb / 1024.0)
-                binding.tvMemory.text = "RAM: ${usedGb}G"
+                binding.tvMemory.text = "RAM: ${usedGb}G ${powerLevel.label}"
 
-                if (snap.batteryTemperatureC > config.thermalLimitCelsius) {
+                // Thermal guardian envelope check (F-06)
+                if (config.thermalGuardianEnabled) {
+                    thermalGuardian.evaluateThermalEnvelope(
+                        snap.batteryTemperatureC,
+                        config.thermalLimitCelsius,
+                        config.thermalHysteresisCelsius,
+                        config.thermalKillCommands
+                    )
+                } else if (snap.batteryTemperatureC > config.thermalLimitCelsius) {
                     glyphManager.triggerThermalWarning()
                 }
 
-                // NodeOS Daemon and Ast update
+                // Focus mode schedule tick (F-10)
+                if (config.focusSchedulerEnabled) {
+                    focusScheduler.checkAndApplySchedule()
+                }
+
                 updateNodeOsHudView()
             }
         }
@@ -813,9 +891,16 @@ class VoidLauncherActivity : AppCompatActivity() {
                 }
 
                 binding.notifPermissionPrompt.visibility = View.GONE
-                val filtered = rawList.filter { notif ->
-                    if (config.filterOngoingNotifications && notif.isOngoing) false else true
-                }.take(config.notificationsMaxCount)
+
+                // Notification Intelligence priority scoring & filtering (F-11)
+                val filtered = notifIntelligence.scoreAndFilter(
+                    items = rawList,
+                    whitelist = config.notifWhitelistPackages,
+                    blacklist = config.notifBlacklistPackages,
+                    priorityKeywords = config.notifPriorityKeywords,
+                    filterOngoing = config.filterOngoingNotifications,
+                    maxCount = config.notificationsMaxCount
+                )
 
                 binding.tvNotifHeader.text = "● NOTIFICATIONS (${filtered.size})"
 
@@ -881,6 +966,12 @@ class VoidLauncherActivity : AppCompatActivity() {
         val query = rawInput.trim()
         if (query.isEmpty()) return
 
+        // Record history & macro step (F-09, F-15)
+        commandPalette.recordCommand(query)
+        if (macroRecorder.isRecording) {
+            macroRecorder.recordStep(query)
+        }
+
         // 1. Bare integer fast intercept
         val integerCommand = query.toIntOrNull()
         if (integerCommand != null) {
@@ -908,6 +999,120 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     private fun handleCommandMode(command: String) {
         when {
+            // F-01 LiveScript Eval
+            command.startsWith("eval ") -> {
+                val expr = command.removePrefix("eval ").trim()
+                val result = liveScriptEngine.evaluate(expr)
+                showTerminalOutput("[EVAL: $expr] (${result.executionTimeMs}ms)\n\n= ${result.output}")
+            }
+            // F-08 Agent Task Orchestrator
+            command.startsWith("task ") -> {
+                val args = command.removePrefix("task ").trim()
+                val parts = args.split(" ", limit = 2)
+                val title = parts.getOrNull(0) ?: "Task"
+                val cmd = parts.getOrNull(1) ?: "echo 'no command'"
+                val task = agentOrchestrator.dispatchTask(title, cmd)
+                glyphChoreographer.play("TASK_SUCCESS")
+                showTerminalOutput("[TASK DISPATCHED]: ${task.title}\nCMD: ${task.command}")
+            }
+            command == "tasks" -> {
+                val tasks = agentOrchestrator.getAllTasks()
+                val sb = StringBuilder("=== Active Agent Tasks (${tasks.size}) ===\n\n")
+                for (t in tasks.take(10)) {
+                    sb.appendLine("[${t.status.uppercase()}] ${t.title} (id: ${t.id})")
+                }
+                showTerminalOutput(sb.toString().trimEnd())
+            }
+            command.startsWith("kill ") -> {
+                val taskId = command.removePrefix("kill ").trim()
+                agentOrchestrator.cancelTask(taskId)
+                showTerminalOutput("[TASK CANCELLED]: $taskId")
+            }
+            // F-05 NodeOS AST Graph Query
+            command == "graph" -> {
+                val snapshot = astGraphRenderer.queryTopology(config.nodeosDbPath)
+                showTerminalOutput(astGraphRenderer.formatSummaryText(snapshot))
+            }
+            // F-02 Persona Management
+            command == "persona" || command == "personas" -> {
+                val all = personaManager.getAllPersonas()
+                val active = personaManager.getActivePersona()
+                val sb = StringBuilder("=== Personas ===\nActive: ${active.label}\n\n")
+                for (p in all) {
+                    val mark = if (p.id == active.id) "●" else "○"
+                    sb.appendLine("$mark ${p.label} - ${p.subtitle}")
+                }
+                sb.append("\nType :id <name> to switch")
+                showTerminalOutput(sb.toString())
+            }
+            command.startsWith("id ") -> {
+                val targetId = command.removePrefix("id ").trim()
+                val switched = personaManager.selectPersona(targetId)
+                if (switched != null) {
+                    applyIdentityBadge()
+                    glyphChoreographer.play("FOCUS_MODE_ON")
+                    showTerminalOutput("[PERSONA SWITCHED]: ${switched.label}")
+                } else {
+                    showTerminalOutput("[ERROR]: Unknown persona '$targetId'")
+                }
+            }
+            // F-15 Macro Recorder
+            command.startsWith("record ") -> {
+                val name = command.removePrefix("record ").trim()
+                macroRecorder.startRecording(name)
+                showTerminalOutput("[MACRO RECORDING STARTED]: $name\nType :stop to finish")
+            }
+            command == "stop" -> {
+                val saved = macroRecorder.stopRecording()
+                showTerminalOutput(if (saved != null) "[MACRO SAVED]: $saved" else "[MACRO]: Not recording")
+            }
+            command.startsWith("play ") -> {
+                val name = command.removePrefix("play ").trim()
+                val ok = macroRecorder.playMacro(name) { step -> handleOmniSubmit(step) }
+                showTerminalOutput(if (ok) "[MACRO EXECUTED]: $name" else "[ERROR]: Macro $name not found")
+            }
+            // F-09 History & Snippets
+            command == "history" || command == "hist" -> {
+                val hist = commandPalette.getRecentHistory(15)
+                val sb = StringBuilder("=== OmniScript History ===\n\n")
+                for (h in hist) {
+                    sb.appendLine("• ${h.commandText} (${h.useCount}x)")
+                }
+                showTerminalOutput(sb.toString().trimEnd())
+            }
+            command.startsWith("snippet ") -> {
+                val rest = command.removePrefix("snippet ").trim()
+                val parts = rest.split(" ", limit = 2)
+                if (parts.size == 2) {
+                    commandPalette.saveSnippet(parts[0], parts[1])
+                    showTerminalOutput("[SNIPPET SAVED]: ${parts[0]} -> ${parts[1]}")
+                } else {
+                    showTerminalOutput("Usage: :snippet <alias> <command>")
+                }
+            }
+            command == "snippets" -> {
+                val list = commandPalette.getSnippets()
+                val sb = StringBuilder("=== Saved Snippets ===\n\n")
+                for (s in list) {
+                    sb.appendLine("${s.snippetAlias} := ${s.commandText}")
+                }
+                showTerminalOutput(sb.toString().trimEnd())
+            }
+            // F-14 Embedded Terminal Command
+            command.startsWith("term ") -> {
+                val termCmd = command.removePrefix("term ").trim()
+                voidTermPanel.execute(termCmd, inBackground = true)
+                showTerminalOutput(voidTermPanel.getRenderedBuffer())
+            }
+            command == "power" -> {
+                val snap = telemetryMonitor.captureSnapshot()
+                val lvl = powerProfileAdaptor.evaluate(snap, config.thermalLimitCelsius)
+                showTerminalOutput("[POWER PROFILE]: ${lvl.label}\nBattery: ${snap.batteryPercent}% (${snap.batteryTemperatureC}°C)\nPoll Cadence: ${powerProfileAdaptor.getRecommendedPollIntervalMs()}ms")
+            }
+            command == "focus" -> {
+                val activeBlock = focusScheduler.checkAndApplySchedule()
+                showTerminalOutput(if (activeBlock != null) "[FOCUS ACTIVE]: ${activeBlock.label} (${activeBlock.personaId})" else "[FOCUS]: No active scheduled focus block")
+            }
             command.startsWith("sh ") -> {
                 val shellCmd = command.removePrefix("sh ").trim()
                 termuxIpc.dispatchCommand(shellCmd, inBackground = true)
@@ -1001,7 +1206,6 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Hot-reload config on every resume
         val newConfig = configManager.loadConfig()
         if (newConfig != config) {
             config = newConfig
@@ -1034,7 +1238,6 @@ class VoidLauncherActivity : AppCompatActivity() {
             resetOmniInput()
             return
         }
-        // Stay in launcher
     }
 
     private fun dpToPx(dp: Int): Int {
@@ -1048,9 +1251,8 @@ class VoidLauncherActivity : AppCompatActivity() {
     // ── Gesture Controls ─────────────────────────────────────
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        // Route to gesture detector only when omni input is not actively focused
         if (!binding.etOmniInput.isFocused) {
-            gestureDetector.onTouchEvent(ev)
+            compoundGestureEngine.onTouchEvent(ev)
         }
         return super.dispatchTouchEvent(ev)
     }
@@ -1065,7 +1267,14 @@ class VoidLauncherActivity : AppCompatActivity() {
             "NOTIFICATIONS"     -> VoidNotificationListenerService.openAccessSettings(this)
             "EXPAND_STATUS_BAR" -> expandStatusBar()
             "TOGGLE_MINIMAL"    -> toggleMinimalMode()
-            "TOGGLE_IDENTITY"   -> { nodeOsBridge.toggleIdentityMode(); applyIdentityBadge() }
+            "COCKPIT_MODE"      -> { isMinimalMode = false; applyConfig() }
+            "FOCUS_OMNI"        -> { binding.etOmniInput.requestFocus(); showKeyboard() }
+            "OPEN_HUD"          -> termuxIpc.dispatchCommand("pmc status", inBackground = false)
+            "TOGGLE_IDENTITY"   -> {
+                val newP = personaManager.cyclePersona()
+                applyIdentityBadge()
+                Toast.makeText(this, "Persona: ${newP.label}", Toast.LENGTH_SHORT).show()
+            }
             "NONE"              -> {}
         }
     }
@@ -1096,8 +1305,6 @@ class VoidLauncherActivity : AppCompatActivity() {
                 val cls = Class.forName("android.app.StatusBarManager")
                 cls.getMethod("expandNotificationsPanel").invoke(it)
             }
-        } catch (_: Exception) {
-            // Not available on all devices — silently ignore
-        }
+        } catch (_: Exception) {}
     }
 }

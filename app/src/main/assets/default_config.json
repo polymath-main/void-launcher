@@ -1,4 +1,6 @@
 {
+  "_schema_version": "2.0",
+
   "colors": {
     "background":      "#000000",
     "surface":         "#080808",
@@ -52,6 +54,14 @@
   "gesture_double_tap": "TOGGLE_MINIMAL",
   "gesture_long_press": "OPEN_SETTINGS",
 
+  "compound_gestures_enabled": true,
+  "gesture_two_finger_up": "OPEN_HUD",
+  "gesture_pinch_in": "TOGGLE_MINIMAL",
+  "gesture_pinch_out": "COCKPIT_MODE",
+  "gesture_left_edge_swipe": "OPEN_FILES",
+  "gesture_right_edge_swipe": "OPEN_DRAWER",
+  "gesture_bottom_edge_swipe": "FOCUS_OMNI",
+
   "show_app_icons": true,
   "app_icon_style": "original",
   "drawer_alpha": 0.90,
@@ -63,24 +73,63 @@
   "files_show_hidden": true,
 
   "thermal_limit_celsius": 39.0,
+  "thermal_guardian_enabled": true,
+  "thermal_kill_commands": [
+    "pkill -f 'nodeos.*daemon'",
+    "pkill -f 'python.*agent'"
+  ],
+  "thermal_hysteresis_celsius": 2.0,
 
   "default_identity": "VOID",
   "identity_void_label": "[VOID]",
   "identity_main_label": "[MAIN]",
+  "active_persona": "void",
+  "personas": [
+    { "id": "void",   "label": "[VOID]",   "subtitle": "Runtimes & Compilers", "accent": "#E11D48", "secondary": "#06B6D4", "workspace": "/data/data/com.termux/files/home/Projects" },
+    { "id": "main",   "label": "[MAIN]",   "subtitle": "SaaS & Production",    "accent": "#06B6D4", "secondary": "#10B981", "workspace": "/data/data/com.termux/files/home/Projects" },
+    { "id": "agent",  "label": "[AGENT]",  "subtitle": "Autonomous Loops",     "accent": "#8B5CF6", "secondary": "#06B6D4", "workspace": "/data/data/com.termux/files/home/Projects" },
+    { "id": "client", "label": "[CLIENT]", "subtitle": "PodPitch Workspace",   "accent": "#F59E0B", "secondary": "#10B981", "workspace": "/data/data/com.termux/files/home/Projects/PodPitch" }
+  ],
 
   "omni_bar_hint": ">_ search apps or enter :cmd",
   "omni_prompt_symbol": ">_ ",
   "omni_fuzzy_max_results": 5,
+  "command_history_enabled": true,
+  "command_history_limit": 500,
 
   "default_workspace_path": "/data/data/com.termux/files/home/Projects",
   "workflow_json_path":     "/data/data/com.termux/files/home/Projects/workflow.json",
   "nodeos_db_path":         "/data/data/com.termux/files/home/Projects/agy_nodeos.db",
 
   "enable_glyph_pulse": true,
+  "glyph_patterns_path": "/data/data/com.termux/files/home/.voidlauncher/glyph_patterns.json",
   "enable_haptics": true,
 
   "clock_format": "HH:mm:ss",
   "clock_suffix": " UTC+6",
 
-  "telemetry_poll_ms": 1500
+  "telemetry_poll_ms": 1500,
+  "power_profile_adaptive": true,
+
+  "ast_graph_enabled": false,
+  "ast_graph_node_cap": 80,
+
+  "agent_orchestrator_enabled": true,
+
+  "widgets_enabled": false,
+  "widgets_directory": "/data/data/com.termux/files/home/.voidlauncher/widgets",
+
+  "focus_scheduler_enabled": true,
+  "focus_schedule_path": "/data/data/com.termux/files/home/.voidlauncher/focus_schedule.json",
+
+  "notif_whitelist_packages": ["com.termux", "com.google.android.dialer"],
+  "notif_blacklist_packages": [],
+  "notif_priority_keywords": ["error", "failed", "agent", "completed", "critical", "warning"],
+
+  "voidterm_enabled": false,
+  "voidterm_rows": 8,
+  "voidterm_cols": 48,
+
+  "macros_enabled": true,
+  "macros_directory": "/data/data/com.termux/files/home/.voidlauncher/macros"
 }
