@@ -15,7 +15,9 @@ Built for edge software engineers and autonomous agent builders who treat their 
 
 - **100% Pitch Black AMOLED (`#000000`)**: Turns off inactive screen pixels to minimize thermals and maximize battery life during local ML/LLM runs.
 - **Hardware & Telemetry HUD**: Real-time monitoring of battery %, temperature (<39°C preflight guard), RAM/swap pressure, and active NodeOS daemon ping status.
-- **Hot-Reload User Customization (`~/.voidlauncher/config.json`)**:
+- **Hot-Reload User Customization (`/sdcard/.voidlauncher/config.json`)**:
+  - Live-reloads on save via a FileObserver — no app restart needed.
+  - Editable from Termux at `/sdcard/.voidlauncher/config.json` (or `~/storage/shared/.voidlauncher/config.json`).
   - Full control over color palette (accent, secondary, surface, border, warning, safe).
   - Configurable dock slots (up to 7 custom slots with custom labels, packages, actions, or direct Termux commands).
   - Configurable font family and sizes.
@@ -35,7 +37,7 @@ Built for edge software engineers and autonomous agent builders who treat their 
     - `:sh <cmd>`: Headless execution in Termux.
     - `:work <project>`: Navigates Termux directly to `~/Projects/<project>`.
     - `:clip`: Reads Android clipboard.
-    - `:config`: Exports default JSON config template to `~/.voidlauncher/config.json`.
+    - `:config`: Exports the current JSON config template to `/sdcard/.voidlauncher/config.json`.
     - `:reload`: Immediately reloads configuration from disk.
     - `:status` / `:hud`: Launches Polymath Core status HUD.
 - **Identity Switcher**: One-tap toggle between `[VOID]` (low-level runtimes, compilers) and `[MAIN]` (production SaaS, platforms).
@@ -46,9 +48,15 @@ Built for edge software engineers and autonomous agent builders who treat their 
 Create or edit your config file from Termux:
 
 ```bash
-mkdir -p ~/.voidlauncher
-nano ~/.voidlauncher/config.json
+# From Termux (run `termux-setup-storage` once to grant storage access)
+mkdir -p /sdcard/.voidlauncher
+nano /sdcard/.voidlauncher/config.json
 ```
+
+> **Note:** the launcher app cannot read Termux's private sandbox
+> (`/data/data/com.termux/...`). All VOID config/data lives under
+> `/sdcard/.voidlauncher/`, which both the app and Termux can access.
+> Grant the launcher "All files access" (MANAGE_EXTERNAL_STORAGE) when prompted.
 
 Or type `:config` in the launcher's omni-bar to export the full configuration template.
 

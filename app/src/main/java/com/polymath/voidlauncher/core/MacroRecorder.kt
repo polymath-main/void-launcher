@@ -2,6 +2,7 @@ package com.polymath.voidlauncher.core
 
 import android.content.Context
 import android.util.Log
+import com.polymath.voidlauncher.model.VoidPaths
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -16,7 +17,7 @@ class MacroRecorder(private val context: Context) {
 
     companion object {
         private const val TAG = "MacroRecorder"
-        private const val DEFAULT_MACROS_DIR = "/data/data/com.termux/files/home/.voidlauncher/macros"
+        private val DEFAULT_MACROS_DIR: String get() = VoidPaths.MACROS
     }
 
     var isRecording: Boolean = false

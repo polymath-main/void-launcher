@@ -6,6 +6,7 @@ import com.polymath.voidlauncher.model.ColorPalette
 import com.polymath.voidlauncher.model.DockSlot
 import com.polymath.voidlauncher.model.LauncherConfig
 import com.polymath.voidlauncher.model.PersonaProfile
+import com.polymath.voidlauncher.model.VoidPaths
 import com.polymath.voidlauncher.model.defaultDockSlots
 import org.json.JSONArray
 import org.json.JSONObject
@@ -24,8 +25,10 @@ class ConfigManager(private val context: Context) {
 
     companion object {
         private const val TAG = "ConfigManager"
-        const val EXTERNAL_CONFIG_DIR = "/data/data/com.termux/files/home/.voidlauncher"
-        const val EXTERNAL_CONFIG_FILE = "$EXTERNAL_CONFIG_DIR/config.json"
+
+        /** Shared-storage config dir — reachable by the app AND by Termux. */
+        val EXTERNAL_CONFIG_DIR: String get() = VoidPaths.HOME
+        val EXTERNAL_CONFIG_FILE: String get() = VoidPaths.CONFIG
         const val INTERNAL_CONFIG_FILE = "config.json"
     }
 
@@ -89,13 +92,17 @@ class ConfigManager(private val context: Context) {
     // ── File readers ──────────────────────────────────────────
 
     private fun readExternalConfig(): JSONObject? {
+        // Primary: shared storage (/sdcard/.voidlauncher/config.json)
+        readJsonFile(File(EXTERNAL_CONFIG_FILE))?.let { return it }
+        // Legacy: Termux sandbox copy (only readable if elevated access is ever granted)
+        return readJsonFile(File(VoidPaths.LEGACY_CONFIG_FILE))
+    }
+
+    private fun readJsonFile(file: File): JSONObject? {
         return try {
-            val file = File(EXTERNAL_CONFIG_FILE)
-            if (file.exists() && file.canRead()) {
-                JSONObject(file.readText())
-            } else null
+            if (file.exists() && file.canRead()) JSONObject(file.readText()) else null
         } catch (e: Exception) {
-            Log.w(TAG, "Cannot read external config: ${e.message}")
+            Log.w(TAG, "Cannot read config ${file.absolutePath}: ${e.message}")
             null
         }
     }
@@ -190,7 +197,7 @@ class ConfigManager(private val context: Context) {
             gestureRightEdgeSwipe = json.optString("gesture_right_edge_swipe", "OPEN_DRAWER"),
             gestureBottomEdgeSwipe = json.optString("gesture_bottom_edge_swipe", "FOCUS_OMNI"),
             enableGlyphPulse = json.optBoolean("enable_glyph_pulse", true),
-            glyphPatternsPath = json.optString("glyph_patterns_path", "/data/data/com.termux/files/home/.voidlauncher/glyph_patterns.json"),
+            glyphPatternsPath = json.optString("glyph_patterns_path", VoidPaths.GLYPH_PATTERNS),
             enableHaptics = json.optBoolean("enable_haptics", true),
             liquidTouchEnabled = json.optBoolean("liquid_touch_enabled", true),
             clockFormat = json.optString("clock_format", "HH:mm:ss"),
@@ -201,9 +208,9 @@ class ConfigManager(private val context: Context) {
             astGraphNodeCap = json.optInt("ast_graph_node_cap", 80),
             agentOrchestratorEnabled = json.optBoolean("agent_orchestrator_enabled", true),
             widgetsEnabled = json.optBoolean("widgets_enabled", false),
-            widgetsDirectory = json.optString("widgets_directory", "/data/data/com.termux/files/home/.voidlauncher/widgets"),
+            widgetsDirectory = json.optString("widgets_directory", VoidPaths.WIDGETS),
             focusSchedulerEnabled = json.optBoolean("focus_scheduler_enabled", true),
-            focusSchedulePath = json.optString("focus_schedule_path", "/data/data/com.termux/files/home/.voidlauncher/focus_schedule.json"),
+            focusSchedulePath = json.optString("focus_schedule_path", VoidPaths.FOCUS_SCHEDULE),
             notifWhitelistPackages = parseStringList(json.optJSONArray("notif_whitelist_packages"), listOf("com.termux", "com.google.android.dialer")),
             notifBlacklistPackages = parseStringList(json.optJSONArray("notif_blacklist_packages")),
             notifPriorityKeywords = parseStringList(json.optJSONArray("notif_priority_keywords"), listOf("error", "failed", "agent", "completed", "critical", "warning")),
@@ -211,7 +218,7 @@ class ConfigManager(private val context: Context) {
             voidTermRows = json.optInt("voidterm_rows", 8),
             voidTermCols = json.optInt("voidterm_cols", 48),
             macrosEnabled = json.optBoolean("macros_enabled", true),
-            macrosDirectory = json.optString("macros_directory", "/data/data/com.termux/files/home/.voidlauncher/macros")
+            macrosDirectory = json.optString("macros_directory", VoidPaths.MACROS)
         )
     }
 
@@ -380,6 +387,21 @@ class ConfigManager(private val context: Context) {
         json.put("identity_void_label", config.identityVoidLabel)
         json.put("identity_main_label", config.identityMainLabel)
         json.put("active_persona", config.activePersona)
+
+        val personasArr = JSONArray()
+        for (p in config.personas) {
+            personasArr.put(JSONObject().apply {
+                put("id", p.id)
+                put("label", p.label)
+                put("subtitle", p.subtitle)
+                put("accent", p.accentColor)
+                put("secondary", p.secondaryColor)
+                put("surface", p.surfaceColor)
+                put("workspace", p.workspacePath)
+                put("glyph_pattern", p.glyphPatternName)
+            })
+        }
+        json.put("personas", personasArr)
 
         // Omni-Bar & History
         json.put("omni_bar_hint", config.omniBarHint)

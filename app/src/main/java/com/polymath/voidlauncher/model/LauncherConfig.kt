@@ -1,6 +1,30 @@
 package com.polymath.voidlauncher.model
 
 import android.graphics.Color
+import android.os.Environment
+import java.io.File
+
+/**
+ * App-accessible storage paths.
+ *
+ * The app CANNOT read `/data/data/com.termux/...` (that is Termux's private
+ * sandbox and is unreachable even with MANAGE_EXTERNAL_STORAGE). All writable
+ * VOID data therefore lives under shared storage at `/.voidlauncher`, which
+ * both the app and Termux (`$HOME/storage`) can reach.
+ */
+object VoidPaths {
+    val HOME: String
+        get() = File(Environment.getExternalStorageDirectory(), ".voidlauncher").absolutePath
+
+    val CONFIG: String get() = "$HOME/config.json"
+    val MACROS: String get() = "$HOME/macros"
+    val WIDGETS: String get() = "$HOME/widgets"
+    val GLYPH_PATTERNS: String get() = "$HOME/glyph_patterns.json"
+    val FOCUS_SCHEDULE: String get() = "$HOME/focus_schedule.json"
+
+    /** Legacy (pre-relocation) Termux-sandbox copy, kept as a read-only fallback. */
+    const val LEGACY_CONFIG_FILE = "/data/data/com.termux/files/home/.voidlauncher/config.json"
+}
 
 /**
  * Complete visual & behavioral configuration for VoidLauncher (v2.0).
@@ -93,7 +117,7 @@ data class LauncherConfig(
 
     // ── Glyph & Choreographer (F-03) ─────────────────────────
     val enableGlyphPulse: Boolean = true,
-    val glyphPatternsPath: String = "/data/data/com.termux/files/home/.voidlauncher/glyph_patterns.json",
+    val glyphPatternsPath: String = VoidPaths.GLYPH_PATTERNS,
 
     // ── Haptics ──────────────────────────────────────────────
     val enableHaptics: Boolean = true,
@@ -118,11 +142,11 @@ data class LauncherConfig(
 
     // ── Widgets (F-04) ───────────────────────────────────────
     val widgetsEnabled: Boolean = false,
-    val widgetsDirectory: String = "/data/data/com.termux/files/home/.voidlauncher/widgets",
+    val widgetsDirectory: String = VoidPaths.WIDGETS,
 
     // ── Focus Scheduler (F-10) ───────────────────────────────
     val focusSchedulerEnabled: Boolean = true,
-    val focusSchedulePath: String = "/data/data/com.termux/files/home/.voidlauncher/focus_schedule.json",
+    val focusSchedulePath: String = VoidPaths.FOCUS_SCHEDULE,
 
     // ── Notification Intelligence (F-11) ─────────────────────
     val notifWhitelistPackages: List<String> = listOf("com.termux", "com.google.android.dialer"),
@@ -136,7 +160,7 @@ data class LauncherConfig(
 
     // ── Macro Recorder (F-15) ────────────────────────────────
     val macrosEnabled: Boolean = true,
-    val macrosDirectory: String = "/data/data/com.termux/files/home/.voidlauncher/macros"
+    val macrosDirectory: String = VoidPaths.MACROS
 )
 
 data class ColorPalette(

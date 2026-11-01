@@ -136,7 +136,7 @@ class VoidSettingsActivity : AppCompatActivity() {
         val iconAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, iconStyles)
         binding.spnIconStyle.adapter = iconAdapter
 
-        val homeModes = arrayOf("COCKPIT", "MINIMAL", "FILES")
+        val homeModes = arrayOf("COCKPIT", "STILL", "MINIMAL", "FILES")
         val homeAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, homeModes)
         binding.spnHomeMode.adapter = homeAdapter
 
@@ -187,8 +187,9 @@ class VoidSettingsActivity : AppCompatActivity() {
         binding.switchAtoZScrubber.isChecked = cfg.enableAtoZScrubber
 
         val homeModeIdx = when (cfg.defaultHomeMode.uppercase()) {
-            "MINIMAL" -> 1
-            "FILES" -> 2
+            "STILL" -> 1
+            "MINIMAL" -> 2
+            "FILES" -> 3
             else -> 0
         }
         binding.spnHomeMode.setSelection(homeModeIdx)

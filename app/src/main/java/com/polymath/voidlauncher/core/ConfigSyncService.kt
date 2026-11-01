@@ -51,11 +51,11 @@ class ConfigSyncService(
         }
         isRegistered = true
 
-        // 2. FileObserver on ~/.voidlauncher/
+        // 2. FileObserver on the shared-storage config dir (/sdcard/.voidlauncher)
         val dir = File(ConfigManager.EXTERNAL_CONFIG_DIR)
-        if (!dir.exists()) {
-            dir.mkdirs()
-        }
+        try {
+            if (!dir.exists()) dir.mkdirs()
+        } catch (_: Exception) {}
 
         fileObserver = object : FileObserver(dir.absolutePath, CLOSE_WRITE or MOVED_TO) {
             override fun onEvent(event: Int, path: String?) {
@@ -64,7 +64,13 @@ class ConfigSyncService(
                     notifyReload()
                 }
             }
-        }.also { it.startWatching() }
+        }.also {
+            try {
+                it.startWatching()
+            } catch (e: Exception) {
+                Log.w(TAG, "Cannot watch ${dir.absolutePath} (storage permission?): ${e.message}")
+            }
+        }
 
         Log.d(TAG, "ConfigSyncService registered and watching ${dir.absolutePath}")
     }

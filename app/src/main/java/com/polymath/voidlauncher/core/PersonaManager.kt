@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import com.polymath.voidlauncher.model.PersonaProfile
+import com.polymath.voidlauncher.model.VoidPaths
 import org.json.JSONObject
 import java.io.File
 
@@ -18,7 +19,7 @@ class PersonaManager(private val context: Context) {
         private const val TAG = "PersonaManager"
         private const val PREFS_NAME = "void_persona_prefs"
         private const val KEY_ACTIVE_PERSONA = "active_persona_id"
-        private const val EXTERNAL_PERSONAS_DIR = "/data/data/com.termux/files/home/.voidlauncher/personas"
+        private val EXTERNAL_PERSONAS_DIR: String get() = "${VoidPaths.HOME}/personas"
 
         val DEFAULT_VOID = PersonaProfile(
             id = "void",

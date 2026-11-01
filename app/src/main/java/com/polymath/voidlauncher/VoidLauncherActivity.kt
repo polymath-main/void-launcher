@@ -531,6 +531,13 @@ class VoidLauncherActivity : AppCompatActivity() {
         }
     }
 
+    /** Switches the home/workspace mode and persists it so it survives restart. */
+    private fun setHomeMode(mode: String) {
+        config = config.copy(defaultHomeMode = mode.uppercase())
+        configManager.saveConfig(config)
+        applyConfig()
+    }
+
     private fun applyHomeMode() {
         binding.stillWidgetDeckLayout.visibility = View.GONE
         binding.stillCommandCenterLayout.visibility = View.GONE
@@ -1665,18 +1672,15 @@ class VoidLauncherActivity : AppCompatActivity() {
                 openCommandCenter(true)
             }
             command == "still" -> {
-                config = config.copy(defaultHomeMode = "STILL")
-                applyConfig()
+                setHomeMode("STILL")
                 showTerminalOutput("[MODE SWITCHED]: STILL Home Mode")
             }
             command == "cockpit" -> {
-                config = config.copy(defaultHomeMode = "COCKPIT")
-                applyConfig()
+                setHomeMode("COCKPIT")
                 showTerminalOutput("[MODE SWITCHED]: Cockpit Mode")
             }
             command == "minimal" -> {
-                config = config.copy(defaultHomeMode = "MINIMAL")
-                applyConfig()
+                setHomeMode("MINIMAL")
                 showTerminalOutput("[MODE SWITCHED]: Minimal Mode")
             }
             command == "reload" -> {
@@ -2015,8 +2019,7 @@ class VoidLauncherActivity : AppCompatActivity() {
             "TOGGLE_MINIMAL"      -> toggleMinimalMode()
             "TOGGLE_STILL"        -> {
                 val nextMode = if (config.defaultHomeMode.uppercase() == "STILL") "COCKPIT" else "STILL"
-                config = config.copy(defaultHomeMode = nextMode)
-                applyConfig()
+                setHomeMode(nextMode)
                 Toast.makeText(this, "Mode: $nextMode", Toast.LENGTH_SHORT).show()
             }
             "COCKPIT_MODE"        -> { isMinimalMode = false; applyConfig() }

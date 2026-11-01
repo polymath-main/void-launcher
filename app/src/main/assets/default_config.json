@@ -103,7 +103,7 @@
   "nodeos_db_path":         "/data/data/com.termux/files/home/Projects/agy_nodeos.db",
 
   "enable_glyph_pulse": true,
-  "glyph_patterns_path": "/data/data/com.termux/files/home/.voidlauncher/glyph_patterns.json",
+  "glyph_patterns_path": "/storage/emulated/0/.voidlauncher/glyph_patterns.json",
   "enable_haptics": true,
 
   "clock_format": "HH:mm:ss",
@@ -118,10 +118,10 @@
   "agent_orchestrator_enabled": true,
 
   "widgets_enabled": false,
-  "widgets_directory": "/data/data/com.termux/files/home/.voidlauncher/widgets",
+  "widgets_directory": "/storage/emulated/0/.voidlauncher/widgets",
 
   "focus_scheduler_enabled": true,
-  "focus_schedule_path": "/data/data/com.termux/files/home/.voidlauncher/focus_schedule.json",
+  "focus_schedule_path": "/storage/emulated/0/.voidlauncher/focus_schedule.json",
 
   "notif_whitelist_packages": ["com.termux", "com.google.android.dialer"],
   "notif_blacklist_packages": [],
@@ -132,5 +132,5 @@
   "voidterm_cols": 48,
 
   "macros_enabled": true,
-  "macros_directory": "/data/data/com.termux/files/home/.voidlauncher/macros"
+  "macros_directory": "/storage/emulated/0/.voidlauncher/macros"
 }
