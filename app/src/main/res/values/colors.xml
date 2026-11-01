@@ -19,4 +19,9 @@
     <color name="phosphor_green">#10B981</color>
     <color name="amber_warn">#F59E0B</color>
     <color name="amber_warning">#F59E0B</color>
+    
+    <!-- STILL Design System Tokens -->
+    <color name="still_accent">#007AFF</color>
+    <color name="still_primary_text">#FFFFFF</color>
+    <color name="still_secondary_text">#8E8E93</color>
 </resources>

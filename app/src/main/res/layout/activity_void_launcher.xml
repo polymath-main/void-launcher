@@ -325,6 +325,232 @@
         </LinearLayout>
     </LinearLayout>
 
+    <!-- STILL Home Minimalist Intentional Layout -->
+    <ScrollView
+        android:id="@+id/stillHomeLayout"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        android:scrollbars="none"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/topCockpitLayout"
+        app:layout_constraintBottom_toTopOf="@id/bottomAnchorLayout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:paddingTop="20dp"
+            android:paddingBottom="20dp">
+
+            <!-- STILL Centered Clock (~76sp, no seconds) -->
+            <TextView
+                android:id="@+id/tvStillClock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/still_primary_text"
+                android:textSize="72sp"
+                android:textStyle="bold"
+                android:includeFontPadding="false"
+                android:text="13:48" />
+
+            <!-- STILL Uppercase Date -->
+            <TextView
+                android:id="@+id/tvStillDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/still_secondary_text"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="SUNDAY, 1 NOVEMBER" />
+
+            <!-- STILL System Status Line (Battery % + Audio Mode) -->
+            <TextView
+                android:id="@+id/tvStillStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/still_secondary_text"
+                android:textSize="11.5sp"
+                android:text="▲ 42% [34°C] · RING" />
+
+            <View
+                android:layout_width="48dp"
+                android:layout_height="1dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="16dp"
+                android:background="@color/cockpit_border" />
+
+            <!-- STILL 5-7 Favorites Container -->
+            <LinearLayout
+                android:id="@+id/layoutStillFavorites"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp" />
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- STILL Widget Deck Workspace (Left Space) -->
+    <ScrollView
+        android:id="@+id/stillWidgetDeckLayout"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        android:scrollbars="none"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/topCockpitLayout"
+        app:layout_constraintBottom_toTopOf="@id/bottomAnchorLayout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="24dp">
+
+            <!-- Deck Header Bar -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingBottom="12dp">
+
+                <TextView
+                    android:id="@+id/btnDeckBackHome"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/still_accent"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:padding="4dp"
+                    android:text="‹ HOME" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/still_primary_text"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.06"
+                    android:text="WIDGET DECK" />
+
+                <TextView
+                    android:id="@+id/tvDeckWidgetCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/still_secondary_text"
+                    android:textSize="11sp"
+                    android:text="DECK" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginBottom="12dp"
+                android:background="@color/cockpit_border" />
+
+            <!-- Deck Vitals & Telemetry Card -->
+            <LinearLayout
+                android:id="@+id/deckVitalsCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_cockpit_card"
+                android:padding="12dp"
+                android:layout_marginBottom="10dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/still_accent"
+                    android:textSize="10.5sp"
+                    android:textStyle="bold"
+                    android:text="● SYSTEM TELEMETRY" />
+
+                <TextView
+                    android:id="@+id/tvDeckVitals"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/still_primary_text"
+                    android:textSize="13sp"
+                    android:text="BATTERY: -- | TEMP: -- | RAM: --" />
+
+                <TextView
+                    android:id="@+id/tvDeckAudioMode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/still_secondary_text"
+                    android:textSize="11sp"
+                    android:text="RINGER: NORMAL" />
+            </LinearLayout>
+
+            <!-- Dynamic Plug-in Widgets Container -->
+            <LinearLayout
+                android:id="@+id/layoutDeckWidgets"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="10dp" />
+
+            <!-- Active Agent Tasks Card -->
+            <LinearLayout
+                android:id="@+id/deckTasksCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_cockpit_card"
+                android:padding="12dp"
+                android:layout_marginBottom="10dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/phosphor_green"
+                    android:textSize="10.5sp"
+                    android:textStyle="bold"
+                    android:text="● AGENT ORCHESTRATOR" />
+
+                <TextView
+                    android:id="@+id/tvDeckTasks"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/still_secondary_text"
+                    android:textSize="11sp"
+                    android:text="No active agent background tasks" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
     <!-- Zone: Built-in Files Browser Container -->
     <LinearLayout
         android:id="@+id/filesBrowserLayout"
@@ -976,5 +1202,257 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent" />
+
+    <!-- STILL Command Center Full-Screen Modal Surface (Swipe-Up Space) -->
+    <LinearLayout
+        android:id="@+id/stillCommandCenterLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@color/pitch_black"
+        android:elevation="16dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="36dp"
+        android:paddingBottom="16dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Command Center Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="monospace"
+                android:textColor="@color/still_accent"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="STILL // COMMAND CENTER" />
+
+            <TextView
+                android:id="@+id/btnCommandCenterClose"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="6dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/still_secondary_text"
+                android:textSize="12sp"
+                android:text="✕ CLOSE" />
+        </LinearLayout>
+
+        <!-- Command Input Box -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_omni_bar"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/still_accent"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:text="› " />
+
+            <EditText
+                android:id="@+id/etCommandCenterInput"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@null"
+                android:fontFamily="monospace"
+                android:hint="Type app name or :command..."
+                android:imeOptions="actionDone"
+                android:inputType="text|textNoSuggestions"
+                android:maxLines="1"
+                android:textColor="@color/still_primary_text"
+                android:textColorHint="@color/still_secondary_text"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/btnCommandCenterClear"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="6dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/still_secondary_text"
+                android:textSize="12sp"
+                android:text="✕" />
+        </LinearLayout>
+
+        <!-- Command Quick Chips Row -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/layoutCommandChips"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/chipCmdStill"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:background="@drawable/bg_chip_filter"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/still_accent"
+                    android:textSize="11sp"
+                    android:text=":still" />
+
+                <TextView
+                    android:id="@+id/chipCmdCockpit"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:background="@drawable/bg_chip_filter"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="11sp"
+                    android:text=":cockpit" />
+
+                <TextView
+                    android:id="@+id/chipCmdFiles"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:background="@drawable/bg_chip_filter"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="11sp"
+                    android:text=":files" />
+
+                <TextView
+                    android:id="@+id/chipCmdTasks"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:background="@drawable/bg_chip_filter"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="11sp"
+                    android:text=":tasks" />
+
+                <TextView
+                    android:id="@+id/chipCmdGraph"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:background="@drawable/bg_chip_filter"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="11sp"
+                    android:text=":graph" />
+
+                <TextView
+                    android:id="@+id/chipCmdPower"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:background="@drawable/bg_chip_filter"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="11sp"
+                    android:text=":power" />
+
+                <TextView
+                    android:id="@+id/chipCmdNotif"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:background="@drawable/bg_chip_filter"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="11sp"
+                    android:text=":notif" />
+
+                <TextView
+                    android:id="@+id/chipCmdSettings"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:background="@drawable/bg_chip_filter"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="11sp"
+                    android:text=":settings" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- Command Center Output / Results -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvCommandCenterApps"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scrollbars="vertical"
+                android:visibility="gone" />
+
+            <ScrollView
+                android:id="@+id/scrollCommandCenterOutput"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scrollbars="vertical">
+
+                <TextView
+                    android:id="@+id/tvCommandCenterOutput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/still_secondary_text"
+                    android:textSize="12sp"
+                    android:lineSpacingExtra="3dp"
+                    android:text="Swipe down or tap ✕ CLOSE to return to Home." />
+            </ScrollView>
+        </FrameLayout>
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

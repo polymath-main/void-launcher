@@ -115,6 +115,24 @@ class VoidLauncherActivity : AppCompatActivity() {
     private var currentFilesPath: String = ""
     private var isDrawerOpen: Boolean = false
     private var isMinimalMode: Boolean = false
+    private var isWidgetDeckOpen: Boolean = false
+    private var isCommandCenterOpen: Boolean = false
+
+    // STILL Design System Formatters & Audio State
+    private val stillTimeFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US)
+    private val stillDateFormat = java.text.SimpleDateFormat("EEEE, d MMMM", java.util.Locale.US)
+
+    private fun getAudioModeString(): String {
+        return try {
+            val am = getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return ""
+            when (am.ringerMode) {
+                android.media.AudioManager.RINGER_MODE_SILENT -> "SILENT"
+                android.media.AudioManager.RINGER_MODE_VIBRATE -> "VIBRATE"
+                android.media.AudioManager.RINGER_MODE_NORMAL -> "RING"
+                else -> ""
+            }
+        } catch (_: Exception) { "" }
+    }
 
     companion object {
         private const val REQUEST_DEFAULT_LAUNCHER = 1002
@@ -243,9 +261,15 @@ class VoidLauncherActivity : AppCompatActivity() {
         // App filter adapter (omni search)
         appAdapter = AppFilterAdapter { appEntry ->
             launchApp(entry = appEntry)
+            if (isCommandCenterOpen) {
+                openCommandCenter(false)
+            }
         }
         binding.rvAppFilter.layoutManager = LinearLayoutManager(this)
         binding.rvAppFilter.adapter = appAdapter
+
+        binding.rvCommandCenterApps.layoutManager = LinearLayoutManager(this)
+        binding.rvCommandCenterApps.adapter = appAdapter
 
         // Right drawer adapter (all apps)
         drawerAdapter = DrawerAppAdapter { appEntry ->
@@ -282,10 +306,28 @@ class VoidLauncherActivity : AppCompatActivity() {
 
         // Compound Gesture Engine (F-07)
         compoundGestureEngine = CompoundGestureEngine(this, object : CompoundGestureEngine.CompoundGestureCallbacks {
-            override fun onSwipeUp()            = handleGestureAction(config.gestureSwipeUp)
+            override fun onSwipeUp() {
+                if (config.defaultHomeMode.uppercase() == "STILL") {
+                    openCommandCenter(true)
+                } else {
+                    handleGestureAction(config.gestureSwipeUp)
+                }
+            }
             override fun onSwipeDown()          = handleGestureAction(config.gestureSwipeDown)
-            override fun onSwipeLeft()          = handleGestureAction(config.gestureSwipeLeft)
-            override fun onSwipeRight()         = handleGestureAction(config.gestureSwipeRight)
+            override fun onSwipeLeft() {
+                if (config.defaultHomeMode.uppercase() == "STILL") {
+                    openRightDrawer(true)
+                } else {
+                    handleGestureAction(config.gestureSwipeLeft)
+                }
+            }
+            override fun onSwipeRight() {
+                if (config.defaultHomeMode.uppercase() == "STILL") {
+                    openWidgetDeck(true)
+                } else {
+                    handleGestureAction(config.gestureSwipeRight)
+                }
+            }
             override fun onDoubleTap()          = handleGestureAction(config.gestureDoubleTap)
             override fun onLongPress()          = handleGestureAction(config.gestureLongPress)
             override fun onPinchIn()            = handleGestureAction(config.gesturePinchIn)
@@ -433,21 +475,258 @@ class VoidLauncherActivity : AppCompatActivity() {
     }
 
     private fun applyHomeMode() {
+        binding.stillWidgetDeckLayout.visibility = View.GONE
+        binding.stillCommandCenterLayout.visibility = View.GONE
+        isWidgetDeckOpen = false
+        isCommandCenterOpen = false
+
         when (config.defaultHomeMode.uppercase()) {
+            "STILL" -> {
+                binding.telemetryCard.visibility = View.GONE
+                binding.intentCard.visibility = View.GONE
+                binding.notificationsCard.visibility = View.GONE
+                binding.bareIntegerDock.visibility = View.GONE
+                binding.digitKeypadRow.visibility = View.GONE
+                binding.filesBrowserLayout.visibility = View.GONE
+                binding.stillHomeLayout.visibility = View.VISIBLE
+                rebuildStillFavorites()
+                updateStillClockAndVitals()
+            }
             "MINIMAL" -> {
                 binding.telemetryCard.visibility = View.GONE
                 binding.intentCard.visibility = View.GONE
                 binding.notificationsCard.visibility = View.GONE
                 binding.bareIntegerDock.visibility = View.GONE
+                binding.digitKeypadRow.visibility = View.GONE
                 binding.filesBrowserLayout.visibility = View.GONE
+                binding.stillHomeLayout.visibility = View.GONE
             }
             "FILES" -> {
                 binding.filesBrowserLayout.visibility = View.VISIBLE
+                binding.stillHomeLayout.visibility = View.GONE
                 loadFilesDirectory(currentFilesPath)
             }
             else -> {
+                // COCKPIT
                 binding.filesBrowserLayout.visibility = View.GONE
+                binding.stillHomeLayout.visibility = View.GONE
             }
+        }
+    }
+
+    private fun rebuildStillFavorites() {
+        val container = binding.layoutStillFavorites
+        container.removeAllViews()
+        val c = config.colors
+
+        for (slot in config.dockSlots) {
+            val row = LinearLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dpToPx(54)
+                ).apply {
+                    bottomMargin = dpToPx(6)
+                }
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(dpToPx(16), dpToPx(8), dpToPx(16), dpToPx(8))
+                background = GradientDrawable().apply {
+                    setColor(c.surfaceInt)
+                    setStroke(dpToPx(1), c.borderInt)
+                    cornerRadius = dpToPxF(config.cockpitCardRadiusDp)
+                }
+                isClickable = true
+                isFocusable = true
+
+                val tvLabel = TextView(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    text = slot.label
+                    setTextColor(c.textPrimaryInt)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                    setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
+                }
+
+                val tvSub = TextView(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                    text = slot.subtitle.ifEmpty { slot.action }
+                    setTextColor(c.textMutedInt)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                    typeface = Typeface.MONOSPACE
+                }
+
+                addView(tvLabel)
+                addView(tvSub)
+
+                setOnClickListener {
+                    haptic(it)
+                    bareIntegerRouter.routeSlot(slot)
+                }
+            }
+            container.addView(row)
+        }
+    }
+
+    private fun updateStillClockAndVitals(snap: com.polymath.voidlauncher.model.TelemetrySnapshot? = null) {
+        val now = java.util.Date()
+        binding.tvStillClock.text = stillTimeFormat.format(now)
+        binding.tvStillDate.text = stillDateFormat.format(now).uppercase(java.util.Locale.US)
+
+        val s = snap ?: telemetryMonitor.captureSnapshot()
+        val audioMode = getAudioModeString()
+        val audioPart = if (audioMode.isNotEmpty()) " · $audioMode" else ""
+        binding.tvStillStatus.text = "▲ ${s.batteryPercent}% [${s.batteryTemperatureC}°C]$audioPart"
+    }
+
+    private fun openWidgetDeck(open: Boolean) {
+        isWidgetDeckOpen = open
+        if (open) {
+            binding.stillWidgetDeckLayout.visibility = View.VISIBLE
+            binding.stillHomeLayout.visibility = View.GONE
+            binding.filesBrowserLayout.visibility = View.GONE
+            openRightDrawer(false)
+            if (isCommandCenterOpen) openCommandCenter(false)
+            refreshWidgetDeckContent()
+        } else {
+            binding.stillWidgetDeckLayout.visibility = View.GONE
+            if (config.defaultHomeMode.uppercase() == "STILL") {
+                binding.stillHomeLayout.visibility = View.VISIBLE
+            }
+        }
+    }
+
+    private fun refreshWidgetDeckContent() {
+        val snap = telemetryMonitor.captureSnapshot()
+        val audioMode = getAudioModeString()
+        val audioPart = if (audioMode.isNotEmpty()) " · $audioMode" else ""
+        val usedGb = String.format(java.util.Locale.US, "%.1f", snap.ramUsedMb / 1024.0)
+        binding.tvDeckVitals.text = "▲ ${snap.batteryPercent}% [${snap.batteryTemperatureC}°C] · RAM: ${usedGb}GB"
+        binding.tvDeckAudioMode.text = "RINGER: ${audioMode.ifEmpty { "NORMAL" }}"
+
+        val tasks = agentOrchestrator.getAllTasks()
+        if (tasks.isEmpty()) {
+            binding.tvDeckTasks.text = "No active agent background tasks"
+        } else {
+            val sb = java.lang.StringBuilder()
+            for (t in tasks.take(5)) {
+                sb.appendLine("● [${t.status.uppercase()}] ${t.title}")
+            }
+            binding.tvDeckTasks.text = sb.toString().trimEnd()
+        }
+
+        // Pluggable widgets
+        val widgets = widgetRegistry.loadWidgets(config.widgetDirectoryPath)
+        binding.tvDeckWidgetCount.text = "${widgets.size} WIDGETS"
+        val container = binding.layoutDeckWidgets
+        container.removeAllViews()
+        val c = config.colors
+        for (w in widgets) {
+            val card = LinearLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = dpToPx(8) }
+                orientation = LinearLayout.VERTICAL
+                setPadding(dpToPx(12), dpToPx(10), dpToPx(12), dpToPx(10))
+                background = GradientDrawable().apply {
+                    setColor(c.surfaceInt)
+                    setStroke(dpToPx(1), c.borderInt)
+                    cornerRadius = dpToPxF(config.cockpitCardRadiusDp)
+                }
+
+                val title = TextView(context).apply {
+                    text = "● ${w.title.uppercase()}"
+                    setTextColor(Color.parseColor("#007AFF"))
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+                    setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
+                }
+                val content = TextView(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { topMargin = dpToPx(4) }
+                    text = widgetRegistry.formatWidgetContent(w)
+                    setTextColor(c.textPrimaryInt)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                    typeface = Typeface.MONOSPACE
+                }
+                addView(title)
+                addView(content)
+                if (w.actionOnClick.isNotEmpty()) {
+                    setOnClickListener {
+                        haptic(it)
+                        handleOmniSubmit(w.actionOnClick)
+                    }
+                }
+            }
+            container.addView(card)
+        }
+    }
+
+    private fun openCommandCenter(open: Boolean) {
+        isCommandCenterOpen = open
+        if (open) {
+            binding.stillCommandCenterLayout.visibility = View.VISIBLE
+            binding.etCommandCenterInput.requestFocus()
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.showSoftInput(binding.etCommandCenterInput, InputMethodManager.SHOW_IMPLICIT)
+            if (isWidgetDeckOpen) openWidgetDeck(false)
+            if (isDrawerOpen) openRightDrawer(false)
+        } else {
+            binding.stillCommandCenterLayout.visibility = View.GONE
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.hideSoftInputFromWindow(binding.etCommandCenterInput.windowToken, 0)
+            binding.etCommandCenterInput.setText("")
+        }
+    }
+
+    private fun handleCommandCenterChip(cmd: String) {
+        haptic(binding.root)
+        binding.etCommandCenterInput.setText(cmd)
+        handleCommandCenterSubmit(cmd)
+    }
+
+    private fun handleCommandCenterTextChange(text: String) {
+        if (text.isEmpty() || text.startsWith(":")) {
+            binding.rvCommandCenterApps.visibility = View.GONE
+            binding.scrollCommandCenterOutput.visibility = View.VISIBLE
+            return
+        }
+        val matches = appIndexer.filterApps(text, maxResults = 10)
+        if (matches.isNotEmpty()) {
+            binding.rvCommandCenterApps.visibility = View.VISIBLE
+            binding.scrollCommandCenterOutput.visibility = View.GONE
+            appAdapter.submitList(matches)
+        } else {
+            binding.rvCommandCenterApps.visibility = View.GONE
+            binding.scrollCommandCenterOutput.visibility = View.VISIBLE
+        }
+    }
+
+    private fun handleCommandCenterSubmit(query: String) {
+        val q = query.trim()
+        if (q.isEmpty()) return
+        commandPalette.recordCommand(q)
+        if (q.startsWith(":")) {
+            handleCommandMode(q.substring(1).trim())
+            binding.tvCommandCenterOutput.text = binding.tvTerminalOutput.text
+            binding.scrollCommandCenterOutput.visibility = View.VISIBLE
+            binding.rvCommandCenterApps.visibility = View.GONE
+            return
+        }
+        val integerCommand = q.toIntOrNull()
+        if (integerCommand != null) {
+            bareIntegerRouter.routeInteger(integerCommand)
+            openCommandCenter(false)
+            return
+        }
+        val bestMatch = appIndexer.findBestMatch(q)
+        if (bestMatch != null) {
+            launchApp(bestMatch)
+            openCommandCenter(false)
+        } else {
+            binding.tvCommandCenterOutput.text = "[NOT FOUND]: $q\nNo matching app or command."
+            binding.scrollCommandCenterOutput.visibility = View.VISIBLE
+            binding.rvCommandCenterApps.visibility = View.GONE
         }
     }
 
@@ -659,6 +938,48 @@ class VoidLauncherActivity : AppCompatActivity() {
             haptic(it)
             fileManager.requestStoragePermission(this)
         }
+
+        // STILL Workspace: Widget Deck
+        binding.btnDeckBackHome.setOnClickListener {
+            haptic(it)
+            openWidgetDeck(false)
+        }
+
+        // STILL Workspace: Command Center
+        binding.btnCommandCenterClose.setOnClickListener {
+            haptic(it)
+            openCommandCenter(false)
+        }
+        binding.btnCommandCenterClear.setOnClickListener {
+            haptic(it)
+            binding.etCommandCenterInput.setText("")
+        }
+
+        binding.chipCmdStill.setOnClickListener { handleCommandCenterChip(":still") }
+        binding.chipCmdCockpit.setOnClickListener { handleCommandCenterChip(":cockpit") }
+        binding.chipCmdFiles.setOnClickListener { handleCommandCenterChip(":files") }
+        binding.chipCmdTasks.setOnClickListener { handleCommandCenterChip(":tasks") }
+        binding.chipCmdGraph.setOnClickListener { handleCommandCenterChip(":graph") }
+        binding.chipCmdPower.setOnClickListener { handleCommandCenterChip(":power") }
+        binding.chipCmdNotif.setOnClickListener { handleCommandCenterChip(":notif") }
+        binding.chipCmdSettings.setOnClickListener { handleCommandCenterChip(":settings") }
+
+        binding.etCommandCenterInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                handleCommandCenterTextChange(s?.toString() ?: "")
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        binding.etCommandCenterInput.setOnEditorActionListener { _, actionId, event ->
+            if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_GO ||
+                (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+            ) {
+                handleCommandCenterSubmit(binding.etCommandCenterInput.text.toString())
+                true
+            } else false
+        }
     }
 
     // ── Right Apps Drawer ───────────────────────────────────
@@ -676,9 +997,13 @@ class VoidLauncherActivity : AppCompatActivity() {
             binding.rightDrawerLayout.visibility = View.VISIBLE
             binding.btnDrawerTabHandle.text = "›"
             binding.filesBrowserLayout.visibility = View.GONE
+            binding.stillHomeLayout.visibility = View.GONE
         } else {
             binding.rightDrawerLayout.visibility = View.GONE
             binding.btnDrawerTabHandle.text = "‹"
+            if (config.defaultHomeMode.uppercase() == "STILL" && binding.filesBrowserLayout.visibility != View.VISIBLE && binding.tvTerminalOutput.visibility != View.VISIBLE) {
+                binding.stillHomeLayout.visibility = View.VISIBLE
+            }
         }
     }
 
@@ -694,11 +1019,16 @@ class VoidLauncherActivity : AppCompatActivity() {
             binding.filesBrowserLayout.visibility = View.VISIBLE
             binding.rvAppFilter.visibility = View.GONE
             binding.tvTerminalOutput.visibility = View.GONE
+            binding.stillHomeLayout.visibility = View.GONE
             loadFilesDirectory(currentFilesPath.ifEmpty { config.filesDefaultPath })
             openRightDrawer(false)
         } else {
             binding.filesBrowserLayout.visibility = View.GONE
-            if (config.showDock) binding.bareIntegerDock.visibility = View.VISIBLE
+            if (config.defaultHomeMode.uppercase() == "STILL") {
+                binding.stillHomeLayout.visibility = View.VISIBLE
+            } else if (config.showDock) {
+                binding.bareIntegerDock.visibility = View.VISIBLE
+            }
         }
     }
 
@@ -873,6 +1203,11 @@ class VoidLauncherActivity : AppCompatActivity() {
                 }
 
                 updateNodeOsHudView()
+
+                // STILL clock & vitals live update
+                if (config.defaultHomeMode.uppercase() == "STILL") {
+                    updateStillClockAndVitals(snap)
+                }
             }
         }
     }
@@ -1149,6 +1484,27 @@ class VoidLauncherActivity : AppCompatActivity() {
             command == "hud" || command == "status" -> {
                 termuxIpc.dispatchCommand("pmc status", inBackground = false)
             }
+            command == "deck" || command == "widgets" -> {
+                openWidgetDeck(true)
+            }
+            command == "cmd" || command == "cc" || command == "search" -> {
+                openCommandCenter(true)
+            }
+            command == "still" -> {
+                config = config.copy(defaultHomeMode = "STILL")
+                applyConfig()
+                showTerminalOutput("[MODE SWITCHED]: STILL Home Mode")
+            }
+            command == "cockpit" -> {
+                config = config.copy(defaultHomeMode = "COCKPIT")
+                applyConfig()
+                showTerminalOutput("[MODE SWITCHED]: Cockpit Mode")
+            }
+            command == "minimal" -> {
+                config = config.copy(defaultHomeMode = "MINIMAL")
+                applyConfig()
+                showTerminalOutput("[MODE SWITCHED]: Minimal Mode")
+            }
             command == "reload" -> {
                 config = configManager.loadConfig()
                 applyConfig()
@@ -1187,13 +1543,18 @@ class VoidLauncherActivity : AppCompatActivity() {
         binding.tvTerminalOutput.visibility = View.VISIBLE
         binding.rvAppFilter.visibility = View.GONE
         binding.bareIntegerDock.visibility = View.GONE
+        binding.stillHomeLayout.visibility = View.GONE
     }
 
     private fun resetOmniInput() {
         binding.etOmniInput.setText("")
         binding.rvAppFilter.visibility = View.GONE
         binding.tvTerminalOutput.visibility = View.GONE
-        if (config.showDock && binding.filesBrowserLayout.visibility != View.VISIBLE) {
+        val isStill = config.defaultHomeMode.uppercase() == "STILL"
+        if (isStill) {
+            binding.stillHomeLayout.visibility = View.VISIBLE
+            binding.bareIntegerDock.visibility = View.GONE
+        } else if (config.showDock && binding.filesBrowserLayout.visibility != View.VISIBLE) {
             binding.bareIntegerDock.visibility = View.VISIBLE
         }
     }
@@ -1226,12 +1587,24 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
+        if (isCommandCenterOpen) {
+            openCommandCenter(false)
+            return
+        }
+        if (isWidgetDeckOpen) {
+            openWidgetDeck(false)
+            return
+        }
         if (isDrawerOpen) {
             openRightDrawer(false)
             return
         }
         if (binding.filesBrowserLayout.visibility == View.VISIBLE) {
             showFilesBrowser(false)
+            return
+        }
+        if (binding.tvTerminalOutput.visibility == View.VISIBLE) {
+            resetOmniInput()
             return
         }
         if (binding.etOmniInput.text.isNotEmpty()) {
@@ -1251,7 +1624,7 @@ class VoidLauncherActivity : AppCompatActivity() {
     // ── Gesture Controls ─────────────────────────────────────
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (!binding.etOmniInput.isFocused) {
+        if (!binding.etOmniInput.isFocused && !binding.etCommandCenterInput.isFocused) {
             compoundGestureEngine.onTouchEvent(ev)
         }
         return super.dispatchTouchEvent(ev)
@@ -1259,18 +1632,33 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     private fun handleGestureAction(action: String) {
         when (action.uppercase()) {
-            "OPEN_DRAWER"       -> toggleRightDrawer()
-            "OPEN_FILES"        -> toggleFilesBrowser()
-            "OPEN_SEARCH"       -> { binding.etOmniInput.requestFocus(); showKeyboard() }
-            "OPEN_SETTINGS"     -> openSettings()
-            "OPEN_TERMINAL"     -> termuxIpc.launchTermuxInteractive()
-            "NOTIFICATIONS"     -> VoidNotificationListenerService.openAccessSettings(this)
-            "EXPAND_STATUS_BAR" -> expandStatusBar()
-            "TOGGLE_MINIMAL"    -> toggleMinimalMode()
-            "COCKPIT_MODE"      -> { isMinimalMode = false; applyConfig() }
-            "FOCUS_OMNI"        -> { binding.etOmniInput.requestFocus(); showKeyboard() }
-            "OPEN_HUD"          -> termuxIpc.dispatchCommand("pmc status", inBackground = false)
-            "TOGGLE_IDENTITY"   -> {
+            "OPEN_DRAWER"         -> toggleRightDrawer()
+            "OPEN_FILES"          -> toggleFilesBrowser()
+            "OPEN_SEARCH"         -> {
+                if (config.defaultHomeMode.uppercase() == "STILL") {
+                    openCommandCenter(true)
+                } else {
+                    binding.etOmniInput.requestFocus()
+                    showKeyboard()
+                }
+            }
+            "OPEN_COMMAND_CENTER" -> openCommandCenter(true)
+            "OPEN_WIDGET_DECK"    -> openWidgetDeck(true)
+            "OPEN_SETTINGS"       -> openSettings()
+            "OPEN_TERMINAL"       -> termuxIpc.launchTermuxInteractive()
+            "NOTIFICATIONS"       -> VoidNotificationListenerService.openAccessSettings(this)
+            "EXPAND_STATUS_BAR"   -> expandStatusBar()
+            "TOGGLE_MINIMAL"      -> toggleMinimalMode()
+            "TOGGLE_STILL"        -> {
+                val nextMode = if (config.defaultHomeMode.uppercase() == "STILL") "COCKPIT" else "STILL"
+                config = config.copy(defaultHomeMode = nextMode)
+                applyConfig()
+                Toast.makeText(this, "Mode: $nextMode", Toast.LENGTH_SHORT).show()
+            }
+            "COCKPIT_MODE"        -> { isMinimalMode = false; applyConfig() }
+            "FOCUS_OMNI"          -> { binding.etOmniInput.requestFocus(); showKeyboard() }
+            "OPEN_HUD"            -> termuxIpc.dispatchCommand("pmc status", inBackground = false)
+            "TOGGLE_IDENTITY"     -> {
                 val newP = personaManager.cyclePersona()
                 applyIdentityBadge()
                 Toast.makeText(this, "Persona: ${newP.label}", Toast.LENGTH_SHORT).show()
@@ -1287,6 +1675,7 @@ class VoidLauncherActivity : AppCompatActivity() {
             binding.notificationsCard.visibility = View.GONE
             binding.bareIntegerDock.visibility = View.GONE
             binding.digitKeypadRow.visibility = View.GONE
+            binding.stillHomeLayout.visibility = View.GONE
         } else {
             applyConfig()
         }

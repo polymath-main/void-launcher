@@ -31,6 +31,13 @@ class BareIntegerRouter(
         return executeSlotAction(slot)
     }
 
+    /**
+     * Directly executes an action for a given DockSlot.
+     */
+    fun routeSlot(slot: DockSlot): Boolean {
+        return executeSlotAction(slot)
+    }
+
     fun getSlots(): List<DockSlot> = slots
 
     private fun executeSlotAction(slot: DockSlot): Boolean {
