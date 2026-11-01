@@ -73,16 +73,33 @@ class AstGraphRenderer {
         }
     }
 
-    fun formatSummaryText(snapshot: TopologySnapshot): String {
+    /**
+     * Renders a textual topology summary.
+     *
+     * @param nodeCap maximum number of nodes to visualise (config: `ast_graph_node_cap`).
+     *        A value <= 0 renders the full breakdown.
+     */
+    fun formatSummaryText(snapshot: TopologySnapshot, nodeCap: Int = 0): String {
         if (!snapshot.isAlive) {
             return "[NodeOS Graph: Offline / agy_nodeos.db not accessible]"
         }
 
+        val cap = if (nodeCap > 0) nodeCap else Int.MAX_VALUE
         val sb = StringBuilder()
         sb.appendLine("=== NodeOS Spatial AST Graph ===")
         sb.appendLine("Total Nodes: ${snapshot.totalNodes} | Total Edges: ${snapshot.totalEdges}")
+        if (cap != Int.MAX_VALUE) {
+            sb.appendLine("Render cap: $cap nodes")
+        }
         sb.appendLine("--------------------------------")
+
+        var rendered = 0
         for ((type, count) in snapshot.typeBreakdown) {
+            if (rendered >= cap) {
+                sb.appendLine("… breakdown truncated at cap")
+                break
+            }
+            rendered += count
             val barLen = (count * 15 / (snapshot.totalNodes.coerceAtLeast(1))).coerceIn(1, 15)
             val bar = "■".repeat(barLen)
             sb.appendLine(String.format(java.util.Locale.US, "%-12s [%4d] %s", type, count, bar))

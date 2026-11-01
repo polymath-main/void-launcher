@@ -20,11 +20,23 @@ class TelemetryMonitor(private val context: Context) {
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.US)
     private val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
 
-    fun monitorTelemetry(pollIntervalMs: Long = 1000L): Flow<TelemetrySnapshot> = flow {
+    /**
+     * Emits telemetry snapshots forever.
+     *
+     * @param pollIntervalMs fixed cadence used when [intervalProvider] is null.
+     * @param intervalProvider optional dynamic cadence resolver (adaptive power profile).
+     *        When supplied it is consulted before every delay, so the cadence can
+     *        change at runtime without restarting the flow.
+     */
+    fun monitorTelemetry(
+        pollIntervalMs: Long = 1000L,
+        intervalProvider: (() -> Long)? = null
+    ): Flow<TelemetrySnapshot> = flow {
         while (currentCoroutineContext().isActive) {
             val snapshot = captureSnapshot()
             emit(snapshot)
-            delay(pollIntervalMs)
+            val delayMs = (intervalProvider?.invoke() ?: pollIntervalMs).coerceAtLeast(200L)
+            delay(delayMs)
         }
     }
 

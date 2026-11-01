@@ -8,6 +8,19 @@
     android:background="@color/pitch_black"
     android:clipToPadding="false">
 
+    <!-- Liquid touch underlay: organic ripple feedback on the OLED surface.
+         First child so it paints above the root background but below all content. -->
+    <com.polymath.voidlauncher.ui.LiquidTouchSurfaceView
+        android:id="@+id/liquidSurface"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clickable="false"
+        android:focusable="false"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- Top Cockpit Container -->
     <LinearLayout
         android:id="@+id/topCockpitLayout"
@@ -952,107 +965,75 @@
                     android:textSize="11sp"
                     android:text="Void Customizer" />
             </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btnSlot6"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_bare_slot"
+                android:orientation="horizontal"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:gravity="center_vertical"
+                android:visibility="gone">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12.5sp"
+                    android:text="[6] SLOT 6" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:text="Empty" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btnSlot7"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_bare_slot"
+                android:orientation="horizontal"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:gravity="center_vertical"
+                android:visibility="gone">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12.5sp"
+                    android:text="[7] SLOT 7" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:text="Empty" />
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- Fast Numerical Jump Row (Keypad) -->
+        <!-- Fast Numerical Jump Row (Keypad) — generated in code from the
+             configured dock slots and hidden until the [123] toggle is pressed. -->
         <LinearLayout
             android:id="@+id/digitKeypadRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
-
-            <TextView
-                android:id="@+id/keyDigit1"
-                android:layout_width="0dp"
-                android:layout_height="32dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="3dp"
-                android:background="@drawable/bg_digit_btn"
-                android:gravity="center"
-                android:fontFamily="monospace"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
-                android:text="1" />
-
-            <TextView
-                android:id="@+id/keyDigit2"
-                android:layout_width="0dp"
-                android:layout_height="32dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="3dp"
-                android:background="@drawable/bg_digit_btn"
-                android:gravity="center"
-                android:fontFamily="monospace"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
-                android:text="2" />
-
-            <TextView
-                android:id="@+id/keyDigit3"
-                android:layout_width="0dp"
-                android:layout_height="32dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="3dp"
-                android:background="@drawable/bg_digit_btn"
-                android:gravity="center"
-                android:fontFamily="monospace"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
-                android:text="3" />
-
-            <TextView
-                android:id="@+id/keyDigit4"
-                android:layout_width="0dp"
-                android:layout_height="32dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="3dp"
-                android:background="@drawable/bg_digit_btn"
-                android:gravity="center"
-                android:fontFamily="monospace"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
-                android:text="4" />
-
-            <TextView
-                android:id="@+id/keyDigit5"
-                android:layout_width="0dp"
-                android:layout_height="32dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="3dp"
-                android:background="@drawable/bg_digit_btn"
-                android:gravity="center"
-                android:fontFamily="monospace"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
-                android:text="5" />
-
-            <TextView
-                android:id="@+id/keyColon"
-                android:layout_width="0dp"
-                android:layout_height="32dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="3dp"
-                android:background="@drawable/bg_digit_btn"
-                android:gravity="center"
-                android:fontFamily="monospace"
-                android:textColor="@color/void_crimson"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:text=":" />
-
-            <TextView
-                android:id="@+id/keyBackspace"
-                android:layout_width="0dp"
-                android:layout_height="32dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_digit_btn"
-                android:gravity="center"
-                android:fontFamily="monospace"
-                android:textColor="@color/text_muted"
-                android:textSize="12sp"
-                android:text="⌫" />
-        </LinearLayout>
+            android:layout_marginBottom="8dp"
+            android:visibility="gone" />
 
         <!-- Zone 5: Omni-Command Bar (Directly Above Keyboard) -->
         <LinearLayout
@@ -1090,6 +1071,20 @@
                 android:imeOptions="actionGo"
                 android:inputType="textNoSuggestions|textVisiblePassword"
                 android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/btnToggleKeypad"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:text="[123]" />
 
             <TextView
                 android:id="@+id/btnExecute"

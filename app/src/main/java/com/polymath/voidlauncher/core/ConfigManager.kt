@@ -192,6 +192,7 @@ class ConfigManager(private val context: Context) {
             enableGlyphPulse = json.optBoolean("enable_glyph_pulse", true),
             glyphPatternsPath = json.optString("glyph_patterns_path", "/data/data/com.termux/files/home/.voidlauncher/glyph_patterns.json"),
             enableHaptics = json.optBoolean("enable_haptics", true),
+            liquidTouchEnabled = json.optBoolean("liquid_touch_enabled", true),
             clockFormat = json.optString("clock_format", "HH:mm:ss"),
             clockSuffix = json.optString("clock_suffix", " UTC+6"),
             telemetryPollMs = json.optLong("telemetry_poll_ms", 1500L),
@@ -395,7 +396,11 @@ class ConfigManager(private val context: Context) {
         // Glyph & Haptics
         json.put("enable_glyph_pulse", config.enableGlyphPulse)
         json.put("glyph_patterns_path", config.glyphPatternsPath)
+        // Haptics
         json.put("enable_haptics", config.enableHaptics)
+
+        // Liquid touch surface
+        json.put("liquid_touch_enabled", config.liquidTouchEnabled)
 
         // Clock
         json.put("clock_format", config.clockFormat)
@@ -420,6 +425,19 @@ class ConfigManager(private val context: Context) {
         json.put("voidterm_cols", config.voidTermCols)
         json.put("macros_enabled", config.macrosEnabled)
         json.put("macros_directory", config.macrosDirectory)
+
+        // Notification Intelligence filters
+        val notifWhitelist = JSONArray()
+        for (p in config.notifWhitelistPackages) notifWhitelist.put(p)
+        json.put("notif_whitelist_packages", notifWhitelist)
+
+        val notifBlacklist = JSONArray()
+        for (p in config.notifBlacklistPackages) notifBlacklist.put(p)
+        json.put("notif_blacklist_packages", notifBlacklist)
+
+        val notifKeywords = JSONArray()
+        for (k in config.notifPriorityKeywords) notifKeywords.put(k)
+        json.put("notif_priority_keywords", notifKeywords)
 
         return json
     }

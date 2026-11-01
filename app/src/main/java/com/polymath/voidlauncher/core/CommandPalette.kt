@@ -182,6 +182,24 @@ class CommandPalette(context: Context) : SQLiteOpenHelper(context, DB_NAME, null
     }
 
     /**
+     * Enforces the configured history ceiling (config: `command_history_limit`).
+     * Snippets are never pruned; only plain command history is capped.
+     */
+    fun pruneToLimit(limit: Int) {
+        if (limit <= 0) return
+        try {
+            writableDatabase.execSQL(
+                "DELETE FROM $TABLE_HISTORY WHERE $COL_IS_SNIPPET = 0 AND $COL_ID NOT IN " +
+                    "(SELECT $COL_ID FROM $TABLE_HISTORY WHERE $COL_IS_SNIPPET = 0 " +
+                    "ORDER BY $COL_TIMESTAMP DESC LIMIT ?)",
+                arrayOf<Any>(limit)
+            )
+        } catch (_: Exception) {
+            // Pruning is best-effort; never let it break command dispatch.
+        }
+    }
+
+    /**
      * Deletes a record by ID.
      */
     fun delete(id: Long): Boolean {

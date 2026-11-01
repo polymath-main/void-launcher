@@ -12,7 +12,8 @@ import com.polymath.voidlauncher.databinding.ItemAppEntryBinding
 import com.polymath.voidlauncher.model.AppEntry
 
 class AppFilterAdapter(
-    private val onItemClick: (AppEntry) -> Unit
+    private val onItemClick: (AppEntry) -> Unit,
+    private val onItemLongClick: (AppEntry) -> Unit
 ) : RecyclerView.Adapter<AppFilterAdapter.AppViewHolder>() {
 
     private val items = mutableListOf<AppEntry>()
@@ -73,6 +74,10 @@ class AppFilterAdapter(
 
             binding.root.setOnClickListener {
                 onItemClick(entry)
+            }
+            binding.root.setOnLongClickListener {
+                onItemLongClick(entry)
+                true
             }
         }
     }

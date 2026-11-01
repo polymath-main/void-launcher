@@ -4,9 +4,16 @@ import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.Icon
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -26,6 +33,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -60,6 +68,7 @@ import com.polymath.voidlauncher.core.VoidTermPanel
 import com.polymath.voidlauncher.core.WidgetRegistry
 import com.polymath.voidlauncher.databinding.ActivityVoidLauncherBinding
 import com.polymath.voidlauncher.model.AppEntry
+import com.polymath.voidlauncher.model.DockSlot
 import com.polymath.voidlauncher.model.FileItem
 import com.polymath.voidlauncher.model.LauncherConfig
 import com.polymath.voidlauncher.ui.AppFilterAdapter
@@ -114,12 +123,15 @@ class VoidLauncherActivity : AppCompatActivity() {
     private var config: LauncherConfig = LauncherConfig()
     private var currentFilesPath: String = ""
     private var isDrawerOpen: Boolean = false
+    private var gestureSuppressedForTouch: Boolean = false
+    private var isKeypadVisible: Boolean = false
     private var isMinimalMode: Boolean = false
     private var isWidgetDeckOpen: Boolean = false
     private var isCommandCenterOpen: Boolean = false
 
     // STILL Design System Formatters & Audio State
-    private val stillTimeFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US)
+    private var cockpitTimeFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+    private var stillTimeFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US)
     private val stillDateFormat = java.text.SimpleDateFormat("EEEE, d MMMM", java.util.Locale.US)
 
     private fun getAudioModeString(): String {
@@ -217,6 +229,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         notifIntelligence = NotifIntelligence()
         personaManager = PersonaManager(this).apply {
             registerConfigProfiles(config.personas)
+            if (config.activePersona.isNotBlank()) selectPersona(config.activePersona)
         }
         glyphChoreographer = GlyphChoreographer(this).apply {
             loadCustomPatterns(config.glyphPatternsPath)
@@ -232,7 +245,10 @@ class VoidLauncherActivity : AppCompatActivity() {
         focusScheduler = FocusScheduler(this, personaManager, glyphChoreographer).apply {
             if (config.focusSchedulerEnabled) loadSchedule(config.focusSchedulePath)
         }
-        voidTermPanel = VoidTermPanel(this, termuxIpc)
+        voidTermPanel = VoidTermPanel(this, termuxIpc).apply {
+            rows = config.voidTermRows
+            cols = config.voidTermCols
+        }
         macroRecorder = MacroRecorder(this)
 
         configSyncService = ConfigSyncService(this) {
@@ -259,12 +275,15 @@ class VoidLauncherActivity : AppCompatActivity() {
         }
 
         // App filter adapter (omni search)
-        appAdapter = AppFilterAdapter { appEntry ->
-            launchApp(entry = appEntry)
-            if (isCommandCenterOpen) {
-                openCommandCenter(false)
-            }
-        }
+        appAdapter = AppFilterAdapter(
+            onItemClick = { appEntry ->
+                launchApp(entry = appEntry)
+                if (isCommandCenterOpen) {
+                    openCommandCenter(false)
+                }
+            },
+            onItemLongClick = { appEntry -> showAppMenu(appEntry) }
+        )
         binding.rvAppFilter.layoutManager = LinearLayoutManager(this)
         binding.rvAppFilter.adapter = appAdapter
 
@@ -272,10 +291,13 @@ class VoidLauncherActivity : AppCompatActivity() {
         binding.rvCommandCenterApps.adapter = appAdapter
 
         // Right drawer adapter (all apps)
-        drawerAdapter = DrawerAppAdapter { appEntry ->
-            launchApp(entry = appEntry)
-            openRightDrawer(false)
-        }
+        drawerAdapter = DrawerAppAdapter(
+            onItemClick = { appEntry ->
+                launchApp(entry = appEntry)
+                openRightDrawer(false)
+            },
+            onItemLongClick = { appEntry -> showAppMenu(appEntry) }
+        )
         binding.rvDrawerApps.layoutManager = LinearLayoutManager(this)
         binding.rvDrawerApps.adapter = drawerAdapter
 
@@ -362,7 +384,10 @@ class VoidLauncherActivity : AppCompatActivity() {
         binding.intentCard.visibility = if (config.showIntentCard) View.VISIBLE else View.GONE
         binding.notificationsCard.visibility = if (config.showNotificationsCard) View.VISIBLE else View.GONE
         binding.bareIntegerDock.visibility = if (config.showDock) View.VISIBLE else View.GONE
-        binding.digitKeypadRow.visibility = if (config.showDigitKeypad) View.VISIBLE else View.GONE
+        // Digit keypad: the config toggle controls the [123] launcher button; the
+        // keypad itself stays collapsed until that button is pressed.
+        binding.btnToggleKeypad.visibility = if (config.showDigitKeypad) View.VISIBLE else View.GONE
+        if (!config.showDigitKeypad) isKeypadVisible = false
 
         // Text colors
         binding.tvClock.setTextColor(c.textPrimaryInt)
@@ -395,12 +420,44 @@ class VoidLauncherActivity : AppCompatActivity() {
         // Rebuild dock slots
         rebuildDockSlots()
 
-        // Keypad buttons
-        applyDigitKeypadColors()
+        // Keypad buttons (dynamically generated from dock slots)
+        rebuildKeypad()
 
         // Drawer background alpha
         val drawerAlphaInt = (config.drawerAlpha * 255).toInt().coerceIn(0, 255)
         binding.rightDrawerLayout.setBackgroundColor(Color.argb(drawerAlphaInt, 8, 8, 8))
+
+        // Drawer width (config: drawer_width_percent)
+        val drawerPct = config.drawerWidthPercent.coerceIn(30, 100)
+        val screenWidth = resources.displayMetrics.widthPixels
+        binding.rightDrawerLayout.layoutParams = binding.rightDrawerLayout.layoutParams.apply {
+            width = (screenWidth * drawerPct / 100)
+        }
+
+        // Typography (config: font_family / hud_font_size_sp / omni_font_size_sp)
+        applyTypography()
+
+        // Clock formatters (config: clock_format / clock_suffix)
+        cockpitTimeFormat = java.text.SimpleDateFormat(config.clockFormat, java.util.Locale.US)
+        val stillPattern = if (config.clockFormat.contains(":ss")) config.clockFormat.replace(":ss", "") else config.clockFormat
+        stillTimeFormat = java.text.SimpleDateFormat(stillPattern.ifBlank { "HH:mm" }, java.util.Locale.US)
+
+        // Persona sync (config: active_persona)
+        if (config.activePersona.isNotBlank() &&
+            !personaManager.getActivePersona().id.equals(config.activePersona, ignoreCase = true)
+        ) {
+            personaManager.selectPersona(config.activePersona)
+            applyIdentityBadge()
+        }
+
+        // Liquid touch surface (config: liquid_touch_enabled)
+        binding.liquidSurface.isLiquidEffectEnabled = config.liquidTouchEnabled
+        binding.liquidSurface.rippleColor = c.accentInt
+        binding.liquidSurface.visibility = if (config.liquidTouchEnabled) View.VISIBLE else View.GONE
+
+        // VoidTerm viewport (config: voidterm_rows / voidterm_cols)
+        voidTermPanel.rows = config.voidTermRows
+        voidTermPanel.cols = config.voidTermCols
 
         // Apply app icon customizations to adapters
         appAdapter.showIcons = config.showAppIcons
@@ -486,7 +543,9 @@ class VoidLauncherActivity : AppCompatActivity() {
                 binding.intentCard.visibility = View.GONE
                 binding.notificationsCard.visibility = View.GONE
                 binding.bareIntegerDock.visibility = View.GONE
+                isKeypadVisible = false
                 binding.digitKeypadRow.visibility = View.GONE
+                binding.btnToggleKeypad.visibility = View.GONE
                 binding.filesBrowserLayout.visibility = View.GONE
                 binding.stillHomeLayout.visibility = View.VISIBLE
                 rebuildStillFavorites()
@@ -497,7 +556,9 @@ class VoidLauncherActivity : AppCompatActivity() {
                 binding.intentCard.visibility = View.GONE
                 binding.notificationsCard.visibility = View.GONE
                 binding.bareIntegerDock.visibility = View.GONE
+                isKeypadVisible = false
                 binding.digitKeypadRow.visibility = View.GONE
+                binding.btnToggleKeypad.visibility = View.GONE
                 binding.filesBrowserLayout.visibility = View.GONE
                 binding.stillHomeLayout.visibility = View.GONE
             }
@@ -508,6 +569,7 @@ class VoidLauncherActivity : AppCompatActivity() {
             }
             else -> {
                 // COCKPIT
+                binding.btnToggleKeypad.visibility = if (config.showDigitKeypad) View.VISIBLE else View.GONE
                 binding.filesBrowserLayout.visibility = View.GONE
                 binding.stillHomeLayout.visibility = View.GONE
             }
@@ -705,7 +767,7 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun handleCommandCenterSubmit(query: String) {
         val q = query.trim()
         if (q.isEmpty()) return
-        commandPalette.recordCommand(q)
+        recordCommandHistory(q)
         if (q.startsWith(":")) {
             handleCommandMode(q.substring(1).trim())
             binding.tvCommandCenterOutput.text = binding.tvTerminalOutput.text
@@ -733,22 +795,55 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun applyIdentityBadge() {
         val c = config.colors
         val persona = personaManager.getActivePersona()
-        binding.tvIdentityBadge.text = persona.label
+        val label = when (persona.id.lowercase()) {
+            "void" -> config.identityVoidLabel.ifBlank { persona.label }
+            "main" -> config.identityMainLabel.ifBlank { persona.label }
+            else -> persona.label
+        }
+        binding.tvIdentityBadge.text = label
         val accentCol = Color.parseColor(persona.accentColor)
         binding.tvIdentityBadge.setTextColor(accentCol)
         applyBadgeBackground(binding.tvIdentityBadge, c.surfaceInt, accentCol)
     }
 
+    private fun resolveTypeface(family: String): Typeface = when (family.lowercase().trim()) {
+        "sans-serif", "sans", "sansserif" -> Typeface.SANS_SERIF
+        "serif" -> Typeface.SERIF
+        "cursive" -> Typeface.SERIF
+        else -> Typeface.MONOSPACE
+    }
+
+    private fun applyTypography() {
+        val tf = resolveTypeface(config.fontFamily)
+        val hudBold = Typeface.create(tf, Typeface.BOLD)
+        val hudViews = listOf(
+            binding.tvClock, binding.tvMemory, binding.tvBatteryTemp,
+            binding.tvDaemonStatus, binding.tvAstCount, binding.tvWorkspace,
+            binding.tvGitBranch, binding.tvActiveIntent
+        )
+        for (v in hudViews) {
+            v.typeface = tf
+            v.setTextSize(TypedValue.COMPLEX_UNIT_SP, config.hudFontSizeSp)
+        }
+        binding.tvClock.typeface = hudBold
+        binding.tvBatteryTemp.typeface = hudBold
+        binding.etOmniInput.setTextSize(TypedValue.COMPLEX_UNIT_SP, config.omniFontSizeSp)
+        binding.etCommandCenterInput.setTextSize(TypedValue.COMPLEX_UNIT_SP, config.omniFontSizeSp)
+    }
+
     private fun rebuildDockSlots() {
         val c = config.colors
+        // IMPORTANT: bind by slot.index, not list position. The user can add a
+        // high-index slot (e.g. 7) while leaving lower indices empty, so the list
+        // is sparse and positional binding would paint the wrong view.
         val slotViews = listOf(
             binding.btnSlot1, binding.btnSlot2, binding.btnSlot3,
-            binding.btnSlot4, binding.btnSlot5
+            binding.btnSlot4, binding.btnSlot5, binding.btnSlot6, binding.btnSlot7
         )
 
         for ((i, slotView) in slotViews.withIndex()) {
-            if (i < config.dockSlots.size) {
-                val slot = config.dockSlots[i]
+            val slot = config.dockSlots.firstOrNull { it.index == (i + 1) }
+            if (slot != null) {
                 slotView.visibility = View.VISIBLE
 
                 val labelView = (slotView as? LinearLayout)?.getChildAt(0) as? TextView
@@ -766,17 +861,63 @@ class VoidLauncherActivity : AppCompatActivity() {
         }
     }
 
-    private fun applyDigitKeypadColors() {
+    /**
+     * Digit keypad is generated in code from the configured dock slots (1..N, max 7).
+     * One key per slot plus the `:` command prefix and backspace. The row stays
+     * collapsed until the [123] toggle is pressed (isKeypadVisible).
+     */
+    private fun rebuildKeypad() {
+        val row = binding.digitKeypadRow
+        row.removeAllViews()
         val c = config.colors
-        val digitViews = listOf(
-            binding.keyDigit1, binding.keyDigit2, binding.keyDigit3,
-            binding.keyDigit4, binding.keyDigit5
-        )
-        for (v in digitViews) {
-            v.setTextColor(c.textSecondaryInt)
+
+        for (slot in config.dockSlots.sortedBy { it.index }) {
+            row.addView(buildKeypadKey(slot.index.toString(), c.textSecondaryInt) { view ->
+                handleDigitKey(view, slot.index)
+            })
         }
-        binding.keyColon.setTextColor(c.accentInt)
-        binding.keyBackspace.setTextColor(c.textMutedInt)
+
+        row.addView(buildKeypadKey(":", c.accentInt) { view ->
+            haptic(view)
+            binding.etOmniInput.setText(":")
+            binding.etOmniInput.setSelection(1)
+            binding.etOmniInput.requestFocus()
+        })
+
+        row.addView(buildKeypadKey("⌫", c.textMutedInt) { view ->
+            haptic(view)
+            val text = binding.etOmniInput.text.toString()
+            if (text.isNotEmpty()) {
+                binding.etOmniInput.setText(text.substring(0, text.length - 1))
+                binding.etOmniInput.setSelection(binding.etOmniInput.text.length)
+            }
+        })
+
+        row.visibility = if (isKeypadVisible && config.showDigitKeypad) View.VISIBLE else View.GONE
+    }
+
+    private fun buildKeypadKey(label: String, textColor: Int, onClick: (View) -> Unit): TextView {
+        return TextView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(32), 1f).apply {
+                marginEnd = dpToPx(3)
+            }
+            // Fresh drawable per key so pressed-state does not bleed across buttons.
+            background = ContextCompat.getDrawable(this@VoidLauncherActivity, R.drawable.bg_digit_btn)
+            gravity = android.view.Gravity.CENTER
+            typeface = Typeface.MONOSPACE
+            text = label
+            setTextColor(textColor)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onClick(it) }
+        }
+    }
+
+    private fun toggleKeypad() {
+        haptic(binding.root)
+        isKeypadVisible = !isKeypadVisible
+        binding.digitKeypadRow.visibility = if (isKeypadVisible) View.VISIBLE else View.GONE
     }
 
     private fun applyCardBackground(view: View, surfaceColor: Int, borderColor: Int) {
@@ -815,30 +956,17 @@ class VoidLauncherActivity : AppCompatActivity() {
         binding.btnSlot3.setOnClickListener { handleDigitKey(it, 3) }
         binding.btnSlot4.setOnClickListener { handleDigitKey(it, 4) }
         binding.btnSlot5.setOnClickListener { handleDigitKey(it, 5) }
+        binding.btnSlot6.setOnClickListener { handleDigitKey(it, 6) }
+        binding.btnSlot7.setOnClickListener { handleDigitKey(it, 7) }
 
-        binding.keyDigit1.setOnClickListener { handleDigitKey(it, 1) }
-        binding.keyDigit2.setOnClickListener { handleDigitKey(it, 2) }
-        binding.keyDigit3.setOnClickListener { handleDigitKey(it, 3) }
-        binding.keyDigit4.setOnClickListener { handleDigitKey(it, 4) }
-        binding.keyDigit5.setOnClickListener { handleDigitKey(it, 5) }
-        binding.keyColon.setOnClickListener {
-            haptic(it)
-            binding.etOmniInput.setText(":")
-            binding.etOmniInput.setSelection(1)
-            binding.etOmniInput.requestFocus()
-        }
-        binding.keyBackspace.setOnClickListener {
-            haptic(it)
-            val text = binding.etOmniInput.text.toString()
-            if (text.isNotEmpty()) {
-                binding.etOmniInput.setText(text.substring(0, text.length - 1))
-                binding.etOmniInput.setSelection(binding.etOmniInput.text.length)
-            }
-        }
+        // Dynamic digit keypad toggle (keys themselves are built in rebuildKeypad)
+        binding.btnToggleKeypad.setOnClickListener { toggleKeypad() }
 
         // Smart Persona cycle toggle (F-02)
         binding.tvIdentityBadge.setOnClickListener {
             val newPersona = personaManager.cyclePersona()
+            config = config.copy(activePersona = newPersona.id)
+            configManager.saveConfig(config)
             applyIdentityBadge()
             glyphChoreographer.play("FOCUS_MODE_ON")
             Toast.makeText(this, "Persona: ${newPersona.label} (${newPersona.subtitle})", Toast.LENGTH_SHORT).show()
@@ -1177,10 +1305,23 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun startTelemetryFlow() {
         telemetryJob?.cancel()
         telemetryJob = lifecycleScope.launch {
-            telemetryMonitor.monitorTelemetry().collectLatest { snap ->
+            // Adaptive cadence (config: telemetry_poll_ms / power_profile_adaptive).
+            // The provider is re-evaluated before every delay, so the interval reacts
+            // to battery/thermal changes without restarting the flow.
+            val intervalProvider: () -> Long = {
+                if (config.powerProfileAdaptive) {
+                    powerProfileAdaptor.getRecommendedPollIntervalMs()
+                } else {
+                    config.telemetryPollMs
+                }
+            }
+            telemetryMonitor.monitorTelemetry(
+                pollIntervalMs = config.telemetryPollMs,
+                intervalProvider = intervalProvider
+            ).collectLatest { snap ->
                 val powerLevel = powerProfileAdaptor.evaluate(snap, config.thermalLimitCelsius)
 
-                binding.tvClock.text = snap.timestampFormatted
+                binding.tvClock.text = cockpitTimeFormat.format(java.util.Date()) + config.clockSuffix
                 binding.tvBatteryTemp.text = "▲ ${snap.batteryPercent}% [${snap.batteryTemperatureC}°C]"
                 val usedGb = String.format(java.util.Locale.US, "%.1f", snap.ramUsedMb / 1024.0)
                 binding.tvMemory.text = "RAM: ${usedGb}G ${powerLevel.label}"
@@ -1302,7 +1443,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         if (query.isEmpty()) return
 
         // Record history & macro step (F-09, F-15)
-        commandPalette.recordCommand(query)
+        recordCommandHistory(query)
         if (macroRecorder.isRecording) {
             macroRecorder.recordStep(query)
         }
@@ -1342,21 +1483,29 @@ class VoidLauncherActivity : AppCompatActivity() {
             }
             // F-08 Agent Task Orchestrator
             command.startsWith("task ") -> {
-                val args = command.removePrefix("task ").trim()
-                val parts = args.split(" ", limit = 2)
-                val title = parts.getOrNull(0) ?: "Task"
-                val cmd = parts.getOrNull(1) ?: "echo 'no command'"
-                val task = agentOrchestrator.dispatchTask(title, cmd)
-                glyphChoreographer.play("TASK_SUCCESS")
-                showTerminalOutput("[TASK DISPATCHED]: ${task.title}\nCMD: ${task.command}")
+                if (!config.agentOrchestratorEnabled) {
+                    showTerminalOutput("[AGENT GATE] Orchestrator disabled (agent_orchestrator_enabled=false)")
+                } else {
+                    val args = command.removePrefix("task ").trim()
+                    val parts = args.split(" ", limit = 2)
+                    val title = parts.getOrNull(0) ?: "Task"
+                    val cmd = parts.getOrNull(1) ?: "echo 'no command'"
+                    val task = agentOrchestrator.dispatchTask(title, cmd)
+                    glyphChoreographer.play("TASK_SUCCESS")
+                    showTerminalOutput("[TASK DISPATCHED]: ${task.title}\nCMD: ${task.command}")
+                }
             }
             command == "tasks" -> {
-                val tasks = agentOrchestrator.getAllTasks()
-                val sb = StringBuilder("=== Active Agent Tasks (${tasks.size}) ===\n\n")
-                for (t in tasks.take(10)) {
-                    sb.appendLine("[${t.status.uppercase()}] ${t.title} (id: ${t.id})")
+                if (!config.agentOrchestratorEnabled) {
+                    showTerminalOutput("[AGENT GATE] Orchestrator disabled (agent_orchestrator_enabled=false)")
+                } else {
+                    val tasks = agentOrchestrator.getAllTasks()
+                    val sb = StringBuilder("=== Active Agent Tasks (${tasks.size}) ===\n\n")
+                    for (t in tasks.take(10)) {
+                        sb.appendLine("[${t.status.uppercase()}] ${t.title} (id: ${t.id})")
+                    }
+                    showTerminalOutput(sb.toString().trimEnd())
                 }
-                showTerminalOutput(sb.toString().trimEnd())
             }
             command.startsWith("kill ") -> {
                 val taskId = command.removePrefix("kill ").trim()
@@ -1365,8 +1514,12 @@ class VoidLauncherActivity : AppCompatActivity() {
             }
             // F-05 NodeOS AST Graph Query
             command == "graph" -> {
-                val snapshot = astGraphRenderer.queryTopology(config.nodeosDbPath)
-                showTerminalOutput(astGraphRenderer.formatSummaryText(snapshot))
+                if (!config.astGraphEnabled) {
+                    showTerminalOutput("[AST GATE] Graph disabled (ast_graph_enabled=false)")
+                } else {
+                    val snapshot = astGraphRenderer.queryTopology(config.nodeosDbPath)
+                    showTerminalOutput(astGraphRenderer.formatSummaryText(snapshot, config.astGraphNodeCap))
+                }
             }
             // F-02 Persona Management
             command == "persona" || command == "personas" -> {
@@ -1393,27 +1546,44 @@ class VoidLauncherActivity : AppCompatActivity() {
             }
             // F-15 Macro Recorder
             command.startsWith("record ") -> {
-                val name = command.removePrefix("record ").trim()
-                macroRecorder.startRecording(name)
-                showTerminalOutput("[MACRO RECORDING STARTED]: $name\nType :stop to finish")
+                if (!config.macrosEnabled) {
+                    showTerminalOutput("[MACRO GATE] Disabled (macros_enabled=false)")
+                } else {
+                    val name = command.removePrefix("record ").trim()
+                    macroRecorder.startRecording(name)
+                    showTerminalOutput("[MACRO RECORDING STARTED]: $name\nType :stop to finish")
+                }
             }
             command == "stop" -> {
-                val saved = macroRecorder.stopRecording()
-                showTerminalOutput(if (saved != null) "[MACRO SAVED]: $saved" else "[MACRO]: Not recording")
+                if (!config.macrosEnabled) {
+                    showTerminalOutput("[MACRO GATE] Disabled (macros_enabled=false)")
+                } else {
+                    val saved = macroRecorder.stopRecording(config.macrosDirectory)
+                    showTerminalOutput(if (saved != null) "[MACRO SAVED]: $saved" else "[MACRO]: Not recording")
+                }
             }
             command.startsWith("play ") -> {
-                val name = command.removePrefix("play ").trim()
-                val ok = macroRecorder.playMacro(name) { step -> handleOmniSubmit(step) }
-                showTerminalOutput(if (ok) "[MACRO EXECUTED]: $name" else "[ERROR]: Macro $name not found")
+                if (!config.macrosEnabled) {
+                    showTerminalOutput("[MACRO GATE] Disabled (macros_enabled=false)")
+                } else {
+                    val name = command.removePrefix("play ").trim()
+                    val ok = macroRecorder.playMacro(name, config.macrosDirectory) { step -> handleOmniSubmit(step) }
+                    showTerminalOutput(if (ok) "[MACRO EXECUTED]: $name" else "[ERROR]: Macro $name not found")
+                }
             }
             // F-09 History & Snippets
             command == "history" || command == "hist" -> {
-                val hist = commandPalette.getRecentHistory(15)
-                val sb = StringBuilder("=== OmniScript History ===\n\n")
-                for (h in hist) {
-                    sb.appendLine("• ${h.commandText} (${h.useCount}x)")
+                if (!config.commandHistoryEnabled) {
+                    showTerminalOutput("[HISTORY GATE] Disabled (command_history_enabled=false)")
+                } else {
+                    val limit = config.commandHistoryLimit.coerceIn(1, 15)
+                    val hist = commandPalette.getRecentHistory(limit)
+                    val sb = StringBuilder("=== OmniScript History ===\n\n")
+                    for (h in hist) {
+                        sb.appendLine("• ${h.commandText} (${h.useCount}x)")
+                    }
+                    showTerminalOutput(sb.toString().trimEnd())
                 }
-                showTerminalOutput(sb.toString().trimEnd())
             }
             command.startsWith("snippet ") -> {
                 val rest = command.removePrefix("snippet ").trim()
@@ -1435,9 +1605,13 @@ class VoidLauncherActivity : AppCompatActivity() {
             }
             // F-14 Embedded Terminal Command
             command.startsWith("term ") -> {
-                val termCmd = command.removePrefix("term ").trim()
-                voidTermPanel.execute(termCmd, inBackground = true)
-                showTerminalOutput(voidTermPanel.getRenderedBuffer())
+                if (!config.voidTermEnabled) {
+                    showTerminalOutput("[VOIDTERM GATE] Disabled (voidterm_enabled=false)")
+                } else {
+                    val termCmd = command.removePrefix("term ").trim()
+                    voidTermPanel.execute(termCmd, inBackground = true)
+                    showTerminalOutput(voidTermPanel.getRenderedBuffer())
+                }
             }
             command == "power" -> {
                 val snap = telemetryMonitor.captureSnapshot()
@@ -1527,6 +1701,154 @@ class VoidLauncherActivity : AppCompatActivity() {
         haptic(view)
         bareIntegerRouter.routeInteger(digit)
         resetOmniInput()
+    }
+
+    /** Records command history honoring `command_history_enabled` / `command_history_limit`. */
+    private fun recordCommandHistory(text: String) {
+        if (!config.commandHistoryEnabled) return
+        commandPalette.recordCommand(text)
+        commandPalette.pruneToLimit(config.commandHistoryLimit)
+    }
+
+    // ── Long-press app menu (Step 1) ─────────────────────────────
+    // Tap still launches. Long-press shows this menu in the drawer,
+    // omni results, and command center (all three share these adapters).
+    private fun showAppMenu(entry: AppEntry) {
+        haptic(binding.root)
+        val options = arrayOf(
+            "Open",
+            "App info",
+            "Uninstall",
+            "Add to dock…",
+            "Pin shortcut"
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(entry.label)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> openAppFromMenu(entry)
+                    1 -> openAppInfo(entry)
+                    2 -> uninstallApp(entry)
+                    3 -> showDockSlotPicker(entry)
+                    4 -> pinShortcut(entry)
+                }
+            }
+            .show()
+    }
+
+    private fun openAppFromMenu(entry: AppEntry) {
+        launchApp(entry)
+        openRightDrawer(false)
+        if (isCommandCenterOpen) {
+            openCommandCenter(false)
+        }
+    }
+
+    private fun openAppInfo(entry: AppEntry) {
+        try {
+            val intent = Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", entry.packageName, null)
+            )
+            startActivity(intent)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Cannot open app info for ${entry.label}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun uninstallApp(entry: AppEntry) {
+        try {
+            // Android shows its own uninstall confirmation; the launcher
+            // cannot force an uninstall, and system apps will be refused there.
+            val intent = Intent(
+                Intent.ACTION_DELETE,
+                Uri.fromParts("package", entry.packageName, null)
+            )
+            startActivity(intent)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Cannot uninstall ${entry.label}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showDockSlotPicker(entry: AppEntry) {
+        // The dock binds 7 buttons (btnSlot1..btnSlot7); offer all of them so a
+        // choice here always has a visible effect.
+        val slotLabels = (1..7).map { index ->
+            val current = config.dockSlots.firstOrNull { it.index == index }
+            "Slot $index — ${current?.label ?: "Empty"}"
+        }.toTypedArray()
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Add ${entry.label} to dock")
+            .setItems(slotLabels) { _, which ->
+                val index = which + 1
+                val newSlot = DockSlot(
+                    index = index,
+                    label = entry.label,
+                    subtitle = entry.packageName,
+                    packageName = entry.packageName,
+                    action = "launch_package"
+                )
+                val newSlots = config.dockSlots.toMutableList()
+                val existingPos = newSlots.indexOfFirst { it.index == index }
+                if (existingPos >= 0) {
+                    newSlots[existingPos] = newSlot
+                } else {
+                    newSlots.add(newSlot)
+                }
+                val updated = config.copy(dockSlots = newSlots.sortedBy { it.index })
+                config = updated
+                configManager.saveConfig(updated)
+                bareIntegerRouter.updateSlots(updated.dockSlots)
+                rebuildDockSlots()
+                rebuildStillFavorites()
+                Toast.makeText(this, "${entry.label} added to dock slot $index", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
+    private fun pinShortcut(entry: AppEntry) {
+        val manager = getSystemService(ShortcutManager::class.java)
+        if (manager == null || !manager.isRequestPinShortcutSupported) {
+            Toast.makeText(this, "Pin shortcut is not supported on this device", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val launchIntent = packageManager.getLaunchIntentForPackage(entry.packageName)
+        if (launchIntent == null) {
+            Toast.makeText(this, "Cannot pin ${entry.label}", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val drawable = entry.icon ?: try {
+            packageManager.getApplicationIcon(entry.packageName)
+        } catch (_: Exception) {
+            null
+        }
+        val shortcut = ShortcutInfo.Builder(this, "pinned_${entry.packageName}")
+            .setShortLabel(entry.label)
+            .setIntent(launchIntent)
+            .apply {
+                drawable?.let { setIcon(drawableToIcon(it)) }
+            }
+            .build()
+        try {
+            // A null success callback is allowed: the system shows its
+            // own pin confirmation dialog when supported.
+            manager.requestPinShortcut(shortcut, null)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Cannot pin ${entry.label}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun drawableToIcon(drawable: android.graphics.drawable.Drawable): Icon {
+        if (drawable is BitmapDrawable && drawable.bitmap != null) {
+            return Icon.createWithBitmap(drawable.bitmap)
+        }
+        val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: 96
+        val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: 96
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return Icon.createWithBitmap(bitmap)
     }
 
     private fun launchApp(entry: AppEntry) {
@@ -1624,10 +1946,52 @@ class VoidLauncherActivity : AppCompatActivity() {
     // ── Gesture Controls ─────────────────────────────────────
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (!binding.etOmniInput.isFocused && !binding.etCommandCenterInput.isFocused) {
+        // Without this, the global gesture engine's long-press (default:
+        // OPEN_SETTINGS) would fire on top of an app row's long-press
+        // menu, because dispatchTouchEvent forwards every event to it
+        // before the RecyclerView item sees it. Suppress the gesture
+        // engine for a touch that starts inside an app list; the list
+        // itself (scroll, tap, long-press) still receives the event
+        // via super.dispatchTouchEvent below.
+        when (ev.action) {
+            MotionEvent.ACTION_DOWN -> {
+                gestureSuppressedForTouch = isEventInsideAppList(ev)
+                if (config.liquidTouchEnabled) {
+                    binding.liquidSurface.spawnLiquidWave(ev.x, ev.y)
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                gestureSuppressedForTouch = false
+            }
+        }
+        if (config.compoundGesturesEnabled &&
+            !gestureSuppressedForTouch &&
+            !binding.etOmniInput.isFocused && !binding.etCommandCenterInput.isFocused
+        ) {
             compoundGestureEngine.onTouchEvent(ev)
         }
         return super.dispatchTouchEvent(ev)
+    }
+
+    private fun isEventInsideAppList(ev: MotionEvent): Boolean {
+        val lists = listOf(
+            binding.rvDrawerApps,
+            binding.rvAppFilter,
+            binding.rvCommandCenterApps
+        )
+        val location = IntArray(2)
+        for (list in lists) {
+            if (list.visibility != View.VISIBLE) continue
+            list.getLocationOnScreen(location)
+            val left = location[0].toFloat()
+            val top = location[1].toFloat()
+            if (ev.rawX in left..(left + list.width) &&
+                ev.rawY in top..(top + list.height)
+            ) {
+                return true
+            }
+        }
+        return false
     }
 
     private fun handleGestureAction(action: String) {
@@ -1660,6 +2024,8 @@ class VoidLauncherActivity : AppCompatActivity() {
             "OPEN_HUD"            -> termuxIpc.dispatchCommand("pmc status", inBackground = false)
             "TOGGLE_IDENTITY"     -> {
                 val newP = personaManager.cyclePersona()
+                config = config.copy(activePersona = newP.id)
+                configManager.saveConfig(config)
                 applyIdentityBadge()
                 Toast.makeText(this, "Persona: ${newP.label}", Toast.LENGTH_SHORT).show()
             }
@@ -1674,7 +2040,9 @@ class VoidLauncherActivity : AppCompatActivity() {
             binding.intentCard.visibility = View.GONE
             binding.notificationsCard.visibility = View.GONE
             binding.bareIntegerDock.visibility = View.GONE
+            isKeypadVisible = false
             binding.digitKeypadRow.visibility = View.GONE
+            binding.btnToggleKeypad.visibility = View.GONE
             binding.stillHomeLayout.visibility = View.GONE
         } else {
             applyConfig()

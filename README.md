@@ -21,12 +21,13 @@ Built for edge software engineers and autonomous agent builders who treat their 
   - Configurable font family and sizes.
   - Toggles for HUD cards, telemetry bar, and on-screen digit keypad.
   - Hot-reloads dynamically every time you return to the home screen.
-- **Bare-Integer Fast Dock (`1`–`5`)**:
+- **Bare-Integer Fast Dock (`1`–`7`)**:
   - `[1]` Terminal (`com.termux` / VoidTerm)
-  - `[2]` Filesystem (`com.polymath.fs`)
-  - `[3]` Browser (WebAuth & Termux URL bridge)
-  - `[4]` Comms (Dialer)
+  - `[2]` Filesystem browser
+  - `[3]` App Drawer (all installed apps)
+  - `[4]` Browser (WebAuth & Termux URL bridge)
   - `[5]` System Settings
+  - `[6]` / `[7]` User-assignable (long-press any app → **Add to dock…**)
 - **Omni-Command & Shell Dispatcher (`>_`)**:
   - Type 2 letters for instant fuzzy app filtering.
   - Prefix `:` to dispatch commands directly to Termux via `com.termux.RUN_COMMAND` intent.
@@ -73,11 +74,13 @@ Example `config.json`:
   "show_digit_keypad": true,
   "thermal_limit_celsius": 39.0,
   "dock_slots": [
-    { "index": 1, "label": "TERMINAL", "subtitle": "Termux · VoidTerm", "action": "launch_termux" },
-    { "index": 2, "label": "FILESYSTEM", "subtitle": "Polymath FS", "package_name": "com.aistudio.filesystem.pmfsxz", "action": "launch_package" },
-    { "index": 3, "label": "BROWSER", "subtitle": "WebAuth", "action": "open_browser" },
-    { "index": 4, "label": "COMMS", "subtitle": "Dialer", "action": "open_dialer" },
-    { "index": 5, "label": "SETTINGS", "subtitle": "Controls", "action": "open_settings" }
+    { "index": 1, "label": "TERMINAL", "subtitle": "Termux · VoidTerm", "package_name": "com.termux", "action": "launch_termux" },
+    { "index": 2, "label": "FILES", "subtitle": "Browse Projects", "action": "open_files" },
+    { "index": 3, "label": "DRAWER", "subtitle": "All Installed Apps", "action": "open_drawer" },
+    { "index": 4, "label": "BROWSER", "subtitle": "WebAuth & Links", "action": "open_browser" },
+    { "index": 5, "label": "SETTINGS", "subtitle": "Void Customizer", "action": "open_settings" },
+    { "index": 6, "label": "COMMS", "subtitle": "Dialer", "action": "open_dialer" },
+    { "index": 7, "label": "HUD", "subtitle": "pmc status", "action": "termux_command", "package_name": "pmc status" }
   ]
 }
 ```

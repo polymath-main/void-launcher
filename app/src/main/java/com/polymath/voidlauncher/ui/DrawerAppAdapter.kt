@@ -12,7 +12,8 @@ import com.polymath.voidlauncher.databinding.ItemDrawerAppBinding
 import com.polymath.voidlauncher.model.AppEntry
 
 class DrawerAppAdapter(
-    private val onItemClick: (AppEntry) -> Unit
+    private val onItemClick: (AppEntry) -> Unit,
+    private val onItemLongClick: (AppEntry) -> Unit
 ) : RecyclerView.Adapter<DrawerAppAdapter.DrawerViewHolder>() {
 
     private val items = mutableListOf<AppEntry>()
@@ -72,6 +73,10 @@ class DrawerAppAdapter(
 
             binding.root.setOnClickListener {
                 onItemClick(entry)
+            }
+            binding.root.setOnLongClickListener {
+                onItemLongClick(entry)
+                true
             }
         }
     }

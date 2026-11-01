@@ -22,14 +22,42 @@ class VoidTermPanel(
     var maxLines: Int = DEFAULT_MAX_LINES
     var isVisible: Boolean = false
 
+    /** Visible viewport height in rows (config: `voidterm_rows`). */
+    var rows: Int = 8
+        set(value) {
+            field = value.coerceAtLeast(1)
+            // Keep a bounded scrollback of a few screens.
+            maxLines = field * 4
+        }
+
+    /** Terminal column width used for soft-wrapping output (config: `voidterm_cols`). */
+    var cols: Int = 48
+        set(value) {
+            field = value.coerceAtLeast(8)
+        }
+
     fun appendOutput(text: String) {
-        val lines = text.split("\n")
-        for (line in lines) {
-            lineBuffer.add(line)
+        for (raw in text.split("\n")) {
+            for (line in wrapLine(raw)) {
+                lineBuffer.add(line)
+            }
         }
         while (lineBuffer.size > maxLines) {
             lineBuffer.removeFirst()
         }
+    }
+
+    /** Soft-wraps a single logical line to the configured column width. */
+    private fun wrapLine(line: String): List<String> {
+        if (cols <= 0 || line.length <= cols) return listOf(line)
+        val chunks = mutableListOf<String>()
+        var i = 0
+        while (i < line.length) {
+            val end = (i + cols).coerceAtMost(line.length)
+            chunks.add(line.substring(i, end))
+            i = end
+        }
+        return chunks
     }
 
     fun execute(command: String, inBackground: Boolean = true) {

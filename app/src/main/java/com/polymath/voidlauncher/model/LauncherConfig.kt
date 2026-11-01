@@ -98,6 +98,9 @@ data class LauncherConfig(
     // ── Haptics ──────────────────────────────────────────────
     val enableHaptics: Boolean = true,
 
+    // ── Liquid Touch Surface (OLED underlay) ─────────────────
+    val liquidTouchEnabled: Boolean = true,
+
     // ── Clock ────────────────────────────────────────────────
     val clockFormat: String = "HH:mm:ss",       // Java SimpleDateFormat pattern
     val clockSuffix: String = " UTC+6",
