@@ -614,7 +614,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         }
 
         // Pluggable widgets
-        val widgets = widgetRegistry.loadWidgets(config.widgetDirectoryPath)
+        val widgets = widgetRegistry.loadWidgets(config.widgetsDirectory)
         binding.tvDeckWidgetCount.text = "${widgets.size} WIDGETS"
         val container = binding.layoutDeckWidgets
         container.removeAllViews()
