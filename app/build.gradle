@@ -40,6 +40,15 @@ android {
     buildFeatures {
         viewBinding true
     }
+
+    testOptions {
+        // Plain JVM unit tests run against stubbed android.jar, where
+        // android.util.Log methods throw RuntimeException ("Stub!").
+        // ThermalGuardian logs on throttle, so its tests failed in CI
+        // (3/45) while passing in the local stubbed harness. Returning
+        // default values makes Log a no-op in unit tests, as intended.
+        unitTests.returnDefaultValues = true
+    }
 }
 
 dependencies {
