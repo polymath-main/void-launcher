@@ -37,7 +37,7 @@
             android:layout_marginStart="8dp"
             android:fontFamily="monospace"
             android:textColor="@color/text_primary"
-            android:textSize="14sp"
+            android:textSize="16sp"
             android:textStyle="bold"
             android:text="VOID CONFIG EDITOR" />
 
@@ -68,133 +68,15 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- SECTION: DEFAULT LAUNCHER & SYSTEM ROLES -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
                 android:textColor="@color/void_crimson"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
-                android:text="00. SYSTEM ROLES &amp; ACCESS PERMISSIONS" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="16dp"
-                android:background="@drawable/bg_cockpit_card"
-                android:orientation="vertical"
-                android:padding="12dp">
-
-                <!-- Default Launcher Tile -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-                    <TextView
-                        android:id="@+id/tvDefaultLauncherStatus"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:fontFamily="monospace"
-                        android:textColor="@color/text_primary"
-                        android:textSize="11sp"
-                        android:text="Default Launcher: [CHECKING...]" />
-                    <TextView
-                        android:id="@+id/btnSetDefaultLauncherSettings"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_bare_slot"
-                        android:paddingStart="8dp"
-                        android:paddingEnd="8dp"
-                        android:paddingTop="4dp"
-                        android:paddingBottom="4dp"
-                        android:fontFamily="monospace"
-                        android:textColor="@color/cyan_accent"
-                        android:textSize="10.5sp"
-                        android:textStyle="bold"
-                        android:text="SET AS DEFAULT ➔" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="8dp"
-                    android:background="@color/cockpit_border" />
-
-                <!-- All Files Storage Permission Tile -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-                    <TextView
-                        android:id="@+id/tvStoragePermissionStatus"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:fontFamily="monospace"
-                        android:textColor="@color/text_primary"
-                        android:textSize="11sp"
-                        android:text="All Files Access:" />
-                    <TextView
-                        android:id="@+id/btnGrantStorageSettings"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_bare_slot"
-                        android:paddingStart="8dp"
-                        android:paddingEnd="8dp"
-                        android:paddingTop="4dp"
-                        android:paddingBottom="4dp"
-                        android:fontFamily="monospace"
-                        android:textColor="@color/cyan_accent"
-                        android:textSize="10.5sp"
-                        android:textStyle="bold"
-                        android:text="GRANT ACCESS ➔" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="8dp"
-                    android:background="@color/cockpit_border" />
-
-                <!-- Notification Listener Tile -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-                    <TextView
-                        android:id="@+id/tvNotifListenerStatus"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:fontFamily="monospace"
-                        android:textColor="@color/text_primary"
-                        android:textSize="11sp"
-                        android:text="Notification Listener:" />
-                    <TextView
-                        android:id="@+id/btnConfigureNotifListener"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_bare_slot"
-                        android:paddingStart="8dp"
-                        android:paddingEnd="8dp"
-                        android:paddingTop="4dp"
-                        android:paddingBottom="4dp"
-                        android:fontFamily="monospace"
-                        android:textColor="@color/cyan_accent"
-                        android:textSize="10.5sp"
-                        android:textStyle="bold"
-                        android:text="CONFIGURE ➔" />
-                </LinearLayout>
-            </LinearLayout>
+                android:text="APPEARANCE" />
 
             <!-- SECTION: THEME & COLOR PALETTE -->
             <TextView
@@ -202,7 +84,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
                 android:textColor="@color/void_crimson"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
                 android:text="01. THEME &amp; COLOR PALETTE" />
@@ -384,7 +266,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
                 android:textColor="@color/void_crimson"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
                 android:text="02. RIGHT DRAWER &amp; TRANSPARENCY" />
@@ -504,13 +386,23 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="HOME" />
+
             <!-- SECTION: DEFAULT HOME CUSTOMIZATIONS -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
                 android:textColor="@color/void_crimson"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
                 android:text="03. DEFAULT HOME SCREEN CUSTOMIZATIONS" />
@@ -703,7 +595,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
                 android:textColor="@color/void_crimson"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
                 android:text="03b. HOMESCREEN CUSTOMIZATION" />
@@ -823,13 +715,151 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="SYSTEM" />
+
+            <!-- SECTION: DEFAULT LAUNCHER & SYSTEM ROLES -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="00. SYSTEM ROLES &amp; ACCESS PERMISSIONS" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/bg_cockpit_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <!-- Default Launcher Tile -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:id="@+id/tvDefaultLauncherStatus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:text="Default Launcher: [CHECKING...]" />
+                    <TextView
+                        android:id="@+id/btnSetDefaultLauncherSettings"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_bare_slot"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/cyan_accent"
+                        android:textSize="10.5sp"
+                        android:textStyle="bold"
+                        android:text="SET AS DEFAULT ➔" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="@color/cockpit_border" />
+
+                <!-- All Files Storage Permission Tile -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:id="@+id/tvStoragePermissionStatus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:text="All Files Access:" />
+                    <TextView
+                        android:id="@+id/btnGrantStorageSettings"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_bare_slot"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/cyan_accent"
+                        android:textSize="10.5sp"
+                        android:textStyle="bold"
+                        android:text="GRANT ACCESS ➔" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="@color/cockpit_border" />
+
+                <!-- Notification Listener Tile -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:id="@+id/tvNotifListenerStatus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:text="Notification Listener:" />
+                    <TextView
+                        android:id="@+id/btnConfigureNotifListener"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_bare_slot"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/cyan_accent"
+                        android:textSize="10.5sp"
+                        android:textStyle="bold"
+                        android:text="CONFIGURE ➔" />
+                </LinearLayout>
+            </LinearLayout>
+
             <!-- SECTION: GESTURE CONTROLS -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
                 android:textColor="@color/void_crimson"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
                 android:text="03c. GESTURE CONTROLS" />
@@ -927,73 +957,13 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
-            <!-- SECTION: FILE BROWSER & WORKSPACE -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="monospace"
-                android:textColor="@color/void_crimson"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.08"
-                android:text="04. FILE BROWSER &amp; WORKSPACE" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:layout_marginBottom="16dp"
-                android:background="@drawable/bg_cockpit_card"
-                android:orientation="vertical"
-                android:padding="12dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="monospace"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="11sp"
-                    android:text="Files Default Start Path:" />
-
-                <EditText
-                    android:id="@+id/etFilesDefaultPath"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:fontFamily="monospace"
-                    android:textColor="@color/text_primary"
-                    android:textSize="11sp"
-                    android:text="/storage/emulated/0" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:fontFamily="monospace"
-                        android:textColor="@color/text_primary"
-                        android:textSize="11.5sp"
-                        android:text="Show Hidden Dotfiles" />
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switchFilesShowHidden"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="true" />
-                </LinearLayout>
-            </LinearLayout>
-
             <!-- SECTION: HARDWARE & ADVANCED -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
                 android:textColor="@color/void_crimson"
-                android:textSize="11sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
                 android:text="05. HARDWARE &amp; THERMAL" />
@@ -1068,6 +1038,76 @@
                         android:text="Haptic Touch Feedback" />
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/switchHaptics"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="DATA" />
+
+            <!-- SECTION: FILE BROWSER & WORKSPACE -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="04. FILE BROWSER &amp; WORKSPACE" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/bg_cockpit_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="Files Default Start Path:" />
+
+                <EditText
+                    android:id="@+id/etFilesDefaultPath"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="11sp"
+                    android:text="/storage/emulated/0" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Show Hidden Dotfiles" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchFilesShowHidden"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:checked="true" />
