@@ -202,7 +202,13 @@ data class LauncherConfig(
 
     // ── Macro Recorder (F-15) ────────────────────────────────
     val macrosEnabled: Boolean = true,
-    val macrosDirectory: String = VoidPaths.MACROS
+    val macrosDirectory: String = VoidPaths.MACROS,
+
+    // ── Shell observability (impl-01 step 2) ──────────────────
+    // Clamped at wiring time: 5–300 s, 1 KiB–256 KiB (VoidShell clamps).
+    // No Settings UI in this step (area 7 owns Settings wiring).
+    val shellTimeoutSeconds: Long = 30L,
+    val shellMaxOutputChars: Int = 16384
 )
 
 data class ColorPalette(

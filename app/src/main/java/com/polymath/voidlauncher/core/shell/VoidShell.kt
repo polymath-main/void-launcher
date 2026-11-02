@@ -11,8 +11,30 @@ import java.util.concurrent.TimeUnit
 data class ProcessResult(
     val output: String,
     val error: String,
-    val exitCode: Int
+    val exitCode: Int,
+    /** True only when the runner killed the process on timeout. */
+    val timedOut: Boolean = false
 )
+
+/**
+ * Observability record for one shell run (impl-01 step 2). It carries
+ * lengths, never output text: output can contain secrets, and the
+ * runtime core must never write it to logcat. Listeners are in-app
+ * only (e.g. a diagnostics view) and run on the caller's thread.
+ */
+data class ShellRunRecord(
+    val id: String,
+    val command: String,
+    val workDir: String,
+    val startedAtMs: Long,
+    val finishedAtMs: Long,
+    val exitCode: Int,
+    val outputLength: Int,
+    val errorLength: Int,
+    val timedOut: Boolean
+) {
+    val durationMs: Long get() = finishedAtMs - startedAtMs
+}
 
 sealed interface ShellResult {
     data class Success(val output: String, val error: String, val exitCode: Int) : ShellResult
@@ -91,7 +113,7 @@ class DefaultProcessRunner(
                 process.destroyForcibly()
                 outThread.join(2000)
                 errThread.join(2000)
-                return ProcessResult("", "VoidShell: command timed out after ${timeoutSeconds}s", -1)
+                return ProcessResult("", "VoidShell: command timed out after ${timeoutSeconds}s", -1, timedOut = true)
             }
             // Streams close when the process exits; join so no output is lost.
             outThread.join()
@@ -169,11 +191,21 @@ class VoidShell(
     private val runner: ProcessRunner = DefaultProcessRunner(),
     private val shellPath: String = "/system/bin/sh",
     private val defaultWorkDir: String = "",
-    private val maxOutputChars: Int = 16384
+    private val maxOutputChars: Int = 16384,
+    /** In-app only; receives a [ShellRunRecord] per run, on the caller's thread. Never log output here. */
+    private val onRunRecord: ((ShellRunRecord) -> Unit)? = null
 ) {
+    companion object {
+        /** Config clamps for shell_timeout_seconds / shell_max_output_chars (step 2). */
+        fun clampTimeoutSeconds(value: Long): Long = value.coerceIn(5L, 300L)
+        fun clampMaxOutputChars(value: Int): Int = value.coerceIn(1024, 262144)
+    }
+
     fun run(command: String, workDir: String = defaultWorkDir): ShellResult {
         if (command.isBlank()) return ShellResult.Failed("empty command")
+        val started = System.currentTimeMillis()
         val result = runner.run(shellPath, command, workDir)
+        emitRecord(command, workDir, started, result)
         return toShellResult(result)
     }
 
@@ -191,6 +223,7 @@ class VoidShell(
         onStderrLine: ((String) -> Unit)? = null
     ): ShellResult {
         if (command.isBlank()) return ShellResult.Failed("empty command")
+        val started = System.currentTimeMillis()
         val defaultRunner = runner as? DefaultProcessRunner
         val result = if (defaultRunner != null) {
             defaultRunner.runStreaming(shellPath, command, workDir, onStdoutLine, onStderrLine)
@@ -200,7 +233,29 @@ class VoidShell(
             if (onStderrLine != null) r.error.split("\n").filter { it.isNotEmpty() }.forEach { onStderrLine(it) }
             r
         }
+        emitRecord(command, workDir, started, result)
         return toShellResult(result)
+    }
+
+    private fun emitRecord(command: String, workDir: String, started: Long, result: ProcessResult) {
+        val listener = onRunRecord ?: return
+        try {
+            listener(
+                ShellRunRecord(
+                    id = java.util.UUID.randomUUID().toString().take(8),
+                    command = command,
+                    workDir = workDir,
+                    startedAtMs = started,
+                    finishedAtMs = System.currentTimeMillis(),
+                    exitCode = result.exitCode,
+                    outputLength = result.output.length,
+                    errorLength = result.error.length,
+                    timedOut = result.timedOut
+                )
+            )
+        } catch (_: Exception) {
+            // A diagnostics listener must never break a shell run.
+        }
     }
 
     private fun toShellResult(result: ProcessResult): ShellResult {

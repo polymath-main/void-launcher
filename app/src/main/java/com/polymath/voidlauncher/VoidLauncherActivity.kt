@@ -246,7 +246,14 @@ class VoidLauncherActivity : AppCompatActivity() {
         // on device, filesDir as default workdir. :run, :sh, :term, the
         // dock TERMINAL slot, agent dispatch and thermal throttling all
         // run through Void-owned code now; no external-terminal IPC remains here.
-        voidShell = VoidShell(DefaultProcessRunner(), "/system/bin/sh", filesDir.absolutePath)
+        // impl-01 step 2: timeout/output cap come from config, clamped
+        // in VoidShell; no Settings UI for these keys yet (area 7).
+        voidShell = VoidShell(
+            DefaultProcessRunner(VoidShell.clampTimeoutSeconds(config.shellTimeoutSeconds)),
+            "/system/bin/sh",
+            filesDir.absolutePath,
+            VoidShell.clampMaxOutputChars(config.shellMaxOutputChars)
+        )
         // v2 Cycle 3: ShellShim migrated off — the port is built
         // directly over VoidShell again (same type, same callback), so
         // every downstream caller behaves exactly as before. The task

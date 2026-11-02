@@ -232,7 +232,9 @@ class ConfigManager(private val context: Context) {
             voidTermRows = json.optInt("voidterm_rows", 8),
             voidTermCols = json.optInt("voidterm_cols", 48),
             macrosEnabled = json.optBoolean("macros_enabled", true),
-            macrosDirectory = json.optString("macros_directory", VoidPaths.MACROS)
+            macrosDirectory = json.optString("macros_directory", VoidPaths.MACROS),
+            shellTimeoutSeconds = json.optLong("shell_timeout_seconds", 30L),
+            shellMaxOutputChars = json.optInt("shell_max_output_chars", 16384)
         )
     }
 
@@ -463,6 +465,8 @@ class ConfigManager(private val context: Context) {
         json.put("voidterm_cols", config.voidTermCols)
         json.put("macros_enabled", config.macrosEnabled)
         json.put("macros_directory", config.macrosDirectory)
+        json.put("shell_timeout_seconds", config.shellTimeoutSeconds)
+        json.put("shell_max_output_chars", config.shellMaxOutputChars)
 
         // Notification Intelligence filters
         val notifWhitelist = JSONArray()
