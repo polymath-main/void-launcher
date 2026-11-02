@@ -159,7 +159,7 @@ class ConfigManager(private val context: Context) {
             dockSlots = dockSlots,
             defaultHomeMode = json.optString("default_home_mode", "COCKPIT"),
             showTelemetryBar = json.optBoolean("show_telemetry_bar", true),
-            showNodeOsCard = json.optBoolean("show_nodeos_card", true),
+            showNodeOsCard = json.optBoolean("show_nodeos_card", false),
             showIntentCard = json.optBoolean("show_intent_card", true),
             showNotificationsCard = json.optBoolean("show_notifications_card", true),
             notificationsMaxCount = json.optInt("notifications_max_count", 5),

@@ -417,17 +417,20 @@ class VoidLauncherActivity : AppCompatActivity() {
 
         // Text colors
         binding.tvClock.setTextColor(c.textPrimaryInt)
-        binding.tvMemory.setTextColor(c.textMutedInt)
+        // v2 COCKPIT: HUD line is text_secondary (clock stays primary).
+        binding.tvMemory.setTextColor(c.textSecondaryInt)
         binding.tvDaemonStatus.setTextColor(c.secondaryInt)
         binding.tvAstCount.setTextColor(c.textSecondaryInt)
         binding.tvWorkspace.setTextColor(c.textMutedInt)
         binding.tvGitBranch.setTextColor(c.textSecondaryInt)
         binding.tvActiveIntent.setTextColor(c.textPrimaryInt)
 
-        // Card backgrounds
+        // Card backgrounds. v2 COCKPIT: the intent line and the
+        // notification count line are borderless (no card), so no card
+        // background is applied to them any more; the telemetry card
+        // (config-gated, off by default in v2) and the files browser
+        // (not ported in this cycle) keep theirs.
         applyCardBackground(binding.telemetryCard, c.surfaceInt, c.borderInt)
-        applyCardBackground(binding.intentCard, c.surfaceInt, c.borderInt)
-        applyCardBackground(binding.notificationsCard, c.surfaceInt, c.borderInt)
         applyCardBackground(binding.filesBrowserLayout, c.surfaceInt, c.borderInt)
 
         // Identity badge
@@ -935,7 +938,8 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     private fun buildKeypadKey(label: String, textColor: Int, onClick: (View) -> Unit): TextView {
         return TextView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(0, dpToPx(32), 1f).apply {
+            // v2: keypad keys are 48dp (minimum touch target), surface + 1px border.
+            layoutParams = LinearLayout.LayoutParams(0, dpToPx(48), 1f).apply {
                 marginEnd = dpToPx(3)
             }
             // Fresh drawable per key so pressed-state does not bleed across buttons.

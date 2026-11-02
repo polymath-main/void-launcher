@@ -34,7 +34,7 @@
 
   "default_home_mode": "COCKPIT",
   "show_telemetry_bar": true,
-  "show_nodeos_card": true,
+  "show_nodeos_card": false,
   "show_intent_card": true,
   "show_notifications_card": true,
   "notifications_max_count": 5,

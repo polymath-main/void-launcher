@@ -85,7 +85,9 @@ data class LauncherConfig(
     // ── Default Home Screen Customizations ───────────────────
     val defaultHomeMode: String = "COCKPIT",     // COCKPIT | MINIMAL | FILES
     val showTelemetryBar: Boolean = true,
-    val showNodeOsCard: Boolean = true,
+    // v2 COCKPIT: the telemetry/NodeOS card is cut from home by default
+    // (diagnostics live in :status output); re-enable via Settings.
+    val showNodeOsCard: Boolean = false,
     val showIntentCard: Boolean = true,
     val showNotificationsCard: Boolean = true,
     val notificationsMaxCount: Int = 5,
