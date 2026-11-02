@@ -2,9 +2,7 @@ package com.polymath.voidlauncher.core.shim
 
 import com.polymath.voidlauncher.core.process.VoidProcessManager
 import com.polymath.voidlauncher.core.process.VoidTask
-import com.polymath.voidlauncher.core.shell.ShellResult
 import com.polymath.voidlauncher.core.shell.VoidShell
-import com.polymath.voidlauncher.core.shell.VoidShellPort
 import com.polymath.voidlauncher.core.terminal.TerminalCommandRunner
 import com.polymath.voidlauncher.core.terminal.TerminalRunResult
 import com.polymath.voidlauncher.core.terminal.TerminalSession
@@ -17,7 +15,6 @@ import java.io.File
  * One named surface per backing store, so call sites stop reaching past
  * the shim into ad-hoc combinations of the backing classes:
  *
- * - [ShellShim] -> [VoidShell] (headless runs, dispatch, interactive hook)
  * - [TerminalShim] -> [TerminalSession] (+ [VoidShellRunner] adapter)
  * - [DaemonShim] -> [VoidProcessManager] (task registry, cancel by handle)
  * - [FileShim] -> Void home (app files/void/, the FileManager rule in
@@ -39,37 +36,6 @@ import java.io.File
  * VoidShimTest equivalence tests prove the shim and the backing
  * classes agree on the same inputs.
  */
-object ShellShim {
-
-    /** Headless run through [VoidShell], result shape unchanged. */
-    fun run(shell: VoidShell, command: String, workDir: String = ""): ShellResult =
-        shell.run(command, workDir)
-
-    /**
-     * Dispatch with the same Boolean semantics as
-     * [VoidShellPort.dispatchCommand]: success -> true, failure -> false.
-     * The inBackground flag is accepted for interface compatibility and
-     * does not change execution (VoidShell runs are one-shot).
-     */
-    fun dispatch(
-        shell: VoidShell,
-        command: String,
-        workDir: String = "",
-        inBackground: Boolean = true
-    ): Boolean {
-        return when (shell.run(command, workDir)) {
-            is ShellResult.Success -> true
-            is ShellResult.Failed -> false
-        }
-    }
-
-    /** The [ShellPort] over [VoidShell]; the interactive hook opens VoidTerm. */
-    fun port(
-        shell: VoidShell,
-        onLaunchInteractive: (workDir: String) -> Unit = {}
-    ): VoidShellPort = VoidShellPort(shell, onLaunchInteractive)
-}
-
 object TerminalShim {
 
     fun newSession(

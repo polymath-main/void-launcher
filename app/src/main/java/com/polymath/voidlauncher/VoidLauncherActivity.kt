@@ -73,7 +73,6 @@ import com.polymath.voidlauncher.core.shell.VoidShell
 import com.polymath.voidlauncher.core.process.VoidProcessManager
 import com.polymath.voidlauncher.core.shell.VoidShellPort
 import com.polymath.voidlauncher.core.shim.DaemonShim
-import com.polymath.voidlauncher.core.shim.ShellShim
 import com.polymath.voidlauncher.core.terminal.VoidShellRunner
 import com.polymath.voidlauncher.databinding.ActivityVoidLauncherBinding
 import com.polymath.voidlauncher.model.AppEntry
@@ -233,13 +232,12 @@ class VoidLauncherActivity : AppCompatActivity() {
         // dock TERMINAL slot, agent dispatch and thermal throttling all
         // run through Void-owned code now; no external-terminal IPC remains here.
         voidShell = VoidShell(DefaultProcessRunner(), "/system/bin/sh", filesDir.absolutePath)
-        // v2 Cycle 1: the shell port and the task registry are obtained
-        // through the single shim surfaces (ShellShim, DaemonShim). The
-        // types are unchanged (VoidShellPort, VoidProcessManager), so
-        // every downstream caller (router, panel, orchestrator, thermal
-        // guardian) behaves exactly as before; Cycle 3 migrates one
-        // surface off again, starting with ShellShim.
-        voidShellPort = ShellShim.port(voidShell) { openVoidTerm() }
+        // v2 Cycle 3: ShellShim migrated off — the port is built
+        // directly over VoidShell again (same type, same callback), so
+        // every downstream caller behaves exactly as before. The task
+        // registry still comes via DaemonShim (its migration is a later
+        // cycle); the shim itself is deleted, not left as dead code.
+        voidShellPort = VoidShellPort(voidShell) { openVoidTerm() }
         voidProcessManager = DaemonShim.create()
         nodeOsBridge = NodeOsBridge(this)
         appIndexer = AppIndexer(this)
@@ -583,9 +581,15 @@ class VoidLauncherActivity : AppCompatActivity() {
                 binding.intentCard.visibility = View.GONE
                 binding.notificationsCard.visibility = View.GONE
                 binding.bareIntegerDock.visibility = View.GONE
+                // v2 STILL: no HUD line (the STILL clock is the time
+                // display); the [123] toggle follows the same rule as
+                // COCKPIT, and the keypad row stays hidden until tapped.
+                // The omni bar itself stays: [123] lives inside it, and
+                // :commands must keep working in STILL.
+                (binding.tvClock.parent as? View)?.visibility = View.GONE
                 isKeypadVisible = false
                 binding.digitKeypadRow.visibility = View.GONE
-                binding.btnToggleKeypad.visibility = View.GONE
+                binding.btnToggleKeypad.visibility = if (config.showDigitKeypad) View.VISIBLE else View.GONE
                 binding.filesBrowserLayout.visibility = View.GONE
                 binding.stillHomeLayout.visibility = View.VISIBLE
                 rebuildStillFavorites()
@@ -595,10 +599,12 @@ class VoidLauncherActivity : AppCompatActivity() {
                 binding.telemetryCard.visibility = View.GONE
                 binding.intentCard.visibility = View.GONE
                 binding.notificationsCard.visibility = View.GONE
-                binding.bareIntegerDock.visibility = View.GONE
+                // v2 MINIMAL: omni + dock only. No HUD line, no cards.
+                (binding.tvClock.parent as? View)?.visibility = View.GONE
+                binding.bareIntegerDock.visibility = if (config.showDock) View.VISIBLE else View.GONE
                 isKeypadVisible = false
                 binding.digitKeypadRow.visibility = View.GONE
-                binding.btnToggleKeypad.visibility = View.GONE
+                binding.btnToggleKeypad.visibility = if (config.showDigitKeypad) View.VISIBLE else View.GONE
                 binding.filesBrowserLayout.visibility = View.GONE
                 binding.stillHomeLayout.visibility = View.GONE
             }
@@ -621,28 +627,25 @@ class VoidLauncherActivity : AppCompatActivity() {
         container.removeAllViews()
         val c = config.colors
 
-        for (slot in config.dockSlots) {
+        // v2 STILL favorites: slots 1/3/5 only, as a text list (no card
+        // background), 48dp rows, "index · LABEL" with a muted sub-line.
+        for (slot in config.dockSlots.filter { it.index in setOf(1, 3, 5) }) {
             val row = LinearLayout(this).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    dpToPx(54)
+                    dpToPx(48)
                 ).apply {
                     bottomMargin = dpToPx(6)
                 }
                 orientation = LinearLayout.HORIZONTAL
                 gravity = android.view.Gravity.CENTER_VERTICAL
                 setPadding(dpToPx(16), dpToPx(8), dpToPx(16), dpToPx(8))
-                background = GradientDrawable().apply {
-                    setColor(c.surfaceInt)
-                    setStroke(dpToPx(1), c.borderInt)
-                    cornerRadius = dpToPxF(config.cockpitCardRadiusDp)
-                }
                 isClickable = true
                 isFocusable = true
 
                 val tvLabel = TextView(context).apply {
                     layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                    text = slot.label
+                    text = "${slot.index} · ${slot.label}"
                     setTextColor(c.textPrimaryInt)
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                     setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
@@ -652,7 +655,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                     layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                     text = slot.subtitle.ifEmpty { slot.action }
                     setTextColor(c.textMutedInt)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                     typeface = Typeface.MONOSPACE
                 }
 
@@ -2250,10 +2253,13 @@ class VoidLauncherActivity : AppCompatActivity() {
             binding.telemetryCard.visibility = View.GONE
             binding.intentCard.visibility = View.GONE
             binding.notificationsCard.visibility = View.GONE
-            binding.bareIntegerDock.visibility = View.GONE
+            // v2 MINIMAL (gesture path): omni + dock only, same as the
+            // MINIMAL mode branch above; HUD line hidden with the cards.
+            (binding.tvClock.parent as? View)?.visibility = View.GONE
+            binding.bareIntegerDock.visibility = if (config.showDock) View.VISIBLE else View.GONE
             isKeypadVisible = false
             binding.digitKeypadRow.visibility = View.GONE
-            binding.btnToggleKeypad.visibility = View.GONE
+            binding.btnToggleKeypad.visibility = if (config.showDigitKeypad) View.VISIBLE else View.GONE
             binding.stillHomeLayout.visibility = View.GONE
         } else {
             applyConfig()

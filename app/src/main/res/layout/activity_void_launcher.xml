@@ -357,18 +357,19 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center_horizontal"
-            android:paddingTop="20dp"
+            android:paddingTop="48dp"
             android:paddingBottom="20dp">
 
-            <!-- STILL Centered Clock (~76sp, no seconds) -->
+            <!-- STILL Centered Clock (v2: 20sp ceiling, no seconds) -->
             <TextView
                 android:id="@+id/tvStillClock"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
                 android:textColor="@color/still_primary_text"
-                android:textSize="72sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
+                android:letterSpacing="0.08"
                 android:includeFontPadding="false"
                 android:text="13:48" />
 
@@ -380,8 +381,7 @@
                 android:layout_marginTop="6dp"
                 android:fontFamily="monospace"
                 android:textColor="@color/still_secondary_text"
-                android:textSize="13sp"
-                android:textStyle="bold"
+                android:textSize="14sp"
                 android:letterSpacing="0.08"
                 android:text="SUNDAY, 1 NOVEMBER" />
 
@@ -393,7 +393,7 @@
                 android:layout_marginTop="8dp"
                 android:fontFamily="monospace"
                 android:textColor="@color/still_secondary_text"
-                android:textSize="11.5sp"
+                android:textSize="12sp"
                 android:text="▲ 42% [34°C] · RING" />
 
             <View
@@ -403,7 +403,7 @@
                 android:layout_marginBottom="16dp"
                 android:background="@color/cockpit_border" />
 
-            <!-- STILL 5-7 Favorites Container -->
+            <!-- STILL Favorites (spec: slots 1/3/5 only) -->
             <LinearLayout
                 android:id="@+id/layoutStillFavorites"
                 android:layout_width="match_parent"

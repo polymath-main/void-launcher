@@ -4,14 +4,11 @@ import com.polymath.voidlauncher.core.process.VoidProcessManager
 import com.polymath.voidlauncher.core.process.VoidTaskStatus
 import com.polymath.voidlauncher.core.shell.ProcessResult
 import com.polymath.voidlauncher.core.shell.ProcessRunner
-import com.polymath.voidlauncher.core.shell.ShellResult
 import com.polymath.voidlauncher.core.shell.VoidShell
-import com.polymath.voidlauncher.core.shell.VoidShellPort
 import com.polymath.voidlauncher.core.shim.ConfigShim
 import com.polymath.voidlauncher.core.shim.DaemonShim
 import com.polymath.voidlauncher.core.shim.FileShim
 import com.polymath.voidlauncher.core.shim.NodeOSShim
-import com.polymath.voidlauncher.core.shim.ShellShim
 import com.polymath.voidlauncher.core.shim.TerminalShim
 import com.polymath.voidlauncher.core.terminal.TerminalRunResult
 import com.polymath.voidlauncher.core.terminal.TerminalSession
@@ -25,54 +22,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VoidShim Cycle 1: same inputs -> same VoidAction/output shape as the
- * backing classes, through exactly one shim surface each. The shim
+ * VoidShim Cycles 1+3: same inputs -> same VoidAction/output shape as
+ * the backing classes, through exactly one shim surface each. The shim
  * adds no behaviour of its own; every test below compares the shim
- * result against the direct backing-class result.
+ * result against the direct backing-class result. (Cycle 3 migrated
+ * ShellShim off and deleted it; its equivalence tests went with it.)
  */
 class VoidShimTest {
 
     private fun fakeShell(output: String = "ok\n", exitCode: Int = 0): VoidShell {
         val runner = ProcessRunner { _, _, _ -> ProcessResult(output, "", exitCode) }
         return VoidShell(runner, "/bin/sh", ".")
-    }
-
-    @Test
-    fun shellShimRunMatchesDirectVoidShell() {
-        val shell = fakeShell("hello\n", 0)
-        val viaShim = ShellShim.run(shell, "echo hello")
-        val direct = shell.run("echo hello")
-        assertEquals(direct, viaShim)
-        assertTrue(viaShim is ShellResult.Success)
-        assertEquals("hello\n", (viaShim as ShellResult.Success).output)
-
-        val failing = fakeShell("", 3)
-        val failedShim = ShellShim.run(failing, "exit 3")
-        val failedDirect = failing.run("exit 3")
-        assertEquals(failedDirect, failedShim)
-        assertTrue(failedShim is ShellResult.Failed)
-    }
-
-    @Test
-    fun shellShimDispatchMatchesVoidShellPort() {
-        val okShell = fakeShell("ok\n", 0)
-        val port = VoidShellPort(okShell)
-        assertEquals(port.dispatchCommand("echo ok"), ShellShim.dispatch(okShell, "echo ok"))
-        assertTrue(ShellShim.dispatch(okShell, "echo ok"))
-
-        val badShell = fakeShell("", 1)
-        val badPort = VoidShellPort(badShell)
-        assertEquals(badPort.dispatchCommand("exit 1"), ShellShim.dispatch(badShell, "exit 1"))
-        assertFalse(ShellShim.dispatch(badShell, "exit 1"))
-    }
-
-    @Test
-    fun shellShimPortOpensVoidTermCallbackNotExternalApp() {
-        var openedWith = ""
-        val port = ShellShim.port(fakeShell()) { workDir -> openedWith = workDir }
-        port.launchInteractive("void-home")
-        assertEquals("void-home", openedWith)
-        assertTrue(port.dispatchCommand("echo ok"))
     }
 
     @Test
