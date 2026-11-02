@@ -2,6 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:minHeight="48dp"
     android:background="@drawable/bg_bare_slot"
     android:orientation="horizontal"
     android:gravity="center_vertical"
@@ -30,7 +31,7 @@
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
             android:textColor="@color/text_primary"
-            android:textSize="13sp"
+            android:textSize="14sp"
             android:maxLines="1"
             android:ellipsize="end"
             android:text="Application Name" />
@@ -41,7 +42,7 @@
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
             android:textColor="@color/text_muted"
-            android:textSize="10.5sp"
+            android:textSize="12sp"
             android:maxLines="1"
             android:ellipsize="end"
             android:text="com.example.pkg" />

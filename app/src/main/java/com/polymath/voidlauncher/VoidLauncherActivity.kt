@@ -1058,6 +1058,15 @@ class VoidLauncherActivity : AppCompatActivity() {
             openRightDrawer(false)
         }
 
+        // UI v2 drawer search: typing only, no launch tap added.
+        binding.etDrawerSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (isDrawerOpen) applyDrawerFilter(appIndexer.getAllApps())
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
         binding.alphabetScrubber.setOnLetterSelectedListener { letter ->
             val sectionMap = appIndexer.getSectionPositions()
             val targetPos = sectionMap[letter]
@@ -1160,12 +1169,25 @@ class VoidLauncherActivity : AppCompatActivity() {
         openRightDrawer(!isDrawerOpen)
     }
 
+    // UI v2 drawer search: typing filters the already-loaded list by
+    // label or package and updates the count header. It never launches:
+    // tap on a row still launches, long-press still shows the app menu.
+    private fun applyDrawerFilter(apps: List<AppEntry>) {
+        val query = binding.etDrawerSearch.text?.toString()?.trim().orEmpty()
+        val filtered = if (query.isBlank()) apps else apps.filter {
+            it.label.contains(query, ignoreCase = true) ||
+                it.packageName.contains(query, ignoreCase = true)
+        }
+        drawerAdapter.submitList(filtered)
+        binding.tvDrawerAppCount.text = "${filtered.size} APPS"
+    }
+
     private fun openRightDrawer(open: Boolean) {
         isDrawerOpen = open
         if (open) {
+            binding.etDrawerSearch.setText("")
             val allApps = appIndexer.getAllApps()
-            drawerAdapter.submitList(allApps)
-            binding.tvDrawerAppCount.text = "${allApps.size} APPS"
+            applyDrawerFilter(allApps)
             binding.rightDrawerLayout.visibility = View.VISIBLE
             binding.btnDrawerTabHandle.text = "›"
             binding.filesBrowserLayout.visibility = View.GONE
@@ -1486,8 +1508,8 @@ class VoidLauncherActivity : AppCompatActivity() {
             val all = appIndexer.getAllApps()
             withContext(Dispatchers.Main) {
                 if (isDrawerOpen) {
-                    drawerAdapter.submitList(all)
-                    binding.tvDrawerAppCount.text = "${all.size} APPS"
+                    // Keeps an active drawer search filter across refresh.
+                    applyDrawerFilter(all)
                 }
             }
         }

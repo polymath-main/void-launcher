@@ -1077,7 +1077,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:padding="12dp">
+            android:padding="16dp">
 
             <TextView
                 android:layout_width="0dp"
@@ -1085,7 +1085,7 @@
                 android:layout_weight="1"
                 android:fontFamily="monospace"
                 android:textColor="@color/text_primary"
-                android:textSize="13sp"
+                android:textSize="16sp"
                 android:textStyle="bold"
                 android:text="ALL APPLICATIONS" />
 
@@ -1096,14 +1096,14 @@
                 android:layout_marginEnd="10dp"
                 android:fontFamily="monospace"
                 android:textColor="@color/text_muted"
-                android:textSize="11sp"
+                android:textSize="16sp"
                 android:text="0 APPS" />
 
             <TextView
                 android:id="@+id/btnDrawerClose"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:padding="6dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:gravity="center"
                 android:fontFamily="monospace"
                 android:textColor="@color/void_crimson"
                 android:textSize="14sp"
@@ -1114,6 +1114,28 @@
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:background="@color/cockpit_border" />
+
+        <!-- Drawer search (UI v2): typing only — filters the list, it
+             does not add a tap to launch. Tap on a row still launches. -->
+        <EditText
+            android:id="@+id/etDrawerSearch"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/bg_omni_bar"
+            android:fontFamily="monospace"
+            android:hint="Search apps..."
+            android:imeOptions="actionDone"
+            android:inputType="text|textNoSuggestions"
+            android:maxLines="1"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_muted"
+            android:textSize="14sp" />
 
         <!-- Drawer Content: Apps Recycler + A-Z Alphabet Scrubber on far right edge -->
         <RelativeLayout
