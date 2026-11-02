@@ -67,6 +67,12 @@ import com.polymath.voidlauncher.core.VoidGestureDetector
 import com.polymath.voidlauncher.core.VoidNotificationListenerService
 import com.polymath.voidlauncher.core.VoidTermPanel
 import com.polymath.voidlauncher.core.WidgetRegistry
+import com.polymath.voidlauncher.core.services.AppActionsMicroService
+import com.polymath.voidlauncher.core.services.CommandHelpMicroService
+import com.polymath.voidlauncher.core.services.DockSlotMicroService
+import com.polymath.voidlauncher.core.services.FileOperationsMicroService
+import com.polymath.voidlauncher.core.services.PersonaIdentityMicroService
+import com.polymath.voidlauncher.core.services.WallpaperMicroService
 import com.polymath.voidlauncher.core.shell.DefaultProcessRunner
 import com.polymath.voidlauncher.core.shell.ShellResult
 import com.polymath.voidlauncher.core.shell.VoidShell
@@ -123,6 +129,14 @@ class VoidLauncherActivity : AppCompatActivity() {
     private lateinit var focusScheduler: FocusScheduler
     private lateinit var voidTermPanel: VoidTermPanel
     private lateinit var macroRecorder: MacroRecorder
+
+    // Modular Micro-Services
+    private lateinit var wallpaperService: WallpaperMicroService
+    private lateinit var dockSlotService: DockSlotMicroService
+    private lateinit var appActionsService: AppActionsMicroService
+    private lateinit var personaIdentityService: PersonaIdentityMicroService
+    private lateinit var fileOperationsService: FileOperationsMicroService
+    private lateinit var commandHelpService: CommandHelpMicroService
 
     private lateinit var appAdapter: AppFilterAdapter
     private lateinit var drawerAdapter: DrawerAppAdapter
@@ -287,6 +301,14 @@ class VoidLauncherActivity : AppCompatActivity() {
             terminalRunner = VoidShellRunner(voidShell)
         }
         macroRecorder = MacroRecorder(this)
+
+        // Initialize Modular Micro-Services
+        wallpaperService = WallpaperMicroService(this)
+        dockSlotService = DockSlotMicroService(this)
+        appActionsService = AppActionsMicroService(this)
+        personaIdentityService = PersonaIdentityMicroService(this, personaManager)
+        fileOperationsService = FileOperationsMicroService(this, fileManager, wallpaperService)
+        commandHelpService = CommandHelpMicroService(this, commandPalette, wallpaperService)
 
         configSyncService = ConfigSyncService(this) {
             reloadConfigFromSync()
@@ -530,14 +552,8 @@ class VoidLauncherActivity : AppCompatActivity() {
         // Scrubber visibility
         binding.alphabetScrubber.visibility = if (config.enableAtoZScrubber) View.VISIBLE else View.GONE
 
-        // Wallpaper flag
-        if (config.useSystemWallpaper) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
-            binding.rootLayout.setBackgroundColor(Color.TRANSPARENT)
-        } else {
-            window.clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
-            binding.rootLayout.setBackgroundColor(c.backgroundInt)
-        }
+        // Wallpaper state (Window DecorView + OLED scrim + custom image override)
+        wallpaperService.applyWallpaperState(this, binding.rootLayout, binding.stillHomeLayout, config)
 
         // Status bar element visibility
         binding.tvClock.visibility = if (config.showStatusBarTime) View.VISIBLE else View.GONE
@@ -882,17 +898,7 @@ class VoidLauncherActivity : AppCompatActivity() {
     }
 
     private fun applyIdentityBadge() {
-        val c = config.colors
-        val persona = personaManager.getActivePersona()
-        val label = when (persona.id.lowercase()) {
-            "void" -> config.identityVoidLabel.ifBlank { persona.label }
-            "main" -> config.identityMainLabel.ifBlank { persona.label }
-            else -> persona.label
-        }
-        binding.tvIdentityBadge.text = label
-        val accentCol = Color.parseColor(persona.accentColor)
-        binding.tvIdentityBadge.setTextColor(accentCol)
-        applyBadgeBackground(binding.tvIdentityBadge, c.surfaceInt, accentCol)
+        personaIdentityService.applyIdentityBadge(binding.tvIdentityBadge, config)
     }
 
     private fun resolveTypeface(family: String): Typeface = when (family.lowercase().trim()) {
@@ -1314,6 +1320,8 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun handleFileItemClick(item: FileItem) {
         if (item.isDirectory) {
             loadFilesDirectory(item.path)
+        } else if (wallpaperService.isImageFile(item.path)) {
+            showFileOperationsDialog(item)
         } else {
             val preview = fileManager.readTextPreview(item.path, maxLines = 40)
             showTerminalOutput("[FILE PREVIEW: ${item.name}]\n\n$preview")
@@ -1321,105 +1329,33 @@ class VoidLauncherActivity : AppCompatActivity() {
     }
 
     private fun showFileOperationsDialog(item: FileItem) {
-        val options = arrayOf(
-            "⚡ Open in VoidTerm (${if (item.isDirectory) "cd here" else "run here"})",
-            "📄 Read Text Preview",
-            "📋 Copy Full Path",
-            "✏️ Rename",
-            "🗑 Delete"
-        )
-
-        MaterialAlertDialogBuilder(this)
-            .setTitle(item.name)
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> {
-                        // VoidTerm opens in-app; the path is shown so a
-                        // :term command can run against it. No external
-                        // terminal app is launched any more.
-                        openVoidTerm()
-                        showTerminalOutput("[VOIDTERM] ${item.path}\nType :term <command> to run here.")
-                    }
-                    1 -> {
-                        val preview = fileManager.readTextPreview(item.path, maxLines = 60)
-                        showTerminalOutput("[PREVIEW: ${item.name}]\n\n$preview")
-                    }
-                    2 -> {
-                        clipboard.setText(item.path)
-                    }
-                    3 -> {
-                        showRenameDialog(item)
-                    }
-                    4 -> {
-                        showDeleteConfirmDialog(item)
-                    }
-                }
-            }
-            .show()
-    }
-
-    private fun showRenameDialog(item: FileItem) {
-        val input = EditText(this).apply {
-            setText(item.name)
-            setSelection(item.name.length)
-        }
-        AlertDialog.Builder(this)
-            .setTitle("Rename ${item.name}")
-            .setView(input)
-            .setPositiveButton("Rename") { _, _ ->
-                val newName = input.text.toString().trim()
-                if (newName.isNotEmpty() && newName != item.name) {
-                    val ok = fileManager.renameFile(item.path, newName)
-                    if (ok) {
-                        Toast.makeText(this, "Renamed to $newName", Toast.LENGTH_SHORT).show()
-                        loadFilesDirectory(currentFilesPath)
-                    } else {
-                        Toast.makeText(this, "Rename failed", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun showDeleteConfirmDialog(item: FileItem) {
-        AlertDialog.Builder(this)
-            .setTitle("Delete ${item.name}?")
-            .setMessage("This operation is permanent.")
-            .setPositiveButton("Delete") { _, _ ->
-                val ok = fileManager.deleteFile(item.path)
+        fileOperationsService.showFileOperationsDialog(
+            item = item,
+            onOpenInVoidTerm = {
+                openVoidTerm()
+                showTerminalOutput("[VOIDTERM] ${item.path}\nType :term <command> to run here.")
+            },
+            onShowPreview = { text -> showTerminalOutput(text) },
+            onCopyPath = { path -> clipboard.setText(path) },
+            onApplyWallpaperFromFile = { path ->
+                val ok = wallpaperService.setWallpaperFromFile(path, alsoSetSystemWallpaper = true)
                 if (ok) {
-                    Toast.makeText(this, "Deleted: ${item.name}", Toast.LENGTH_SHORT).show()
-                    loadFilesDirectory(currentFilesPath)
+                    config = config.copy(useSystemWallpaper = true)
+                    configManager.saveConfig(config)
+                    applyConfig()
+                    Toast.makeText(this, "Wallpaper set: ${item.name}", Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(this, "Delete failed", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Failed to decode image", Toast.LENGTH_SHORT).show()
                 }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+            },
+            onRefreshDirectory = { loadFilesDirectory(currentFilesPath) }
+        )
     }
 
     private fun showCreateDirectoryDialog() {
-        val input = EditText(this).apply {
-            hint = "Folder name"
+        fileOperationsService.showCreateDirectoryDialog(currentFilesPath) {
+            loadFilesDirectory(currentFilesPath)
         }
-        AlertDialog.Builder(this)
-            .setTitle("Create New Directory")
-            .setView(input)
-            .setPositiveButton("Create") { _, _ ->
-                val name = input.text.toString().trim()
-                if (name.isNotEmpty()) {
-                    val ok = fileManager.createFolder(currentFilesPath, name)
-                    if (ok) {
-                        Toast.makeText(this, "Created $name", Toast.LENGTH_SHORT).show()
-                        loadFilesDirectory(currentFilesPath)
-                    } else {
-                        Toast.makeText(this, "Failed to create directory", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
     }
 
     // ── Telemetry & Polling Flows ───────────────────────────
@@ -1600,22 +1536,7 @@ class VoidLauncherActivity : AppCompatActivity() {
     }
 
     private fun handleOmniSubmit(rawInput: String) {
-        val trimmed = rawInput.trim()
-        if (trimmed.isEmpty()) return
-
-        // Inline snippet saving via `## <alias>` (F-09)
-        val query = if (trimmed.contains("##")) {
-            val parts = trimmed.split("##", limit = 2)
-            val cmdPart = parts[0].trim()
-            val aliasPart = parts.getOrNull(1)?.trim().orEmpty()
-            if (cmdPart.isNotEmpty() && aliasPart.isNotEmpty()) {
-                commandPalette.saveSnippet(aliasPart, cmdPart)
-                Toast.makeText(this, "Saved snippet :$aliasPart", Toast.LENGTH_SHORT).show()
-            }
-            cmdPart
-        } else {
-            trimmed
-        }
+        val query = commandHelpService.extractInlineSnippet(rawInput)
         if (query.isEmpty()) return
 
         // Record history & macro step (F-09, F-15)
@@ -1652,16 +1573,31 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun handleCommandMode(command: String) {
         when {
             command == "help" || command == "?" -> {
-                showTerminalOutput(
-                    "=== VOID LAUNCHER QUICK GUIDE ===\n\n" +
-                    "• APPS       Type app name to search, or tap ‹ on right edge for App Drawer\n" +
-                    "• DOCK       Tap [1]..[5] to open slot; LONG-PRESS any slot to customize\n" +
-                    "• PERSONA    Tap [VOID] badge to cycle; LONG-PRESS to pick mode/persona\n" +
-                    "• MODES      :still | :cockpit | :minimal | :files\n" +
-                    "• THEMES     :themes | :theme <void|obsidian|midnight|graphite|matrix|amber>\n" +
-                    "• DECK & CC  :deck (Widgets) | :cmd (Command Center) | :settings\n" +
-                    "• TOOLS      :eval <math> | :tasks | :task <name> <cmd> | :power | :hud\n" +
-                    "• SNIPPETS   :snippet <alias> <cmd> | :snippets | <cmd> ## <alias>"
+                showTerminalOutput(commandHelpService.formatQuickGuide())
+            }
+            command == "wallpaper" || command == "wp" -> {
+                commandHelpService.handleWallpaperCommand(
+                    subCommand = "",
+                    config = config,
+                    onUpdateConfig = { updated ->
+                        config = updated
+                        configManager.saveConfig(updated)
+                        applyConfig()
+                    },
+                    onShowOutput = { showTerminalOutput(it) }
+                )
+            }
+            command.startsWith("wallpaper ") || command.startsWith("wp ") -> {
+                val sub = command.removePrefix("wallpaper ").removePrefix("wp ").trim()
+                commandHelpService.handleWallpaperCommand(
+                    subCommand = sub,
+                    config = config,
+                    onUpdateConfig = { updated ->
+                        config = updated
+                        configManager.saveConfig(updated)
+                        applyConfig()
+                    },
+                    onShowOutput = { showTerminalOutput(it) }
                 )
             }
             // F-01 LiveScript Eval
@@ -2052,231 +1988,37 @@ class VoidLauncherActivity : AppCompatActivity() {
         commandPalette.pruneToLimit(config.commandHistoryLimit)
     }
 
-    // ── Long-press app menu (Step 1) ─────────────────────────────
-    // Tap still launches. Long-press shows this menu in the drawer,
-    // omni results, and command center (all three share these adapters).
+    // ── Long-press app menu & Dock / Persona Micro-Service Delegation ─────
+
     private fun showAppMenu(entry: AppEntry) {
         haptic(binding.root)
-        val options = arrayOf(
-            "Open",
-            "App info",
-            "Uninstall",
-            "Add to dock…",
-            "Pin shortcut"
+        appActionsService.showAppContextMenu(
+            entry = entry,
+            onLaunch = {
+                launchApp(it)
+                openRightDrawer(false)
+                if (isCommandCenterOpen) openCommandCenter(false)
+            },
+            onAddToDock = { showDockSlotPicker(it) }
         )
-        MaterialAlertDialogBuilder(this)
-            .setTitle(entry.label)
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> openAppFromMenu(entry)
-                    1 -> openAppInfo(entry)
-                    2 -> uninstallApp(entry)
-                    3 -> showDockSlotPicker(entry)
-                    4 -> pinShortcut(entry)
-                }
-            }
-            .show()
-    }
-
-    private fun openAppFromMenu(entry: AppEntry) {
-        launchApp(entry)
-        openRightDrawer(false)
-        if (isCommandCenterOpen) {
-            openCommandCenter(false)
-        }
-    }
-
-    private fun openAppInfo(entry: AppEntry) {
-        try {
-            val intent = Intent(
-                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                Uri.fromParts("package", entry.packageName, null)
-            )
-            startActivity(intent)
-        } catch (_: Exception) {
-            Toast.makeText(this, "Cannot open app info for ${entry.label}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun uninstallApp(entry: AppEntry) {
-        try {
-            // Android shows its own uninstall confirmation; the launcher
-            // cannot force an uninstall, and system apps will be refused there.
-            val intent = Intent(
-                Intent.ACTION_DELETE,
-                Uri.fromParts("package", entry.packageName, null)
-            )
-            startActivity(intent)
-        } catch (_: Exception) {
-            Toast.makeText(this, "Cannot uninstall ${entry.label}", Toast.LENGTH_SHORT).show()
-        }
     }
 
     private fun showDockSlotPicker(entry: AppEntry) {
-        // The dock binds 7 buttons (btnSlot1..btnSlot7); offer all of them so a
-        // choice here always has a visible effect.
-        val slotLabels = (1..7).map { index ->
-            val current = config.dockSlots.firstOrNull { it.index == index }
-            "Slot $index — ${current?.label ?: "Empty"}"
-        }.toTypedArray()
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Add ${entry.label} to dock")
-            .setItems(slotLabels) { _, which ->
-                val index = which + 1
-                val newSlot = DockSlot(
-                    index = index,
-                    label = entry.label,
-                    subtitle = entry.packageName,
-                    packageName = entry.packageName,
-                    action = "launch_package"
-                )
-                val newSlots = config.dockSlots.toMutableList()
-                val existingPos = newSlots.indexOfFirst { it.index == index }
-                if (existingPos >= 0) {
-                    newSlots[existingPos] = newSlot
-                } else {
-                    newSlots.add(newSlot)
-                }
-                val updated = config.copy(dockSlots = newSlots.sortedBy { it.index })
-                config = updated
-                configManager.saveConfig(updated)
-                bareIntegerRouter.updateSlots(updated.dockSlots)
-                rebuildDockSlots()
-                rebuildStillFavorites()
-                rebuildKeypad()
-                Toast.makeText(this, "${entry.label} added to dock slot $index", Toast.LENGTH_SHORT).show()
-            }
-            .show()
+        dockSlotService.showSlotPickerForApp(entry, config) { updated ->
+            commitUpdatedDockConfig(updated)
+        }
     }
 
     private fun showEditDockSlotDialog(slotIndex: Int) {
-        val current = config.dockSlots.firstOrNull { it.index == slotIndex }
-        val currentSummary = current?.let { "${it.label} (${it.action})" } ?: "Empty"
-        val options = arrayOf(
-            "📱 Assign Installed App…",
-            "⚡ Assign Quick Action…",
-            "✏️ Rename Slot Label…",
-            "🔄 Reset Slot to Default"
+        dockSlotService.showEditDockSlotDialog(
+            slotIndex = slotIndex,
+            config = config,
+            appsProvider = { appIndexer.getAllApps() },
+            onCommit = { updated -> commitUpdatedDockConfig(updated) }
         )
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Customize Dock Slot [$slotIndex] — $currentSummary")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> showAssignAppToSlotDialog(slotIndex)
-                    1 -> showAssignActionToSlotDialog(slotIndex)
-                    2 -> showRenameSlotDialog(slotIndex)
-                    3 -> {
-                        val defaultSlot = com.polymath.voidlauncher.model.defaultDockSlots().firstOrNull { it.index == slotIndex }
-                        if (defaultSlot != null) {
-                            saveUpdatedDockSlot(defaultSlot)
-                            Toast.makeText(this, "Slot [$slotIndex] reset to ${defaultSlot.label}", Toast.LENGTH_SHORT).show()
-                        } else {
-                            val newSlots = config.dockSlots.filterNot { it.index == slotIndex }
-                            val updated = config.copy(dockSlots = newSlots)
-                            config = updated
-                            configManager.saveConfig(updated)
-                            bareIntegerRouter.updateSlots(updated.dockSlots)
-                            rebuildDockSlots()
-                            rebuildStillFavorites()
-                            rebuildKeypad()
-                            Toast.makeText(this, "Slot [$slotIndex] cleared", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
     }
 
-    private fun showAssignAppToSlotDialog(slotIndex: Int) {
-        val apps = appIndexer.getAllApps().sortedBy { it.label.lowercase() }
-        if (apps.isEmpty()) {
-            Toast.makeText(this, "App index is still loading…", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val labels = apps.map { "${it.label} (${it.packageName})" }.toTypedArray()
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Assign App to Slot [$slotIndex]")
-            .setItems(labels) { _, which ->
-                val chosen = apps[which]
-                saveUpdatedDockSlot(
-                    DockSlot(
-                        index = slotIndex,
-                        label = chosen.label.uppercase(),
-                        subtitle = chosen.packageName,
-                        packageName = chosen.packageName,
-                        action = "launch_package"
-                    )
-                )
-                Toast.makeText(this, "Assigned ${chosen.label} to Slot [$slotIndex]", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Back") { _, _ -> showEditDockSlotDialog(slotIndex) }
-            .show()
-    }
-
-    private fun showAssignActionToSlotDialog(slotIndex: Int) {
-        val builtIn = listOf(
-            Triple("APPS DRAWER", "Installed Apps A-Z", "open_drawer"),
-            Triple("FILES", "Void File Explorer", "open_files"),
-            Triple("TERMINAL", "In-App VoidShell", "open_voidterm"),
-            Triple("BROWSER", "Web Search & URL", "open_browser"),
-            Triple("PHONE", "Dialer & Contacts", "open_dialer"),
-            Triple("SETTINGS", "Launcher Config", "open_settings")
-        )
-        val labels = builtIn.map { "${it.first} — ${it.second}" }.toTypedArray()
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Assign Action to Slot [$slotIndex]")
-            .setItems(labels) { _, which ->
-                val chosen = builtIn[which]
-                saveUpdatedDockSlot(
-                    DockSlot(
-                        index = slotIndex,
-                        label = chosen.first,
-                        subtitle = chosen.second,
-                        packageName = "",
-                        action = chosen.third
-                    )
-                )
-                Toast.makeText(this, "Assigned ${chosen.first} to Slot [$slotIndex]", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Back") { _, _ -> showEditDockSlotDialog(slotIndex) }
-            .show()
-    }
-
-    private fun showRenameSlotDialog(slotIndex: Int) {
-        val current = config.dockSlots.firstOrNull { it.index == slotIndex }
-        if (current == null) {
-            Toast.makeText(this, "Assign an app or action to Slot [$slotIndex] first", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val input = EditText(this).apply {
-            setText(current.label)
-            setSelection(current.label.length)
-            hint = "Slot label"
-        }
-        AlertDialog.Builder(this)
-            .setTitle("Rename Slot [$slotIndex]")
-            .setView(input)
-            .setPositiveButton("Save") { _, _ ->
-                val newLabel = input.text.toString().trim()
-                if (newLabel.isNotEmpty()) {
-                    saveUpdatedDockSlot(current.copy(label = newLabel))
-                    Toast.makeText(this, "Slot [$slotIndex] renamed to $newLabel", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun saveUpdatedDockSlot(newSlot: DockSlot) {
-        val newSlots = config.dockSlots.toMutableList()
-        val existingPos = newSlots.indexOfFirst { it.index == newSlot.index }
-        if (existingPos >= 0) {
-            newSlots[existingPos] = newSlot
-        } else {
-            newSlots.add(newSlot)
-        }
-        val updated = config.copy(dockSlots = newSlots.sortedBy { it.index })
+    private fun commitUpdatedDockConfig(updated: LauncherConfig) {
         config = updated
         configManager.saveConfig(updated)
         bareIntegerRouter.updateSlots(updated.dockSlots)
@@ -2286,93 +2028,29 @@ class VoidLauncherActivity : AppCompatActivity() {
     }
 
     private fun showPersonaPickerDialog() {
-        val personas = personaManager.getAllPersonas()
-        val active = personaManager.getActivePersona()
-        val modeItems = listOf(
-            "🏠 Home Mode: STILL (Calm Minimal Clock & 3 Favorites)" to { setHomeMode("STILL") },
-            "🎛 Home Mode: COCKPIT (HUD, Notifications & 5-Slot Dock)" to { setHomeMode("COCKPIT") },
-            "⚡ Home Mode: MINIMAL (Omni-Bar & Dock Only)" to { setHomeMode("MINIMAL") },
-            "📁 Home Mode: FILES (Workspace File Browser)" to { setHomeMode("FILES") },
-            "🔍 Open Command Center (:cmd)" to { openCommandCenter(true) },
-            "🧩 Open Widget Deck (:deck)" to { openWidgetDeck(true) }
-        )
-        val personaLabels = personas.map { p ->
-            val mark = if (p.id.equals(active.id, ignoreCase = true)) "● " else "○ "
-            "${mark}Persona ${p.label} — ${p.subtitle}"
-        }
-        val allLabels = (personaLabels + modeItems.map { it.first }).toTypedArray()
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Workspace Identity & Mode")
-            .setItems(allLabels) { _, which ->
-                if (which < personas.size) {
-                    val chosen = personas[which]
-                    personaManager.selectPersona(chosen.id)
-                    config = config.copy(activePersona = chosen.id)
-                    configManager.saveConfig(config)
-                    applyIdentityBadge()
-                    glyphChoreographer.play("FOCUS_MODE_ON")
-                    Toast.makeText(this, "Persona: ${chosen.label}", Toast.LENGTH_SHORT).show()
-                } else {
-                    val modeIdx = which - personas.size
-                    modeItems.getOrNull(modeIdx)?.second?.invoke()
+        personaIdentityService.showPersonaAndModeDialog(
+            config = config,
+            onPersonaSelected = { _, updated ->
+                config = updated
+                configManager.saveConfig(config)
+                applyIdentityBadge()
+                glyphChoreographer.play("FOCUS_MODE_ON")
+            },
+            onSetHomeMode = { setHomeMode(it) },
+            onOpenCommandCenter = { openCommandCenter(true) },
+            onOpenWidgetDeck = { openWidgetDeck(true) },
+            onOpenWallpaperStudio = {
+                wallpaperService.showWallpaperStudioDialog(this, config) { updated ->
+                    config = updated
+                    configManager.saveConfig(updated)
+                    applyConfig()
                 }
             }
-            .setNegativeButton("Close", null)
-            .show()
-    }
-
-    private fun pinShortcut(entry: AppEntry) {
-        val manager = getSystemService(ShortcutManager::class.java)
-        if (manager == null || !manager.isRequestPinShortcutSupported) {
-            Toast.makeText(this, "Pin shortcut is not supported on this device", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val launchIntent = packageManager.getLaunchIntentForPackage(entry.packageName)
-        if (launchIntent == null) {
-            Toast.makeText(this, "Cannot pin ${entry.label}", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val drawable = entry.icon ?: try {
-            packageManager.getApplicationIcon(entry.packageName)
-        } catch (_: Exception) {
-            null
-        }
-        val shortcut = ShortcutInfo.Builder(this, "pinned_${entry.packageName}")
-            .setShortLabel(entry.label)
-            .setIntent(launchIntent)
-            .apply {
-                drawable?.let { setIcon(drawableToIcon(it)) }
-            }
-            .build()
-        try {
-            // A null success callback is allowed: the system shows its
-            // own pin confirmation dialog when supported.
-            manager.requestPinShortcut(shortcut, null)
-        } catch (_: Exception) {
-            Toast.makeText(this, "Cannot pin ${entry.label}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun drawableToIcon(drawable: android.graphics.drawable.Drawable): Icon {
-        if (drawable is BitmapDrawable && drawable.bitmap != null) {
-            return Icon.createWithBitmap(drawable.bitmap)
-        }
-        val width = drawable.intrinsicWidth.takeIf { it > 0 } ?: 96
-        val height = drawable.intrinsicHeight.takeIf { it > 0 } ?: 96
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        drawable.setBounds(0, 0, canvas.width, canvas.height)
-        drawable.draw(canvas)
-        return Icon.createWithBitmap(bitmap)
+        )
     }
 
     private fun launchApp(entry: AppEntry) {
-        val intent = packageManager.getLaunchIntentForPackage(entry.packageName)
-        if (intent != null) {
-            startActivity(intent)
-        } else {
-            Toast.makeText(this, "Cannot launch ${entry.label}", Toast.LENGTH_SHORT).show()
-        }
+        appActionsService.launchApp(entry)
     }
 
     private fun showTerminalOutput(text: String) {

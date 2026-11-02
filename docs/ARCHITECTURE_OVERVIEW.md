@@ -1,62 +1,34 @@
-# VoidLauncher — Complete Architecture Overview
+# VoidLauncher — Master Architecture & Micro-Services Overview
 
 > **Project**: `void-launcher` · `com.polymath.voidlauncher` · v2.0 / v3 UI
 > **Positioning**: Sovereign system cockpit + calm regular-user STILL home + VoidShell Android HOME replacement
 > **Target**: Nothing Phone (2a) [A142] · Android 16 (API 35/36) · Dimensity 7200 Pro · Self-contained VoidShell
-> **Repo**: [`polymath-main/void-launcher`](https://github.com/polymath-main/void-launcher)
-> **Design system**: STILL & COCKPIT v2 (Obsidian OLED, 6 Theme Presets, borderless 48dp touch targets)
+> **Design System**: STILL & COCKPIT v2 (Obsidian OLED, 6 Theme Presets, Functional Wallpaper Studio, 48dp targets)
 
 ---
 
-## 1. Stack & Build Profile
+## 1. The 6-Document Functional Blueprint Suite
 
-| Layer | Choice |
-|---|---|
-| Language / VM | Kotlin · JVM target 17 · minSdk 26 · target/compileSdk 35 |
-| UI | ViewBinding + XML · RecyclerView adapters · custom Views (`AlphabetScrubberView`, `LiquidTouchSurfaceView`) |
-| Async | Coroutines · `Flow` / `StateFlow` · lifecycle-ktx |
-| Persistence | Plain SQLite (`SQLiteOpenHelper`), SharedPreferences (isolated files), JSON in Void-owned storage (`VoidPaths.HOME`) |
-| Shell & Process Engine | In-app `VoidShell` (`/system/bin/sh`), `VoidShim` (built-in commands: `pmc`, `nodeos`, `void`, `help`), `VoidProcessManager`, `VoidTaskStore` |
-| CI | `.github/workflows/build.yml`: JDK 17 → `testDebugUnitTest` → `assembleDebug` → APK artifact |
+Each core domain and feature cluster is documented in its own modular blueprint under [`docs/blueprints/`](file:///data/data/com.termux/files/home/Projects/void-launcher/docs/blueprints):
 
----
-
-## 2. Spatial Model — the STILL & COCKPIT Topology
-
-```
-        [ Command Center  >_ ]  ← swipe up / bottom edge / :cmd
-                 ▲
- [Widget Deck] ← STILL / COCKPIT / MINIMAL → [App Library drawer + A-Z scrubber]
-  (swipe right)                               (swipe left / right edge handle ‹)
-```
-
-- **Home modes**:
-  - `STILL` (Calm regular-user mode): 20sp letter-spaced clock, 14sp date, 12sp vitals, borderless 48dp favorite rows for Slots 1, 3, 5, and bottom Omni-Bar.
-  - `COCKPIT` (Power-user mode): Telemetry HUD line, borderless intent & notification lines, borderless 48dp `[1..7]` dock, collapsible `[123]` digit keypad, and Omni-Bar.
-  - `MINIMAL`: Distraction-free Omni-Bar + Dock only.
-  - `FILES`: Built-in VFS Explorer with quick chips (`Void`, `Projects`, `Downloads`, `sdcard`).
-- **Interactive Customization for Regular Users**:
-  - **Long-press any App** (in Drawer, Omni search, or Command Center): Open, App Info, Uninstall, Add to Dock `[1..7]`, or Pin Home Shortcut.
-  - **Long-press any Dock Slot `[1..7]` or STILL Favorite**: Assign Installed App, Assign Quick Action (Drawer, Files, Terminal, Browser, Phone, Settings), Rename Slot, or Reset.
-  - **Tap / Long-press Identity Badge (`[VOID]`)**: Tap cycles personas; long-press opens the interactive Workspace Identity & Mode switcher.
-  - **Settings (`VoidSettingsActivity`)**: Grouped into `APPEARANCE`, `HOME` (with interactive Dock Slot Customizer `[1..7]`), `SYSTEM` (Default Launcher role, Storage access, Notification listener, 16 Gesture actions, Thermal & Glyph controls), and `DATA`.
+1. **[`01_CORE_RUNTIME_SHELL.md`](file:///data/data/com.termux/files/home/Projects/void-launcher/docs/blueprints/01_CORE_RUNTIME_SHELL.md)** — `VoidShell`, `VoidShim` (`pmc`, `nodeos`, `void`, `help`), `VoidProcessManager`, `VoidTaskStore`, `TerminalSession`, and 4-tier `ConfigManager`.
+2. **[`02_THEME_WALLPAPER_SURFACE.md`](file:///data/data/com.termux/files/home/Projects/void-launcher/docs/blueprints/02_THEME_WALLPAPER_SURFACE.md)** — `WallpaperMicroService` (Window `DecorView` transparency, `FLAG_SHOW_WALLPAPER`, custom image wallpaper with OLED readability scrim, `WallpaperManager` integration), `ThemeEngine`, and `LiquidTouchSurfaceView`.
+3. **[`03_NAVIGATION_DOCK_DRAWER.md`](file:///data/data/com.termux/files/home/Projects/void-launcher/docs/blueprints/03_NAVIGATION_DOCK_DRAWER.md)** — `DockSlotMicroService`, `AppActionsMicroService`, `FileOperationsMicroService`, `AppIndexer`, `BareIntegerRouter`, and `CompoundGestureEngine`.
+4. **[`04_OMNI_COMMAND_SCRIPTING.md`](file:///data/data/com.termux/files/home/Projects/void-launcher/docs/blueprints/04_OMNI_COMMAND_SCRIPTING.md)** — `CommandHelpMicroService`, `CommandPalette` (SQLite + `## <alias>` inline snippets), `LiveScriptEngine` (`:eval`), and `MacroRecorder`.
+5. **[`05_TELEMETRY_THERMAL_GLYPH.md`](file:///data/data/com.termux/files/home/Projects/void-launcher/docs/blueprints/05_TELEMETRY_THERMAL_GLYPH.md)** — `TelemetryMonitor`, `PowerProfileAdaptor`, `ThermalGuardian` (39.0 °C hysteresis), `GlyphChoreographer` (Nothing GDK reflection), and `NothingGlyphManager`.
+6. **[`06_AGENT_WIDGETS_PERSONA.md`](file:///data/data/com.termux/files/home/Projects/void-launcher/docs/blueprints/06_AGENT_WIDGETS_PERSONA.md)** — `PersonaIdentityMicroService`, `AgentOrchestrator`, `WidgetRegistry` (`SCRIPT`, `HTTP`, `STATIC`), `PersonaManager`, `FocusScheduler`, `NodeOsBridge`, and `NotifIntelligence`.
 
 ---
 
-## 3. Subsystem Catalog (`core/`)
+## 2. Modular Micro-Services Layer (`core/services/`)
 
-| Module | Responsibility | Status |
-|---|---|---|
-| `VoidShell` / `VoidShim` | Self-contained shell execution (`/system/bin/sh`) + built-in `pmc`, `nodeos`, `void`, `help` shims | ✅ Real |
-| `VoidProcessManager` / `VoidTaskStore` | Background process tracking, cancellation, and persistent JSON task state | ✅ Real |
-| `ThemeEngine` | 6 built-in themes (`void`, `obsidian`, `midnight`, `graphite`, `matrix`, `amber`) + `custom` | ✅ Real |
-| `ConfigManager` / `ConfigSyncService` | 4-tier config (`VoidPaths.CONFIG` → app `filesDir` → `assets/default_config.json` → Kotlin defaults) + live `FileObserver` hot-reload | ✅ Real |
-| `TelemetryMonitor` / `PowerProfileAdaptor` | Battery %, tenths-°C temperature, RAM usage, adaptive polling (`PERFORMANCE`/`BALANCED`/`ECO`/`CRITICAL`) | ✅ Real |
-| `ThermalGuardian` | 39.0 °C ceiling + 2.0 °C hysteresis; executes kill-list via `ShellPort`; triggers `THERMAL_WARNING` glyph | ✅ Real |
-| `AppIndexer` / `BareIntegerRouter` | Installed launcher-intent indexing, A–Z section map, fuzzy search, `[1..7]` action routing | ✅ Real |
-| `AgentOrchestrator` | Async task execution via `ShellPort` + `VoidProcessManager`, persistent `void_tasks.json`, non-clobbering `workflow.json` merge, completion callbacks | ✅ Real |
-| `WidgetRegistry` | Pluggable `*.widget.json` cards: `SCRIPT` (live `VoidShell`), `HTTP` (`HttpURLConnection`), and `STATIC` | ✅ Real |
-| `GlyphChoreographer` / `NothingGlyphManager` | Reflective Nothing GDK (`com.nothing.ketchum.GlyphManager`) channel sequence engine with haptic waveform fallback | ✅ Real |
-| `FocusScheduler` | Time-window + `days_of_week` schedule evaluation with automatic persona & glyph transitions | ✅ Real |
-| `NodeOsBridge` / `AstGraphRenderer` | Opt-in NodeOS `workflow.json` + background-cached SQLite `agy_nodeos.db` AST node/edge topology | ✅ Real |
-| `CommandPalette` / `MacroRecorder` / `LiveScriptEngine` | SQLite history, `:snippet` + inline `## alias` snippets, macro recording/replay, RPN `:eval` engine | ✅ Real |
+To keep [`VoidLauncherActivity.kt`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/VoidLauncherActivity.kt) and [`VoidSettingsActivity.kt`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/VoidSettingsActivity.kt) clean and maintainable, feature workflows are decomposed into 6 focused micro-services under [`app/src/main/java/com/polymath/voidlauncher/core/services/`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/core/services):
+
+| Micro-Service | File | Lines | Responsibility |
+|---|---|---|---|
+| `WallpaperMicroService` | [`WallpaperMicroService.kt`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/core/services/WallpaperMicroService.kt) | ~185 | System wallpaper flag + `DecorView` transparency fix, custom image wallpaper decoding, adjustable OLED scrim dimming (`25%` / `45%` / `70%`), `WallpaperManager` assignment, and Wallpaper Studio dialog. |
+| `DockSlotMicroService` | [`DockSlotMicroService.kt`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/core/services/DockSlotMicroService.kt) | ~180 | Shared Home + Settings interactive Dock Slot `[1..7]` editor (assign installed app, assign built-in quick action, rename label, reset slot). |
+| `AppActionsMicroService` | [`AppActionsMicroService.kt`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/core/services/AppActionsMicroService.kt) | ~115 | App launch, App Info settings intent, Uninstall intent, Pin Home Shortcut (`ShortcutManager`), and 5-action long-press menu. |
+| `PersonaIdentityMicroService` | [`PersonaIdentityMicroService.kt`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/core/services/PersonaIdentityMicroService.kt) | ~95 | Identity badge rendering (`[VOID]`, `[STILL]`, `[MAIN]`, `[AGENT]`, `[CLIENT]`), persona cycling, and interactive Workspace Identity & Mode dialog. |
+| `FileOperationsMicroService` | [`FileOperationsMicroService.kt`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/core/services/FileOperationsMicroService.kt) | ~115 | VFS context actions: `🖼 Set as Wallpaper` for image files, Open in VoidTerm, Text Preview, Copy Path, Rename, Delete, and Create Folder. |
+| `CommandHelpMicroService` | [`CommandHelpMicroService.kt`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/core/services/CommandHelpMicroService.kt) | ~100 | Inline `## <alias>` snippet extraction, saved snippet alias resolution, `:help` guide formatting, and `:wallpaper` / `:wp` command handling. |

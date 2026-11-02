@@ -18,6 +18,8 @@ import com.polymath.voidlauncher.core.ConfigManager
 import com.polymath.voidlauncher.core.FileManager
 import com.polymath.voidlauncher.core.ThemeEngine
 import com.polymath.voidlauncher.core.VoidNotificationListenerService
+import com.polymath.voidlauncher.core.services.DockSlotMicroService
+import com.polymath.voidlauncher.core.services.WallpaperMicroService
 import com.polymath.voidlauncher.databinding.ActivityVoidSettingsBinding
 import com.polymath.voidlauncher.model.ColorPalette
 import com.polymath.voidlauncher.model.LauncherConfig
@@ -334,7 +336,25 @@ class VoidSettingsActivity : AppCompatActivity() {
         }
 
         binding.btnCustomizeDockSlots.setOnClickListener {
-            showDockSlotsManagerDialog()
+            DockSlotMicroService(this).showAllSlotsManagerDialog(
+                configProvider = { currentConfig },
+                onCommit = { updated ->
+                    currentConfig = updated
+                    configManager.saveConfig(currentConfig)
+                }
+            )
+        }
+
+        binding.btnConfigureWallpaper.setOnClickListener {
+            WallpaperMicroService(this).showWallpaperStudioDialog(
+                activity = this,
+                currentConfig = buildUpdatedConfig(),
+                onUpdateConfig = { updated ->
+                    currentConfig = updated
+                    binding.switchUseWallpaper.isChecked = updated.useSystemWallpaper
+                    configManager.saveConfig(currentConfig)
+                }
+            )
         }
 
         binding.btnResetDefaults.setOnClickListener {
@@ -426,102 +446,5 @@ class VoidSettingsActivity : AppCompatActivity() {
         super.onPause()
         // Instant apply: leaving Settings persists the current form, no SAVE required.
         persist(false)
-    }
-
-    private fun showDockSlotsManagerDialog() {
-        val slotLabels = (1..7).map { idx ->
-            val slot = currentConfig.dockSlots.firstOrNull { it.index == idx }
-            if (slot != null) {
-                "[$idx] ${slot.label} — ${slot.subtitle.ifBlank { slot.action }}"
-            } else {
-                "[$idx] Empty"
-            }
-        }.toTypedArray()
-
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-            .setTitle("Customize Dock Slots (1–7)")
-            .setItems(slotLabels) { _, which ->
-                showEditSingleSlotInSettings(which + 1)
-            }
-            .setPositiveButton("Done", null)
-            .show()
-    }
-
-    private fun showEditSingleSlotInSettings(slotIndex: Int) {
-        val builtIn = listOf(
-            Triple("TERMINAL", "In-App VoidShell", "open_voidterm"),
-            Triple("FILES", "Void File Explorer", "open_files"),
-            Triple("APPS DRAWER", "Installed Apps A-Z", "open_drawer"),
-            Triple("BROWSER", "Web Search & URL", "open_browser"),
-            Triple("PHONE", "Dialer & Contacts", "open_dialer"),
-            Triple("SETTINGS", "Launcher Config", "open_settings")
-        )
-        val installedApps = try {
-            val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
-                addCategory(Intent.CATEGORY_LAUNCHER)
-            }
-            packageManager.queryIntentActivities(mainIntent, 0)
-                .mapNotNull { info ->
-                    val pkg = info.activityInfo?.packageName ?: return@mapNotNull null
-                    val label = info.loadLabel(packageManager)?.toString() ?: pkg
-                    label to pkg
-                }
-                .distinctBy { it.second }
-                .sortedBy { it.first.lowercase() }
-        } catch (_: Exception) {
-            emptyList()
-        }
-
-        val options = mutableListOf<String>()
-        options.add("🔄 Reset / Clear Slot [$slotIndex]")
-        for (action in builtIn) {
-            options.add("⚡ Action: ${action.first} (${action.second})")
-        }
-        for (app in installedApps) {
-            options.add("📱 App: ${app.first} (${app.second})")
-        }
-
-        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-            .setTitle("Configure Slot [$slotIndex]")
-            .setItems(options.toTypedArray()) { _, which ->
-                val newSlots = currentConfig.dockSlots.toMutableList()
-                newSlots.removeAll { it.index == slotIndex }
-                when {
-                    which == 0 -> {
-                        val def = com.polymath.voidlauncher.model.defaultDockSlots().firstOrNull { it.index == slotIndex }
-                        if (def != null) newSlots.add(def)
-                    }
-                    which <= builtIn.size -> {
-                        val act = builtIn[which - 1]
-                        newSlots.add(
-                            com.polymath.voidlauncher.model.DockSlot(
-                                index = slotIndex,
-                                label = act.first,
-                                subtitle = act.second,
-                                packageName = "",
-                                action = act.third
-                            )
-                        )
-                    }
-                    else -> {
-                        val app = installedApps[which - 1 - builtIn.size]
-                        newSlots.add(
-                            com.polymath.voidlauncher.model.DockSlot(
-                                index = slotIndex,
-                                label = app.first.uppercase(),
-                                subtitle = app.second,
-                                packageName = app.second,
-                                action = "launch_package"
-                            )
-                        )
-                    }
-                }
-                currentConfig = currentConfig.copy(dockSlots = newSlots.sortedBy { it.index })
-                configManager.saveConfig(currentConfig)
-                Toast.makeText(this, "Slot [$slotIndex] updated", Toast.LENGTH_SHORT).show()
-                showDockSlotsManagerDialog()
-            }
-            .setNegativeButton("Back") { _, _ -> showDockSlotsManagerDialog() }
-            .show()
     }
 }

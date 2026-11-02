@@ -643,6 +643,19 @@
                         android:checked="false" />
                 </LinearLayout>
 
+                <TextView
+                    android:id="@+id/btnConfigureWallpaper"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/cyan_accent"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:text="WALLPAPER STUDIO (PICK / SCRIM) ➔" />
+
                 <!-- Card Radius SeekBar -->
                 <TextView
                     android:id="@+id/tvCardRadiusLabel"
