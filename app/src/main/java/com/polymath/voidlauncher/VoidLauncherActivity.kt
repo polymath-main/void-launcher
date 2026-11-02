@@ -79,7 +79,6 @@ import com.polymath.voidlauncher.core.shell.VoidRoots
 import com.polymath.voidlauncher.core.shell.VoidShell
 import com.polymath.voidlauncher.core.process.VoidProcessManager
 import com.polymath.voidlauncher.core.shell.VoidShellPort
-import com.polymath.voidlauncher.core.shim.DaemonShim
 import com.polymath.voidlauncher.core.terminal.VoidShellRunner
 import com.polymath.voidlauncher.databinding.ActivityVoidLauncherBinding
 import com.polymath.voidlauncher.model.AppEntry
@@ -257,16 +256,16 @@ class VoidLauncherActivity : AppCompatActivity() {
         )
         // v2 Cycle 3: ShellShim migrated off — the port is built
         // directly over VoidShell again (same type, same callback), so
-        // every downstream caller behaves exactly as before. The task
-        // registry still comes via DaemonShim (its migration is a later
-        // cycle); the shim itself is deleted, not left as dead code.
+        // every downstream caller behaves exactly as before.
+        // impl-01 step 6: VoidShim deleted entirely (see log) — the
+        // task registry is VoidProcessManager directly, not via a shim.
         // impl-01 step 5: openProject resolves project names under
         // the files home (filesDir/void) before invoking the hook.
         voidShellPort = VoidShellPort(
             voidShell,
             File(filesDir, "void").absolutePath
         ) { openVoidTerm() }
-        voidProcessManager = DaemonShim.create()
+        voidProcessManager = VoidProcessManager()
         nodeOsBridge = NodeOsBridge(this)
         appIndexer = AppIndexer(this)
         bareIntegerRouter = BareIntegerRouter(this, voidShellPort).apply {

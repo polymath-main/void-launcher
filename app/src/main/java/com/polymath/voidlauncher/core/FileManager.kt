@@ -10,6 +10,7 @@ import android.os.Environment
 import android.provider.Settings
 import android.webkit.MimeTypeMap
 import androidx.core.content.ContextCompat
+import com.polymath.voidlauncher.core.shell.VoidRoots
 import com.polymath.voidlauncher.model.FileItem
 import java.io.File
 import java.text.SimpleDateFormat
@@ -34,11 +35,10 @@ class FileManager(private val context: Context) {
      * another app's private directory (unreadable under Android DAC).
      */
     fun voidHomePath(): String {
-        val dir = File(context.filesDir, "void")
-        try {
-            if (!dir.exists()) dir.mkdirs()
-        } catch (_: Exception) {}
-        return dir.absolutePath
+        // impl-01 step 6: the files-home rule lives in VoidRoots
+        // (pure, tested) — FileManager adopts it instead of
+        // duplicating the same mkdirs logic a third time.
+        return VoidRoots.filesHome(context.filesDir).absolutePath
     }
 
     /**

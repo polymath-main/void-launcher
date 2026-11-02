@@ -11,8 +11,9 @@ import java.io.File
  *   (needs Context to init), so it is NOT defined here.
  * - **Files home** — `filesDir/void`: the launcher-owned workspace the
  *   files browser shows and `:work <project>` opens. Defined here in
- *   pure form (same rule as FileManager.voidHomePath() and
- *   FileShim.voidHome), so it is unit-testable without Android.
+ *   pure form (adopted by FileManager.voidHomePath() in impl-01 step
+ *   6, replacing the deleted FileShim rule), so it is unit-testable
+ *   without Android.
  * - **Shell default cwd** — today the app's internal `filesDir`
  *   (Activity passes it to VoidShell). It is NOT the files home and
  *   NOT the config home. Moving it to the files home is a behaviour
