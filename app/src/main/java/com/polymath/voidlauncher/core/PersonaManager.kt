@@ -27,7 +27,7 @@ class PersonaManager(private val context: Context) {
             subtitle = "Runtimes & Compilers",
             accentColor = "#E11D48",
             secondaryColor = "#06B6D4",
-            workspacePath = "/data/data/com.termux/files/home/Projects",
+            workspacePath = VoidPaths.WORKSPACE,
             glyphPatternName = "VOID_ACCENT"
         )
 
@@ -37,7 +37,7 @@ class PersonaManager(private val context: Context) {
             subtitle = "SaaS & Production",
             accentColor = "#06B6D4",
             secondaryColor = "#10B981",
-            workspacePath = "/data/data/com.termux/files/home/Projects",
+            workspacePath = VoidPaths.WORKSPACE,
             glyphPatternName = "MAIN_ACCENT"
         )
 
@@ -47,7 +47,7 @@ class PersonaManager(private val context: Context) {
             subtitle = "Obsidian OLED Minimalist",
             accentColor = "#007AFF",
             secondaryColor = "#8E8E93",
-            workspacePath = "/data/data/com.termux/files/home/Projects",
+            workspacePath = VoidPaths.WORKSPACE,
             glyphPatternName = "FOCUS_MODE_ON"
         )
     }
@@ -118,7 +118,7 @@ class PersonaManager(private val context: Context) {
                         accentColor = json.optString("accent", "#E11D48"),
                         secondaryColor = json.optString("secondary", "#06B6D4"),
                         surfaceColor = json.optString("surface", "#080808"),
-                        workspacePath = json.optString("workspace", "/data/data/com.termux/files/home/Projects"),
+                        workspacePath = json.optString("workspace", VoidPaths.WORKSPACE),
                         glyphPatternName = json.optString("glyph_pattern", "DEFAULT")
                     )
                     registerProfile(profile)

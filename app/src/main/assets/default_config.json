@@ -74,10 +74,7 @@
 
   "thermal_limit_celsius": 39.0,
   "thermal_guardian_enabled": true,
-  "thermal_kill_commands": [
-    "pkill -f 'nodeos.*daemon'",
-    "pkill -f 'python.*agent'"
-  ],
+  "thermal_kill_commands": [],
   "thermal_hysteresis_celsius": 2.0,
 
   "default_identity": "VOID",
@@ -85,11 +82,11 @@
   "identity_main_label": "[MAIN]",
   "active_persona": "void",
   "personas": [
-    { "id": "void",   "label": "[VOID]",   "subtitle": "Runtimes & Compilers",       "accent": "#E11D48", "secondary": "#06B6D4", "workspace": "/data/data/com.termux/files/home/Projects" },
-    { "id": "still",  "label": "[STILL]",  "subtitle": "Obsidian OLED Minimalist",   "accent": "#007AFF", "secondary": "#8E8E93", "workspace": "/data/data/com.termux/files/home/Projects" },
-    { "id": "main",   "label": "[MAIN]",   "subtitle": "SaaS & Production",          "accent": "#06B6D4", "secondary": "#10B981", "workspace": "/data/data/com.termux/files/home/Projects" },
-    { "id": "agent",  "label": "[AGENT]",  "subtitle": "Autonomous Loops",           "accent": "#8B5CF6", "secondary": "#06B6D4", "workspace": "/data/data/com.termux/files/home/Projects" },
-    { "id": "client", "label": "[CLIENT]", "subtitle": "PodPitch Workspace",         "accent": "#F59E0B", "secondary": "#10B981", "workspace": "/data/data/com.termux/files/home/Projects/PodPitch" }
+    { "id": "void",   "label": "[VOID]",   "subtitle": "Runtimes & Compilers",       "accent": "#E11D48", "secondary": "#06B6D4", "workspace": "/storage/emulated/0/.voidlauncher/workspace" },
+    { "id": "still",  "label": "[STILL]",  "subtitle": "Obsidian OLED Minimalist",   "accent": "#007AFF", "secondary": "#8E8E93", "workspace": "/storage/emulated/0/.voidlauncher/workspace" },
+    { "id": "main",   "label": "[MAIN]",   "subtitle": "SaaS & Production",          "accent": "#06B6D4", "secondary": "#10B981", "workspace": "/storage/emulated/0/.voidlauncher/workspace" },
+    { "id": "agent",  "label": "[AGENT]",  "subtitle": "Autonomous Loops",           "accent": "#8B5CF6", "secondary": "#06B6D4", "workspace": "/storage/emulated/0/.voidlauncher/workspace" },
+    { "id": "client", "label": "[CLIENT]", "subtitle": "PodPitch Workspace",         "accent": "#F59E0B", "secondary": "#10B981", "workspace": "/storage/emulated/0/.voidlauncher/workspace/PodPitch" }
   ],
 
   "omni_bar_hint": ">_ search apps or enter :cmd",
@@ -98,9 +95,9 @@
   "command_history_enabled": true,
   "command_history_limit": 500,
 
-  "default_workspace_path": "/data/data/com.termux/files/home/Projects",
-  "workflow_json_path":     "/data/data/com.termux/files/home/Projects/workflow.json",
-  "nodeos_db_path":         "/data/data/com.termux/files/home/Projects/agy_nodeos.db",
+  "default_workspace_path": "/storage/emulated/0/.voidlauncher/workspace",
+  "workflow_json_path":     "/storage/emulated/0/.voidlauncher/workflow.json",
+  "nodeos_db_path":         "/storage/emulated/0/.voidlauncher/agy_nodeos.db",
   "nodeos_legacy_import_enabled": false,
 
   "enable_glyph_pulse": true,
@@ -124,7 +121,7 @@
   "focus_scheduler_enabled": true,
   "focus_schedule_path": "/storage/emulated/0/.voidlauncher/focus_schedule.json",
 
-  "notif_whitelist_packages": ["com.termux", "com.google.android.dialer"],
+  "notif_whitelist_packages": ["com.google.android.dialer"],
   "notif_blacklist_packages": [],
   "notif_priority_keywords": ["error", "failed", "agent", "completed", "critical", "warning"],
 

@@ -226,10 +226,10 @@ class VoidLauncherActivity : AppCompatActivity() {
 
         telemetryMonitor = TelemetryMonitor(this)
         clipboard = AndroidClipboard(this)
-        // VoidShell (Phase 1 + Termux-removal Cycles 1-2): /system/bin/sh
+        // VoidShell (Phase 1 + migration Cycles 1-2): /system/bin/sh
         // on device, filesDir as default workdir. :run, :sh, :term, the
         // dock TERMINAL slot, agent dispatch and thermal throttling all
-        // run through Void-owned code now; no Termux IPC remains here.
+        // run through Void-owned code now; no external-terminal IPC remains here.
         voidShell = VoidShell(DefaultProcessRunner(), "/system/bin/sh", filesDir.absolutePath)
         voidShellPort = VoidShellPort(voidShell) { openVoidTerm() }
         voidProcessManager = VoidProcessManager()
@@ -382,7 +382,7 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun reloadConfigFromSync() {
         config = configManager.loadConfig()
         applyConfig()
-        showTerminalOutput("[CONFIG AUTO-RELOADED VIA TERMUX BRIDGE]")
+        showTerminalOutput("[CONFIG AUTO-RELOADED VIA VOID CONFIG SYNC]")
     }
 
     // ── Visual & Configuration Application ──────────────────
@@ -1420,7 +1420,7 @@ class VoidLauncherActivity : AppCompatActivity() {
     }
 
     /**
-     * Termux-removal Cycle 2: fresh install shows Void daemon /
+     * Migration Cycle 2: fresh install shows Void daemon /
      * VoidTaskStore status. The legacy NodeOS card appears only when
      * the opt-in legacy import flag is on.
      */
@@ -1728,8 +1728,8 @@ class VoidLauncherActivity : AppCompatActivity() {
                 }
             }
             command.startsWith("run ") -> {
-                // Void-owned headless shell (Phase 1). :sh stays on Termux
-                // in this cycle; :run is the new path, run off the UI thread.
+                // Void-owned headless shell (Phase 1). :run is the
+                // VoidShell path, run off the UI thread.
                 val runCmd = command.removePrefix("run ").trim()
                 if (runCmd.isBlank()) {
                     showTerminalOutput("[RUN]: empty command")
@@ -1750,7 +1750,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                 }
             }
             command.startsWith("sh ") -> {
-                // :sh is an alias for :run (Termux-removal Cycle 1):
+                // :sh is an alias for :run (migration Cycle 1):
                 // same VoidShell run, same real output, off the UI thread.
                 val shellCmd = command.removePrefix("sh ").trim()
                 if (shellCmd.isBlank()) {
@@ -1861,18 +1861,15 @@ class VoidLauncherActivity : AppCompatActivity() {
     }
 
     /**
-     * Termux-removal Cycle 2: agent workflow sync goes to a Void-owned
-     * path. A config path pointing into another app's private directory
-     * is unreadable under Android DAC, so it is replaced by
-     * Void home workflow.json; any other configured path is honoured.
+     * Migration Cycle 3: agent workflow sync uses the configured path,
+     * whose default is now Void-owned (VoidPaths.WORKFLOW_JSON). A
+     * user-set path into another app's private directory would simply
+     * be unreadable under Android DAC and is not special-cased any more.
      * NodeOS paths are wired only when the opt-in legacy import flag
      * is on; otherwise the bridge stays blank and reports no NodeOS.
      */
     private fun syncAgentAndNodeOsPaths() {
-        val voidWorkflow = File(fileManager.voidHomePath(), "workflow.json").absolutePath
-        agentOrchestrator.workflowPath =
-            if (config.workflowJsonPath.startsWith("/data/data/com.termux")) voidWorkflow
-            else config.workflowJsonPath
+        agentOrchestrator.workflowPath = config.workflowJsonPath
         nodeOsBridge.isLegacyImportEnabled = config.nodeOsLegacyImportEnabled
         if (config.nodeOsLegacyImportEnabled) {
             nodeOsBridge.workflowPath = config.workflowJsonPath
@@ -1884,7 +1881,7 @@ class VoidLauncherActivity : AppCompatActivity() {
     }
 
     /**
-     * Termux-removal Cycle 1: the in-app VoidTerm panel replaces the
+     * Migration Cycle 1: the in-app VoidTerm panel replaces the
      * external terminal launch for the dock TERMINAL slot, the
      * OPEN_TERMINAL gesture, and the VoidShellPort interactive hook.
      * The panel has no separate window yet, so opening it shows its

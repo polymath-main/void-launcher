@@ -4,7 +4,7 @@ import com.polymath.voidlauncher.core.shell.ShellResult
 import com.polymath.voidlauncher.core.shell.VoidShell
 
 /**
- * Adapts [VoidShell] to [TerminalCommandRunner] (Termux-removal Cycle 1).
+ * Adapts [VoidShell] to [TerminalCommandRunner] (migration Cycle 1).
  *
  * This is what VoidTermPanel.executeVia() runs on Android: :term output
  * is now real VoidShell output, not a write-only dispatch to another app.

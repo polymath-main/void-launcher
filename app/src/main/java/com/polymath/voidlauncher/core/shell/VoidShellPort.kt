@@ -1,7 +1,7 @@
 package com.polymath.voidlauncher.core.shell
 
 /**
- * VoidShellPort — the Void-owned [ShellPort] (Termux-removal Cycle 1).
+ * VoidShellPort — the Void-owned [ShellPort] (migration Cycle 1).
  *
  * Pure Kotlin: no Android imports, so it is unit-testable on the JVM.
  * dispatchCommand runs through [VoidShell] (/system/bin/sh on device)
@@ -22,7 +22,7 @@ class VoidShellPort(
         workDir: String,
         inBackground: Boolean
     ): Boolean {
-        // inBackground is a legacy Termux-IPC flag: VoidShell runs are
+        // inBackground is a legacy IPC flag: VoidShell runs are
         // already one-shot and caller-threaded (Activity uses IO
         // dispatchers for :run/:sh); the flag is accepted for
         // interface compatibility and does not change execution.

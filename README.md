@@ -1,7 +1,7 @@
 # VoidLauncher (`void-launcher`)
 
 > **Sovereign System Cockpit & Terminal-First Android Launcher**  
-> Custom engineered for Nothing Phone (2a) [A142] · Android 16 (Bionic libc) · Dimensity 7200 Pro · Termux Native
+> Custom engineered for Nothing Phone (2a) [A142] · Android 16 (Bionic libc) · Dimensity 7200 Pro · Void-owned shell, no external terminal required
 
 ---
 
@@ -17,7 +17,7 @@ Built for edge software engineers and autonomous agent builders who treat their 
 - **Hardware & Telemetry HUD**: Real-time monitoring of battery %, temperature (<39°C preflight guard), RAM/swap pressure, and active NodeOS daemon ping status.
 - **Hot-Reload User Customization (app config folder)**:
   - Config lives at `/sdcard/Android/data/com.polymath.voidlauncher.debug/files/config/config.json`.
-  - Editable in-app via **Settings** (applies instantly on leave) or from Termux.
+  - Editable in-app via **Settings** (applies instantly on leave) or from any editor.
   - A FileObserver live-reloads the launcher whenever the file is saved.
 - **Theme Engine (Appearance Studio)**:
   - Presets: `void`, `obsidian`, `midnight`, `graphite`, `matrix`, `amber` (+ `custom`).
@@ -25,23 +25,23 @@ Built for edge software engineers and autonomous agent builders who treat their 
   - Custom schemes: override accent / secondary / surface hex values.
 - **View Modes**: `COCKPIT`, `STILL`, `MINIMAL`, `FILES` — switch via Settings, `:still`/`:cockpit`/`:minimal`, or `:mode <mode>`.
   - Full control over color palette (accent, secondary, surface, border, warning, safe).
-  - Configurable dock slots (up to 7 custom slots with custom labels, packages, actions, or direct Termux commands).
+  - Configurable dock slots (up to 7 custom slots with custom labels, packages, actions, or direct Void shell commands).
   - Configurable font family and sizes.
   - Toggles for HUD cards, telemetry bar, and on-screen digit keypad.
   - Hot-reloads dynamically every time you return to the home screen.
 - **Bare-Integer Fast Dock (`1`–`7`)**:
-  - `[1]` Terminal (`com.termux` / VoidTerm)
+  - `[1]` Terminal (in-app VoidTerm)
   - `[2]` Filesystem browser
   - `[3]` App Drawer (all installed apps)
-  - `[4]` Browser (WebAuth & Termux URL bridge)
+  - `[4]` Browser (WebAuth & links)
   - `[5]` System Settings
   - `[6]` / `[7]` User-assignable (long-press any app → **Add to dock…**)
 - **Omni-Command & Shell Dispatcher (`>_`)**:
   - Type 2 letters for instant fuzzy app filtering.
-  - Prefix `:` to dispatch commands directly to Termux via `com.termux.RUN_COMMAND` intent.
+  - Prefix `:` to run commands in the built-in VoidShell (`/system/bin/sh`) with real output. No external terminal app is required.
   - Direct shortcuts:
-    - `:sh <cmd>`: Headless execution in Termux.
-    - `:work <project>`: Navigates Termux directly to `~/Projects/<project>`.
+    - `:sh <cmd>`: Headless execution in VoidShell (alias for `:run`).
+    - `:work <project>`: Opens the Void home project folder in the files browser.
     - `:clip`: Reads Android clipboard.
     - `:config`: Exports the current JSON config template to `/sdcard/.voidlauncher/config.json`.
     - `:reload`: Immediately reloads configuration from disk.
@@ -51,19 +51,19 @@ Built for edge software engineers and autonomous agent builders who treat their 
 
 ## Configuration & Customization
 
-Create or edit your config file from Termux:
+Create or edit your config file from any editor:
 
 ```bash
 # The launcher's app-owned config folder (no storage permission needed to read it
-# from the app; Termux can read it with All-files access).
+# from the app).
 CFG=/sdcard/Android/data/com.polymath.voidlauncher.debug/files/config
 ls "$CFG"
 nano "$CFG/config.json"     # save → app hot-reloads immediately
 ```
 
-> **Note:** the launcher cannot read Termux's private sandbox
-> (`/data/data/com.termux/...`). Config, macros, widgets, personas and glyph
-> patterns all live under the app's `files/config/` folder.
+> **Note:** the launcher never reads another app's private sandbox.
+> Config, macros, widgets, personas and glyph patterns all live under
+> the app's `files/config/` folder.
 
 Or type `:config` in the launcher's omni-bar to export the full configuration template.
 
@@ -89,13 +89,13 @@ Example `config.json`:
   "show_digit_keypad": true,
   "thermal_limit_celsius": 39.0,
   "dock_slots": [
-    { "index": 1, "label": "TERMINAL", "subtitle": "Termux · VoidTerm", "package_name": "com.termux", "action": "launch_termux" },
+    { "index": 1, "label": "TERMINAL", "subtitle": "VoidTerm", "package_name": "", "action": "open_voidterm" },
     { "index": 2, "label": "FILES", "subtitle": "Browse Projects", "action": "open_files" },
     { "index": 3, "label": "DRAWER", "subtitle": "All Installed Apps", "action": "open_drawer" },
     { "index": 4, "label": "BROWSER", "subtitle": "WebAuth & Links", "action": "open_browser" },
     { "index": 5, "label": "SETTINGS", "subtitle": "Void Customizer", "action": "open_settings" },
     { "index": 6, "label": "COMMS", "subtitle": "Dialer", "action": "open_dialer" },
-    { "index": 7, "label": "HUD", "subtitle": "pmc status", "action": "termux_command", "package_name": "pmc status" }
+    { "index": 7, "label": "HUD", "subtitle": "Void status", "action": "run_void_command", "package_name": "echo void-status" }
   ]
 }
 ```
@@ -104,7 +104,7 @@ Example `config.json`:
 
 - **Platform**: Android 16 (API 35/36), Kotlin 1.9, Java 17/21
 - **Architecture**: Low-overhead ViewBinding, Coroutines Flow, Zero Animation Lag
-- **IPC**: Android Intents (`com.termux.RUN_COMMAND`), SharedPreferences, ContentProvider
+- **Shell**: Void-owned VoidShell (`/system/bin/sh`) + in-app VoidTerm; SharedPreferences for identity state
 - **CI/CD**: GitHub Actions automated APK compilation (`.github/workflows/build.yml`)
 
 ## Build & Test

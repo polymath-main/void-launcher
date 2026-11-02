@@ -13,7 +13,7 @@ import java.io.File
 /**
  * Agent Task Orchestrator (F-08).
  *
- * Termux-removal Cycle 2: tasks are dispatched through the Void-owned
+ * Migration Cycle 2: tasks are dispatched through the Void-owned
  * [ShellPort] (VoidShellPort on Android) and tracked by handle in
  * [VoidProcessManager]. Cancellation cancels by handle — it never
  * shells out to `pkill -f` with a command prefix, which could match

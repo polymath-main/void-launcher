@@ -16,7 +16,7 @@ class NodeOsBridge(private val context: Context) {
     }
 
     /**
-     * Termux-removal Cycle 2: NodeOS is legacy-import-only and optional.
+     * Migration Cycle 2: NodeOS is legacy-import-only and optional.
      * [isLegacyImportEnabled] is false by default (fresh install): the
      * bridge then reports no NodeOS status at all, and the Activity
      * shows Void daemon / VoidTaskStore status instead of a broken

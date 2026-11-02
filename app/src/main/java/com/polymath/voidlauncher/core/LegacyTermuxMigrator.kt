@@ -4,8 +4,8 @@ import android.content.Context
 import java.io.File
 
 /**
- * LegacyTermuxMigrator — the ONLY place a Termux path may appear
- * (Termux-removal Cycle 2, kept through Cycle 3's proof as the named
+ * LegacyTermuxMigrator — the ONLY place a legacy external-terminal path may appear
+ * (migration Cycle 2, kept through Cycle 3's proof as the named
  * opt-in exception).
  *
  * This is an opt-in, user-initiated legacy import helper, NOT a

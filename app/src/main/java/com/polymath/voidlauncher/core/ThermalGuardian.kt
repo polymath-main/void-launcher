@@ -9,7 +9,7 @@ import com.polymath.voidlauncher.core.process.VoidProcessManager
  * Actively protects the Nothing Phone (2a) Dimensity 7200 Pro from thermal saturation
  * during intensive local agent or ML compilation loops.
  *
- * Termux-removal Cycle 2: throttling cancels Void-owned tasks by handle
+ * Migration Cycle 2: throttling cancels Void-owned tasks by handle
  * through [VoidProcessManager]. It NEVER shells out to `pkill -f`
  * patterns any more. The [killCommands] parameter is kept only for
  * call-site compatibility (the Activity still passes

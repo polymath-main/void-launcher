@@ -21,7 +21,8 @@ com.polymath.voidlauncher/
 │   ├── NodeOsBridge.kt                # NodeOS daemon state, workflow.json & identity mode switcher
 │   ├── NothingGlyphManager.kt         # Hardware Glyph LED controller
 │   ├── TelemetryMonitor.kt            # Coroutine flow probing battery, temp (<39°C) & RAM
-│   └── TermuxIpcDispatcher.kt         # com.termux.RUN_COMMAND intent bridge
+│   ├── VoidShellPort.kt             # VoidShell-backed ShellPort (no external terminal)
+│   └── LegacyTermuxMigrator.kt      # Opt-in COPY-only legacy import (not a runtime path)
 ├── model/
 │   ├── AppEntry.kt                    # Application descriptor, icon holder & section header
 │   ├── FileItem.kt                    # File/folder descriptor with metadata & formatting
@@ -37,19 +38,18 @@ com.polymath.voidlauncher/
 
 ---
 
-## 2. IPC Integration: Termux RUN_COMMAND
+## 2. Shell Integration: VoidShell (no external terminal)
 
 ```
-┌─────────────────────────┐       Intent (com.termux.RUN_COMMAND)       ┌────────────────────────┐
-│  VoidLauncherActivity   │ ──────────────────────────────────────────> │ Termux RunCommandService│
-│  (:sh / :work / files)  │                                             │   (Bionic / Bash)      │
+┌─────────────────────────┐       VoidShell (/system/bin/sh)            ┌────────────────────────┐
+│  VoidLauncherActivity   │ ──────────────────────────────────────────> │  VoidShellPort /       │
+│  (:sh / :run / :term)   │              in-process                     │  VoidTerm panel        │
 └─────────────────────────┘                                             └────────────────────────┘
 ```
 
-The launcher dispatches commands with:
-- `com.termux.RUN_COMMAND_PATH`: `/data/data/com.termux/files/usr/bin/bash`
-- `com.termux.RUN_COMMAND_WORKDIR`: `/data/data/com.termux/files/home/Projects`
-- `com.termux.RUN_COMMAND_BACKGROUND`: `true` for headless jobs, `false` for interactive terminal sessions.
+Commands run through the Void-owned VoidShell with real captured output;
+`:term` runs in the in-app VoidTerm panel. No external terminal app is
+required, and no other app's private directory is used at runtime.
 
 ---
 
@@ -64,7 +64,7 @@ Android 16 restricts access to `/sys/class/thermal/` without root. VoidLauncher 
 ## 4. Configuration Resolution Chain
 
 VoidLauncher implements a 4-tier configuration resolution engine:
-1. **User Override**: `/data/data/com.termux/files/home/.voidlauncher/config.json`
+1. **User Override**: Void-owned config dir (`VoidPaths.HOME/config.json`)
 2. **App Sandbox**: `/data/data/com.polymath.voidlauncher/files/config.json`
 3. **Bundled Asset**: `assets/default_config.json`
 4. **Hardcoded Fallbacks**: Default Kotlin models in `LauncherConfig.kt`

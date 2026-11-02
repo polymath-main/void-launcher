@@ -13,7 +13,7 @@ import com.polymath.voidlauncher.core.terminal.TerminalSession
  * Coordinates an in-cockpit terminal line buffer, enabling direct
  * command dispatch and live output streaming without switching apps.
  *
- * Termux-removal Cycle 1: when [terminalRunner] is set (the Activity
+ * Migration Cycle 1: when [terminalRunner] is set (the Activity
  * wires it to VoidShell), execute() runs through it via executeVia()
  * and shows real output. The legacy ShellPort dispatch path remains
  * only as a fallback while other callers migrate; it is not used by

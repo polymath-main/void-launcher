@@ -66,7 +66,7 @@ class DefaultProcessRunner(
  *
  * Sandbox note for this cycle: VoidShell does not itself enforce a
  * workspace sandbox — callers pass the workdir, and the refined plan's
- * sandbox + approval gate is a later cycle. Do not pass a Termux
+ * sandbox + approval gate is a later cycle. Do not pass another app's
  * private path as workdir; it is unreadable from the app sandbox.
  */
 class VoidShell(

@@ -8,8 +8,8 @@ class VoidActionTest {
 
     @Test
     fun knownActionsMapExactly() {
-        // Termux-removal Cycle 1: legacy strings route to Void actions.
-        assertEquals(VoidAction.OPEN_VOIDTERM, VoidAction.fromAction("launch_termux", "com.termux"))
+        // Migration Cycle 3: only the Void strings map; the old
+        // external-terminal strings were dropped with the dispatcher.
         assertEquals(VoidAction.OPEN_VOIDTERM, VoidAction.fromAction("open_voidterm", ""))
         assertEquals(VoidAction.OPEN_FILES, VoidAction.fromAction("open_files", ""))
         assertEquals(VoidAction.OPEN_DRAWER, VoidAction.fromAction("open_drawer", ""))
@@ -17,7 +17,6 @@ class VoidActionTest {
         assertEquals(VoidAction.LAUNCH_PACKAGE, VoidAction.fromAction("launch_package", "com.example"))
         assertEquals(VoidAction.OPEN_BROWSER, VoidAction.fromAction("open_browser", ""))
         assertEquals(VoidAction.OPEN_DIALER, VoidAction.fromAction("open_dialer", ""))
-        assertEquals(VoidAction.RUN_VOID_COMMAND, VoidAction.fromAction("termux_command", "pmc status"))
         assertEquals(VoidAction.RUN_VOID_COMMAND, VoidAction.fromAction("run_void_command", "pmc status"))
     }
 

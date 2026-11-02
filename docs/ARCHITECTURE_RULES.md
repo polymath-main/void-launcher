@@ -81,10 +81,13 @@ VOID implements STILL's deliberate 4-space spatial topology:
 Compose and View screens render immutable UI state (`StateFlow` / models) and emit user events. They **never** invoke `PackageManager`, `LauncherApps`, or file I/O directly on the main UI thread.
 
 ### Rule 2: Platform API Isolation Behind Adapters
-All Android-specific framework interactions (`BatteryManager`, `AudioManager`, `PackageManager`, `Termux RUN_COMMAND`) reside in dedicated core adapters (`TelemetryMonitor`, `AppIndexer`, `TermuxIpcDispatcher`).
+All Android-specific framework interactions (`BatteryManager`, `AudioManager`, `PackageManager`, shell execution) reside in dedicated core adapters (`TelemetryMonitor`, `AppIndexer`, `VoidShellPort`).
 
-### Rule 3: Native Bionic / Termux Execution Contract
-Commands dispatched to Termux must target `$PREFIX/bin/bash` (`/data/data/com.termux/files/usr/bin/bash`) with working directory explicitly set to `/data/data/com.termux/files/home/Projects`. Never assume `/bin/bash` or standard Linux FHS paths.
+### Rule 3: Void-owned Shell Execution Contract
+Commands run through VoidShell (`/system/bin/sh` on device) with a
+Void-owned workdir (app files dir by default). Never target another
+app's private binary or workdir, and never assume `/bin/bash` or
+standard Linux FHS paths on device.
 
 ### Rule 4: Dynamic Hot-Reload Configuration Chain
 Configuration resolves in 4 deterministic tiers:
@@ -92,7 +95,7 @@ Configuration resolves in 4 deterministic tiers:
 2. Sandbox `files/config.json`
 3. Bundled asset `default_config.json`
 4. Kotlin default models in `LauncherConfig.kt`
-Hot reload occurs dynamically on every `onResume()` and via Termux broadcast (`com.polymath.voidlauncher.CONFIG_CHANGED`).
+Hot reload occurs dynamically on every `onResume()` and via a FileObserver on the Void config store (ConfigSyncService).
 
 ### Rule 5: Thermal Envelope & Battery Guardian
 - Thermal ceiling: **39.0°C**.

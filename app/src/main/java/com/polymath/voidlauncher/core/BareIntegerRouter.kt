@@ -21,7 +21,7 @@ class BareIntegerRouter(
     var onOpenFilesRequested: (() -> Unit)? = null
     var onOpenDrawerRequested: (() -> Unit)? = null
     var onOpenSettingsRequested: (() -> Unit)? = null
-    /** Termux-removal Cycle 1: TERMINAL slot opens in-app VoidTerm, never an external terminal app. */
+    /** Migration Cycle 1: TERMINAL slot opens in-app VoidTerm, never an external terminal app. */
     var onOpenVoidTermRequested: (() -> Unit)? = null
 
     fun updateSlots(newSlots: List<DockSlot>) {

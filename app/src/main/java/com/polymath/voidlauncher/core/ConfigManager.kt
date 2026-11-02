@@ -26,7 +26,7 @@ class ConfigManager(private val context: Context) {
     companion object {
         private const val TAG = "ConfigManager"
 
-        /** Shared-storage config dir — reachable by the app AND by Termux. */
+        /** Void-owned config dir. */
         val EXTERNAL_CONFIG_DIR: String get() = VoidPaths.HOME
         val EXTERNAL_CONFIG_FILE: String get() = VoidPaths.CONFIG
         const val INTERNAL_CONFIG_FILE = "config.json"
@@ -83,10 +83,16 @@ class ConfigManager(private val context: Context) {
     }
 
     /**
-     * Writes the bundled defaults to the external path so the user has a template to edit.
+     * Exports the CURRENT config to the Void config store (migration
+     * Cycle 3 fix). This deliberately never writes LauncherConfig()
+     * defaults: the old export overwrote the user's
+     * external config with defaults while the UI toasted "Exported
+     * template". Callers pass the config in effect (e.g. Settings'
+     * last-saved config); a SAF-chosen destination is handled by
+     * ConfigSyncService.exportConfig, which copies this same store file.
      */
-    fun exportDefaultConfig() {
-        saveConfig(LauncherConfig())
+    fun exportCurrentConfig(config: LauncherConfig) {
+        saveConfig(config)
     }
 
     // ── File readers ──────────────────────────────────────────
@@ -94,7 +100,7 @@ class ConfigManager(private val context: Context) {
     private fun readExternalConfig(): JSONObject? {
         // Primary: app-owned config folder
         readJsonFile(File(EXTERNAL_CONFIG_FILE))?.let { return it }
-        // Migration: legacy locations (older shared dir, Termux sandbox)
+        // Migration: legacy location (older shared dir)
         for (legacy in VoidPaths.LEGACY_CONFIG_FILES) {
             readJsonFile(File(legacy))?.let {
                 Log.i(TAG, "Migrating legacy config from $legacy")
@@ -182,9 +188,9 @@ class ConfigManager(private val context: Context) {
             omniFuzzyMaxResults = json.optInt("omni_fuzzy_max_results", 5),
             commandHistoryEnabled = json.optBoolean("command_history_enabled", true),
             commandHistoryLimit = json.optInt("command_history_limit", 500),
-            defaultWorkspacePath = json.optString("default_workspace_path", "/data/data/com.termux/files/home/Projects"),
-            workflowJsonPath = json.optString("workflow_json_path", "/data/data/com.termux/files/home/Projects/workflow.json"),
-            nodeosDbPath = json.optString("nodeos_db_path", "/data/data/com.termux/files/home/Projects/agy_nodeos.db"),
+            defaultWorkspacePath = json.optString("default_workspace_path", VoidPaths.WORKSPACE),
+            workflowJsonPath = json.optString("workflow_json_path", VoidPaths.WORKFLOW_JSON),
+            nodeosDbPath = json.optString("nodeos_db_path", VoidPaths.NODEOS_DB),
             nodeOsLegacyImportEnabled = json.optBoolean("nodeos_legacy_import_enabled", false),
             useSystemWallpaper = json.optBoolean("use_system_wallpaper", false),
             cockpitCardRadiusDp = json.optDouble("cockpit_card_radius_dp", 14.0).toFloat(),
@@ -219,7 +225,7 @@ class ConfigManager(private val context: Context) {
             widgetsDirectory = json.optString("widgets_directory", VoidPaths.WIDGETS),
             focusSchedulerEnabled = json.optBoolean("focus_scheduler_enabled", true),
             focusSchedulePath = json.optString("focus_schedule_path", VoidPaths.FOCUS_SCHEDULE),
-            notifWhitelistPackages = parseStringList(json.optJSONArray("notif_whitelist_packages"), listOf("com.termux", "com.google.android.dialer")),
+            notifWhitelistPackages = parseStringList(json.optJSONArray("notif_whitelist_packages"), listOf("com.google.android.dialer")),
             notifBlacklistPackages = parseStringList(json.optJSONArray("notif_blacklist_packages")),
             notifPriorityKeywords = parseStringList(json.optJSONArray("notif_priority_keywords"), listOf("error", "failed", "agent", "completed", "critical", "warning")),
             voidTermEnabled = json.optBoolean("voidterm_enabled", false),
@@ -277,7 +283,7 @@ class ConfigManager(private val context: Context) {
                 subtitle = obj.optString("subtitle", ""),
                 accentColor = obj.optString("accent", "#E11D48"),
                 secondaryColor = obj.optString("secondary", "#06B6D4"),
-                workspacePath = obj.optString("workspace", "/data/data/com.termux/files/home/Projects")
+                workspacePath = obj.optString("workspace", VoidPaths.WORKSPACE)
             ))
         }
         return list

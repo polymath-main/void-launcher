@@ -963,7 +963,7 @@
                     android:fontFamily="monospace"
                     android:textColor="@color/text_primary"
                     android:textSize="11sp"
-                    android:text="/data/data/com.termux/files/home/Projects" />
+                    android:text="/storage/emulated/0" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -1110,7 +1110,7 @@
                     android:fontFamily="monospace"
                     android:textColor="@color/cyan_accent"
                     android:textSize="11sp"
-                    android:text="EXPORT TO TERMUX" />
+                    android:text="EXPORT CONFIG" />
             </LinearLayout>
 
         </LinearLayout>

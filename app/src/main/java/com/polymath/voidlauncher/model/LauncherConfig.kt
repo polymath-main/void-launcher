@@ -14,7 +14,7 @@ import java.io.File
  *
  *   /sdcard/Android/data/<pkg>/files/config/config.json
  *
- * The legacy shared/Termux locations are kept read-only for one-time migration.
+ * The legacy shared location is kept read-only for one-time migration.
  */
 object VoidPaths {
     private const val TAG = "VoidPaths"
@@ -43,17 +43,27 @@ object VoidPaths {
     val GLYPH_PATTERNS: String get() = "$HOME/glyph_patterns.json"
     val FOCUS_SCHEDULE: String get() = "$HOME/focus_schedule.json"
 
-    /** Legacy config locations for read-only migration. */
+    /** Void-owned workspace root (replaces the old shared Projects dir). */
+    val WORKSPACE: String get() = "$HOME/workspace"
+
+    /** Void-owned workflow file for agent task sync. */
+    val WORKFLOW_JSON: String get() = "$HOME/workflow.json"
+
+    /** Void-owned legacy NodeOS database path (legacy import only). */
+    val NODEOS_DB: String get() = "$HOME/agy_nodeos.db"
+
+    /** Legacy config location for read-only migration. Old configs from
+     * another app's private sandbox are imported only via the opt-in
+     * legacy migrator (SAF-gated), never read from here at runtime. */
     val LEGACY_CONFIG_FILES: List<String> = listOf(
-        File(Environment.getExternalStorageDirectory(), ".voidlauncher/config.json").absolutePath,
-        "/data/data/com.termux/files/home/.voidlauncher/config.json"
+        File(Environment.getExternalStorageDirectory(), ".voidlauncher/config.json").absolutePath
     )
 }
 
 /**
  * Complete visual & behavioral configuration for VoidLauncher (v2.0).
  *
- * Users can edit ~/.voidlauncher/config.json from Termux or
+ * Users can edit ~/.voidlauncher/config.json from any editor or
  * configure directly via the built-in Void Settings UI.
  */
 data class LauncherConfig(
@@ -120,7 +130,7 @@ data class LauncherConfig(
     // ── Thermal Envelope & Guardian (F-06) ───────────────────
     val thermalLimitCelsius: Float = 39.0f,
     val thermalGuardianEnabled: Boolean = true,
-    /** DEPRECATED (Termux-removal Cycle 2): never executed as shell; kept only so old configs still parse. */
+    /** DEPRECATED (migration Cycle 2): never executed as shell; kept only so old configs still parse. */
     val thermalKillCommands: List<String> = emptyList(),
     val thermalHysteresisCelsius: Float = 2.0f,
 
@@ -139,10 +149,10 @@ data class LauncherConfig(
     val commandHistoryLimit: Int = 500,
 
     // ── Workspace ────────────────────────────────────────────
-    val defaultWorkspacePath: String = "/data/data/com.termux/files/home/Projects",
-    val workflowJsonPath: String = "/data/data/com.termux/files/home/Projects/workflow.json",
-    val nodeosDbPath: String = "/data/data/com.termux/files/home/Projects/agy_nodeos.db",
-    /** Termux-removal Cycle 2: NodeOS legacy import is opt-in; false = Void daemon status is shown instead. */
+    val defaultWorkspacePath: String = VoidPaths.WORKSPACE,
+    val workflowJsonPath: String = VoidPaths.WORKFLOW_JSON,
+    val nodeosDbPath: String = VoidPaths.NODEOS_DB,
+    /** Migration Cycle 2: NodeOS legacy import is opt-in; false = Void daemon status is shown instead. */
     val nodeOsLegacyImportEnabled: Boolean = false,
 
     // ── Glyph & Choreographer (F-03) ─────────────────────────
@@ -179,7 +189,7 @@ data class LauncherConfig(
     val focusSchedulePath: String = VoidPaths.FOCUS_SCHEDULE,
 
     // ── Notification Intelligence (F-11) ─────────────────────
-    val notifWhitelistPackages: List<String> = listOf("com.termux", "com.google.android.dialer"),
+    val notifWhitelistPackages: List<String> = listOf("com.google.android.dialer"),
     val notifBlacklistPackages: List<String> = emptyList(),
     val notifPriorityKeywords: List<String> = listOf("error", "failed", "agent", "completed", "critical", "warning"),
 

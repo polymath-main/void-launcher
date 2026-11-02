@@ -27,7 +27,7 @@ class FileManager(private val context: Context) {
     }
 
     /**
-     * Termux-removal Cycle 2: the Void-owned workspace root —
+     * Migration Cycle 2: the Void-owned workspace root —
      * app files/void/. Created on first use. This is the default
      * workspace for files the launcher itself owns; a user-chosen
      * shared-storage workspace via SAF is the alternative, never

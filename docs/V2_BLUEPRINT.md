@@ -21,7 +21,7 @@
 | F-09 | **OmniScript History & Snippets** — Persistent command palette with search | 🟡 Quality | S |
 | F-10 | **Focus Mode Scheduler** — Time-boxed context switching automation | 🟡 Quality | M |
 | F-11 | **Notification Intelligence Layer** — Priority scoring & silent routing | 🟡 Quality | M |
-| F-12 | **Config Sync over Termux Bridge** — Live push from host config daemons | 🟠 Advanced | M |
+| F-12 | **Config Sync over Void store** — FileObserver hot-reload + SAF import/export | 🟠 Advanced | M |
 | F-13 | **Adaptive Power Profile** — Dynamic UI density based on battery/thermal state | 🟡 Quality | S |
 | F-14 | **VoidTerm Embedded Panel** — Native terminal pane within launcher | 🔴 Core | XL |
 | F-15 | **Macro Recorder** — Record & replay interaction sequences | 🟡 Quality | L |
@@ -43,7 +43,7 @@ com.polymath.voidlauncher/ (v2.0)
 │   ├── NodeOsBridge.kt                # EXISTING — extended: live SQLite polling
 │   ├── NothingGlyphManager.kt          # EXISTING → F-03: Full GDK patterns
 │   ├── TelemetryMonitor.kt             # EXISTING — extended: swap + CPU cores
-│   ├── TermuxIpcDispatcher.kt          # EXISTING — extended: output capture
+│   ├── VoidShellPort.kt              # Void-owned shell (replaces the old dispatcher)
 │   │
 │   ├── [NEW] LiveScriptEngine.kt       # F-01: Sandboxed Kotlin + sh eval engine
 │   ├── [NEW] PersonaManager.kt         # F-02: Multi-identity profile vault
@@ -56,7 +56,7 @@ com.polymath.voidlauncher/ (v2.0)
 │   ├── [NEW] CommandPalette.kt         # F-09: Command history + snippet vault
 │   ├── [NEW] FocusScheduler.kt         # F-10: Time-boxed context scheduler
 │   ├── [NEW] NotifIntelligence.kt      # F-11: Priority scoring + routing rules
-│   ├── [NEW] ConfigSyncService.kt      # F-12: Termux config push receiver
+│   ├── [NEW] ConfigSyncService.kt      # F-12: Void store FileObserver + SAF import/export
 │   ├── [NEW] PowerProfileAdaptor.kt    # F-13: Dynamic UI density engine
 │   ├── [NEW] VoidTermPanel.kt          # F-14: Embedded pseudo-terminal pane
 │   └── [NEW] MacroRecorder.kt          # F-15: Interaction sequence recorder
@@ -96,15 +96,15 @@ com.polymath.voidlauncher/ (v2.0)
 ### F-01 · LiveScript Engine
 > **Tagline**: Type Kotlin expressions or shell pipelines directly in the omni-bar, see output inline.
 
-**Problem**: The current `:sh <cmd>` prefix dispatches blindly to Termux background with no inline output. Power users want to evaluate expressions without leaving the launcher.
+**Problem**: The current `:sh <cmd>` prefix ran blindly out-of-process with no inline output. Power users want to evaluate expressions without leaving the launcher.
 
 **Design**:
 - New `:eval <expr>` omni-bar command routes to `LiveScriptEngine.kt`
 - Kotlin expressions use `javax.script.ScriptEngineManager` (if available) or a lightweight expression evaluator
-- Shell commands pipe output back via `TermuxIpcDispatcher` output capture (requires Termux plugin upgrade)
+- Shell commands pipe output back via `VoidShellRunner` output capture
 - Output renders inline in `tvTerminalOutput` with monospaced formatting, scrollable up to 200 lines
 
-**Scope**: `LiveScriptEngine.kt` + `TermuxIpcDispatcher` extension
+**Scope**: `LiveScriptEngine.kt` + `VoidShellRunner`
 
 ```kotlin
 // Usage:
@@ -123,7 +123,7 @@ com.polymath.voidlauncher/ (v2.0)
 ---
 
 ### F-02 · Smart Persona Engine
-> **Tagline**: Beyond VOID/MAIN — unlimited named identity profiles with distinct color palettes, dock slots, and Termux workspace bindings.
+> **Tagline**: Beyond VOID/MAIN — unlimited named identity profiles with distinct color palettes, dock slots, and Void workspace bindings.
 
 **Problem**: `NodeOsBridge` supports only binary `VOID` / `MAIN` switching. Real workflows demand more contexts: `AGENT`, `CLIENT`, `RESEARCH`, `FOCUS`.
 
@@ -182,7 +182,7 @@ glyphChoreographer.play(GlyphPattern(
 - `WidgetRegistry.kt` — scans `~/.voidlauncher/widgets/` for `*.widget.json` descriptors, instantiates `WidgetCardView` per entry
 - `WidgetCardView.kt` — extends `CardView`, renders header + content TextView, taps through to configurable action
 - Widget types:
-  - `SCRIPT` — runs `:sh <script>` via `TermuxIpcDispatcher`, captures stdout into card
+  - `SCRIPT` — runs `:sh <script>` via `VoidShell`, captures stdout into card
   - `HTTP` — calls a local endpoint (e.g., NodeOS `/api/status`) using `OkHttp`
   - `INTENT` — broadcasts an Android intent and displays extra data from a sticky broadcast response
 - Widget data flows via `Flow<String>` with configurable `refresh_ms`
@@ -223,7 +223,7 @@ glyphChoreographer.play(GlyphPattern(
 ---
 
 ### F-06 · Thermal Throttle Guardian
-> **Tagline**: When the Nothing Phone (2a) gets hot, the launcher actively kills background Termux jobs.
+> **Tagline**: When the Nothing Phone (2a) gets hot, the launcher actively cancels background Void tasks by handle.
 
 **Problem**: `TelemetryMonitor` detects `>39°C` and pulses the Glyph LED, but takes no action on running processes.
 
@@ -284,10 +284,10 @@ glyphChoreographer.play(GlyphPattern(
 - `AgentTask.kt` — `id`, `title`, `command`, `status`, `started_at`, `completed_at`, `output_preview`
 - UI: new `taskQueueCard` below `intentCard` — shows active task list with status dots and progress
 - Omni-bar commands:
-  - `:task <name> <cmd>` — injects new task entry into `workflow.json` and dispatches to Termux
+  - `:task <name> <cmd>` — injects new task entry into `workflow.json` and dispatches via VoidShell
   - `:tasks` — opens the task queue overlay card
-  - `:kill <id>` — kills the Termux job and marks task `cancelled`
-- Task output preview captured via `TermuxIpcDispatcher` output pipe (stderr+stdout, first 5 lines)
+  - `:kill <id>` — cancels the Void task by handle and marks task `cancelled`
+- Task output preview captured via `VoidShell` output (stderr+stdout, first 5 lines)
 - Task completion → Glyph pulse `TASK_SUCCESS` / `TASK_FAIL`
 - Task queue persists across launcher sessions (SQLite `void_tasks.db` in app sandbox)
 

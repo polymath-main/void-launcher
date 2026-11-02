@@ -10,7 +10,7 @@ import java.util.Locale
 class AppIndexerTest {
 
     private val sampleApps = listOf(
-        AppEntry("Termux", "com.termux", "com.termux.HomeActivity"),
+        AppEntry("Terminal", "com.example.terminal", "com.example.terminal.Main"),
         AppEntry("Telegram", "org.telegram.messenger", "org.telegram.ui.LaunchActivity"),
         AppEntry("Settings", "com.android.settings", "com.android.settings.Settings"),
         AppEntry("Polymath FS", "com.polymath.fs", "com.polymath.fs.MainActivity"),
@@ -29,7 +29,7 @@ class AppIndexerTest {
     fun testFuzzyMatchingPrefix() {
         val matches = filter("te", sampleApps)
         assertEquals(2, matches.size)
-        assertTrue(matches.any { it.label == "Termux" })
+        assertTrue(matches.any { it.label == "Terminal" })
         assertTrue(matches.any { it.label == "Telegram" })
     }
 

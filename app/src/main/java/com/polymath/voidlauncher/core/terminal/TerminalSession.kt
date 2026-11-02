@@ -3,7 +3,7 @@ package com.polymath.voidlauncher.core.terminal
 /**
  * TerminalSession — one line-mode terminal session (refined plan, Phase 2).
  *
- * Unlike the old VoidTermPanel.execute(), which dispatched to Termux and
+ * Unlike the old VoidTermPanel.execute(), which dispatched out-of-process and
  * never saw output, a session runs a command through a [TerminalCommandRunner]
  * and appends the real output (plus an exit marker on failure) to its buffer.
  * The runner is injected so tests use a fake and Android wires VoidShell

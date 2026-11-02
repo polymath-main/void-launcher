@@ -338,8 +338,10 @@ class VoidSettingsActivity : AppCompatActivity() {
         }
 
         binding.btnExportJson.setOnClickListener {
-            configManager.exportDefaultConfig()
-            Toast.makeText(this, "Exported template to ${VoidPaths.CONFIG}", Toast.LENGTH_LONG).show()
+            // Cycle 3 fix: export the CURRENT (last-saved) config, never
+            // defaults over the user's config.
+            configManager.exportCurrentConfig(currentConfig)
+            Toast.makeText(this, "Exported current config to ${VoidPaths.CONFIG}", Toast.LENGTH_LONG).show()
         }
     }
 

@@ -3,9 +3,9 @@ package com.polymath.voidlauncher.core.process
 import java.util.UUID
 
 /**
- * VoidProcessManager — the Void-owned task registry (Termux-removal Cycle 2).
+ * VoidProcessManager — the Void-owned task registry (migration Cycle 2).
  *
- * Replaces Termux dispatch + `pkill -f` for agent tasks and thermal
+ * Replaces external dispatch + `pkill -f` for agent tasks and thermal
  * throttling. Tasks are tracked by handle (an 8-character id), and
  * cancellation is by handle — never by shelling out to kill processes
  * by pattern, which could match unrelated processes.
