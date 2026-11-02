@@ -1,5 +1,7 @@
 package com.polymath.voidlauncher.core
 
+import com.polymath.voidlauncher.core.shell.ShellPort
+
 import android.content.Context
 import java.util.LinkedList
 
@@ -11,7 +13,7 @@ import java.util.LinkedList
  */
 class VoidTermPanel(
     private val context: Context,
-    private val termuxIpc: TermuxIpcDispatcher
+    private val shellPort: ShellPort
 ) {
 
     companion object {
@@ -62,7 +64,7 @@ class VoidTermPanel(
 
     fun execute(command: String, inBackground: Boolean = true) {
         appendOutput(">_ $command")
-        termuxIpc.dispatchCommand(command, inBackground = inBackground)
+        shellPort.dispatchCommand(command, inBackground = inBackground)
         if (inBackground) {
             appendOutput("[DISPATCHED HEADLESS TO TERMUX]")
         }

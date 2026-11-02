@@ -1,5 +1,7 @@
 package com.polymath.voidlauncher.core
 
+import com.polymath.voidlauncher.core.shell.ShellPort
+
 import android.content.Context
 import android.util.Log
 import com.polymath.voidlauncher.model.AgentTask
@@ -15,7 +17,7 @@ import java.util.UUID
  */
 class AgentOrchestrator(
     private val context: Context,
-    private val termuxIpc: TermuxIpcDispatcher
+    private val shellPort: ShellPort
 ) {
 
     companion object {
@@ -62,7 +64,7 @@ class AgentOrchestrator(
         }
 
         // 2. Dispatch command to Termux
-        termuxIpc.dispatchCommand(command, inBackground = true)
+        shellPort.dispatchCommand(command, inBackground = true)
         Log.i(TAG, "Dispatched agent task [$taskId]: $title")
 
         onTaskDispatched?.invoke(task)
@@ -109,7 +111,7 @@ class AgentOrchestrator(
         memoryTasks[taskId] = updated
 
         // Kill process in Termux if running
-        termuxIpc.dispatchCommand("pkill -f '${task.command.take(20)}'", inBackground = true)
+        shellPort.dispatchCommand("pkill -f '${task.command.take(20)}'", inBackground = true)
 
         try {
             val file = File(workflowPath)

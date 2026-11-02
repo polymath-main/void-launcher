@@ -1,5 +1,7 @@
 package com.polymath.voidlauncher.core
 
+import com.polymath.voidlauncher.core.shell.ShellPort
+
 import android.util.Log
 
 /**
@@ -9,7 +11,7 @@ import android.util.Log
  * during intensive local agent or ML compilation loops.
  */
 class ThermalGuardian(
-    private val termuxIpc: TermuxIpcDispatcher
+    private val shellPort: ShellPort
 ) {
 
     companion object {
@@ -47,7 +49,7 @@ class ThermalGuardian(
             val combinedCmd = targets.joinToString(" ; ")
 
             Log.w(TAG, "Thermal limit tripped (${tempC}°C >= ${limitC}°C). Dispatching throttle: $combinedCmd")
-            termuxIpc.dispatchCommand(combinedCmd, inBackground = true)
+            shellPort.dispatchCommand(combinedCmd, inBackground = true)
 
             val summary = "Throttled background workloads at ${tempC}°C (limit: ${limitC}°C)"
             onThrottleTriggered?.invoke(tempC, summary)

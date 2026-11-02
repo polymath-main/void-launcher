@@ -1,13 +1,14 @@
 package com.polymath.voidlauncher.core
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import com.polymath.voidlauncher.core.shell.ShellPort
 
-class TermuxIpcDispatcher(private val context: Context) {
+class TermuxIpcDispatcher(private val context: Context) : ShellPort {
+
+    private val clipboard = AndroidClipboard(context)
 
     companion object {
         const val TERMUX_PACKAGE = "com.termux"
@@ -27,17 +28,18 @@ class TermuxIpcDispatcher(private val context: Context) {
     /**
      * Dispatches a command directly to Termux's RunCommandService via IPC.
      */
-    fun dispatchCommand(
+    override fun dispatchCommand(
         command: String,
         workDir: String = DEFAULT_PROJECTS_DIR,
         inBackground: Boolean = true
     ): Boolean {
+        val dir = workDir.ifBlank { DEFAULT_PROJECTS_DIR }
         return try {
             val intent = Intent(ACTION_RUN_COMMAND).apply {
                 component = ComponentName(TERMUX_PACKAGE, TERMUX_RUN_COMMAND_SERVICE)
                 putExtra(EXTRA_RUN_COMMAND_PATH, DEFAULT_PREFIX_BASH)
                 putExtra(EXTRA_RUN_COMMAND_ARGUMENTS, arrayOf("-c", command))
-                putExtra(EXTRA_RUN_COMMAND_WORKDIR, workDir)
+                putExtra(EXTRA_RUN_COMMAND_WORKDIR, dir)
                 putExtra(EXTRA_RUN_COMMAND_BACKGROUND, inBackground)
                 putExtra(EXTRA_RUN_COMMAND_SESSION_ACTION, "0")
             }
@@ -74,22 +76,20 @@ class TermuxIpcDispatcher(private val context: Context) {
         dispatchCommand("cd \"$targetDir\" && exec bash", workDir = targetDir, inBackground = false)
     }
 
-    /**
-     * Accesses current Android clipboard data.
-     */
-    fun getClipboardText(): String {
-        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = cm.primaryClip
-        if (clip != null && clip.itemCount > 0) {
-            return clip.getItemAt(0).text?.toString() ?: ""
-        }
-        return ""
+    // ShellPort wrappers around the legacy Termux method names.
+    override fun launchInteractive(workDir: String = DEFAULT_PROJECTS_DIR) {
+        launchTermuxInteractive(workDir.ifBlank { DEFAULT_PROJECTS_DIR })
     }
 
-    fun setClipboardText(text: String) {
-        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("VoidLauncher", text)
-        cm.setPrimaryClip(clip)
-        Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+    override fun openProject(projectName: String) {
+        openProjectInTermux(projectName)
     }
+
+    /**
+     * Clipboard access, now delegated to AndroidClipboard.
+     * Kept here so existing call sites keep working during migration.
+     */
+    fun getClipboardText(): String = clipboard.getText()
+
+    fun setClipboardText(text: String) = clipboard.setText(text)
 }

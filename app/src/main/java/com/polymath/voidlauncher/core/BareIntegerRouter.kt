@@ -1,5 +1,7 @@
 package com.polymath.voidlauncher.core
 
+import com.polymath.voidlauncher.core.shell.ShellPort
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -10,7 +12,7 @@ import com.polymath.voidlauncher.model.defaultDockSlots
 
 class BareIntegerRouter(
     private val context: Context,
-    private val termuxIpc: TermuxIpcDispatcher
+    private val shellPort: ShellPort
 ) {
 
     private var slots: List<DockSlot> = defaultDockSlots()
@@ -43,7 +45,7 @@ class BareIntegerRouter(
     private fun executeSlotAction(slot: DockSlot): Boolean {
         return when (slot.action) {
             "launch_termux" -> {
-                termuxIpc.launchTermuxInteractive()
+                shellPort.launchInteractive()
                 true
             }
             "open_files" -> {
@@ -78,7 +80,7 @@ class BareIntegerRouter(
                 true
             }
             "termux_command" -> {
-                termuxIpc.dispatchCommand(slot.packageName, inBackground = false)
+                shellPort.dispatchCommand(slot.packageName, inBackground = false)
                 true
             }
             else -> {

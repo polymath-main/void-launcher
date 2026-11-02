@@ -42,6 +42,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.polymath.voidlauncher.core.AgentOrchestrator
+import com.polymath.voidlauncher.core.AndroidClipboard
 import com.polymath.voidlauncher.core.AppIndexer
 import com.polymath.voidlauncher.core.AstGraphRenderer
 import com.polymath.voidlauncher.core.BareIntegerRouter
@@ -67,6 +68,9 @@ import com.polymath.voidlauncher.core.VoidGestureDetector
 import com.polymath.voidlauncher.core.VoidNotificationListenerService
 import com.polymath.voidlauncher.core.VoidTermPanel
 import com.polymath.voidlauncher.core.WidgetRegistry
+import com.polymath.voidlauncher.core.shell.DefaultProcessRunner
+import com.polymath.voidlauncher.core.shell.ShellResult
+import com.polymath.voidlauncher.core.shell.VoidShell
 import com.polymath.voidlauncher.databinding.ActivityVoidLauncherBinding
 import com.polymath.voidlauncher.model.AppEntry
 import com.polymath.voidlauncher.model.DockSlot
@@ -91,6 +95,8 @@ class VoidLauncherActivity : AppCompatActivity() {
     private lateinit var configManager: ConfigManager
     private lateinit var telemetryMonitor: TelemetryMonitor
     private lateinit var termuxIpc: TermuxIpcDispatcher
+    private lateinit var clipboard: AndroidClipboard
+    private lateinit var voidShell: VoidShell
     private lateinit var nodeOsBridge: NodeOsBridge
     private lateinit var appIndexer: AppIndexer
     private lateinit var bareIntegerRouter: BareIntegerRouter
@@ -217,6 +223,10 @@ class VoidLauncherActivity : AppCompatActivity() {
 
         telemetryMonitor = TelemetryMonitor(this)
         termuxIpc = TermuxIpcDispatcher(this)
+        clipboard = AndroidClipboard(this)
+        // VoidShell (Phase 1): /system/bin/sh on device, filesDir as default workdir.
+        // Only :run uses it in this cycle; :sh and all other paths stay on Termux.
+        voidShell = VoidShell(DefaultProcessRunner(), "/system/bin/sh", filesDir.absolutePath)
         nodeOsBridge = NodeOsBridge(this)
         appIndexer = AppIndexer(this)
         bareIntegerRouter = BareIntegerRouter(this, termuxIpc)
@@ -1235,7 +1245,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                         showTerminalOutput("[PREVIEW: ${item.name}]\n\n$preview")
                     }
                     2 -> {
-                        termuxIpc.setClipboardText(item.path)
+                        clipboard.setText(item.path)
                     }
                     3 -> {
                         showRenameDialog(item)
@@ -1681,6 +1691,28 @@ class VoidLauncherActivity : AppCompatActivity() {
                     showTerminalOutput("[ERROR]: mode must be COCKPIT|STILL|MINIMAL|FILES")
                 }
             }
+            command.startsWith("run ") -> {
+                // Void-owned headless shell (Phase 1). :sh stays on Termux
+                // in this cycle; :run is the new path, run off the UI thread.
+                val runCmd = command.removePrefix("run ").trim()
+                if (runCmd.isBlank()) {
+                    showTerminalOutput("[RUN]: empty command")
+                } else {
+                    showTerminalOutput("[RUNNING]: $runCmd")
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val result = voidShell.run(runCmd)
+                        withContext(Dispatchers.Main) {
+                            when (result) {
+                                is ShellResult.Success -> showTerminalOutput(
+                                    "[RUN OK]:\n" + result.output.ifBlank { "(no output)" } +
+                                        if (result.error.isNotBlank()) "\nstderr: " + result.error else ""
+                                )
+                                is ShellResult.Failed -> showTerminalOutput("[RUN FAILED]: " + result.reason)
+                            }
+                        }
+                    }
+                }
+            }
             command.startsWith("sh ") -> {
                 val shellCmd = command.removePrefix("sh ").trim()
                 termuxIpc.dispatchCommand(shellCmd, inBackground = true)
@@ -1707,7 +1739,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                 openSettings()
             }
             command == "clip" -> {
-                val clipText = termuxIpc.getClipboardText()
+                val clipText = clipboard.getText()
                 showTerminalOutput("[CLIPBOARD]:\n$clipText")
             }
             command == "nodeos" || command == "ping" -> {
