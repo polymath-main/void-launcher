@@ -571,9 +571,8 @@
         android:layout_height="0dp"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
-        android:background="@drawable/bg_cockpit_card"
         android:orientation="vertical"
-        android:padding="8dp"
+        android:padding="16dp"
         android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@id/topCockpitLayout"
         app:layout_constraintBottom_toTopOf="@id/bottomAnchorLayout"
@@ -592,6 +591,7 @@
                 android:id="@+id/btnFilesUp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:padding="4dp"
                 android:fontFamily="monospace"
                 android:textColor="@color/cyan_accent"
@@ -607,7 +607,7 @@
                 android:layout_marginStart="8dp"
                 android:fontFamily="monospace"
                 android:textColor="@color/text_primary"
-                android:textSize="11sp"
+                android:textSize="16sp"
                 android:maxLines="1"
                 android:ellipsize="start"
                 android:text="/storage/emulated/0" />
@@ -616,6 +616,7 @@
                 android:id="@+id/btnFilesNewFolder"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:padding="4dp"
                 android:fontFamily="monospace"
                 android:textColor="@color/text_secondary"
@@ -627,6 +628,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
+                android:minHeight="48dp"
                 android:padding="4dp"
                 android:fontFamily="monospace"
                 android:textColor="@color/void_crimson"
@@ -643,63 +645,67 @@
             android:paddingBottom="6dp">
 
             <TextView
-                android:id="@+id/btnChipSdcard"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_identity_badge"
-                android:paddingStart="6dp"
-                android:paddingEnd="6dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:fontFamily="monospace"
-                android:textColor="@color/cyan_accent"
-                android:textSize="10sp"
-                android:text="/sdcard" />
-
-            <TextView
-                android:id="@+id/btnChipDownload"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:background="@drawable/bg_identity_badge"
-                android:paddingStart="6dp"
-                android:paddingEnd="6dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:fontFamily="monospace"
-                android:textColor="@color/text_secondary"
-                android:textSize="10sp"
-                android:text="Downloads" />
-
-            <TextView
-                android:id="@+id/btnChipProjects"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:background="@drawable/bg_identity_badge"
-                android:paddingStart="6dp"
-                android:paddingEnd="6dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:fontFamily="monospace"
-                android:textColor="@color/text_secondary"
-                android:textSize="10sp"
-                android:text="Projects" />
-
-            <TextView
                 android:id="@+id/btnChipVoid"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="48dp"
                 android:layout_marginStart="6dp"
                 android:background="@drawable/bg_identity_badge"
-                android:paddingStart="6dp"
-                android:paddingEnd="6dp"
+                android:gravity="center_vertical"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
                 android:paddingTop="2dp"
                 android:paddingBottom="2dp"
                 android:fontFamily="monospace"
                 android:textColor="@color/void_crimson"
-                android:textSize="10sp"
+                android:textSize="12sp"
                 android:text="~Void" />
+
+            <TextView
+                android:id="@+id/btnChipProjects"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_identity_badge"
+                android:gravity="center_vertical"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:text="Projects" />
+
+            <TextView
+                android:id="@+id/btnChipDownload"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_identity_badge"
+                android:gravity="center_vertical"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:text="Downloads" />
+
+            <TextView
+                android:id="@+id/btnChipSdcard"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_identity_badge"
+                android:gravity="center_vertical"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/cyan_accent"
+                android:textSize="12sp"
+                android:text="/sdcard" />
         </LinearLayout>
 
         <!-- Storage Permission Notice Card (Shown if ungranted) -->
@@ -1207,7 +1213,7 @@
                 android:layout_weight="1"
                 android:fontFamily="monospace"
                 android:textColor="@color/still_accent"
-                android:textSize="13sp"
+                android:textSize="16sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
                 android:text="STILL // COMMAND CENTER" />
@@ -1216,6 +1222,8 @@
                 android:id="@+id/btnCommandCenterClose"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:gravity="center_vertical"
                 android:padding="6dp"
                 android:fontFamily="monospace"
                 android:textColor="@color/still_secondary_text"
@@ -1255,12 +1263,14 @@
                 android:maxLines="1"
                 android:textColor="@color/still_primary_text"
                 android:textColorHint="@color/still_secondary_text"
-                android:textSize="13sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:id="@+id/btnCommandCenterClear"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:gravity="center_vertical"
                 android:padding="6dp"
                 android:fontFamily="monospace"
                 android:textColor="@color/still_secondary_text"
@@ -1285,7 +1295,7 @@
                 <TextView
                     android:id="@+id/chipCmdStill"
                     android:layout_width="wrap_content"
-                    android:layout_height="28dp"
+                    android:layout_height="48dp"
                     android:background="@drawable/bg_chip_filter"
                     android:gravity="center"
                     android:paddingStart="10dp"
@@ -1293,13 +1303,13 @@
                     android:layout_marginEnd="6dp"
                     android:fontFamily="monospace"
                     android:textColor="@color/still_accent"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:text=":still" />
 
                 <TextView
                     android:id="@+id/chipCmdCockpit"
                     android:layout_width="wrap_content"
-                    android:layout_height="28dp"
+                    android:layout_height="48dp"
                     android:background="@drawable/bg_chip_filter"
                     android:gravity="center"
                     android:paddingStart="10dp"
@@ -1307,13 +1317,13 @@
                     android:layout_marginEnd="6dp"
                     android:fontFamily="monospace"
                     android:textColor="@color/text_primary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:text=":cockpit" />
 
                 <TextView
                     android:id="@+id/chipCmdFiles"
                     android:layout_width="wrap_content"
-                    android:layout_height="28dp"
+                    android:layout_height="48dp"
                     android:background="@drawable/bg_chip_filter"
                     android:gravity="center"
                     android:paddingStart="10dp"
@@ -1321,13 +1331,13 @@
                     android:layout_marginEnd="6dp"
                     android:fontFamily="monospace"
                     android:textColor="@color/text_primary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:text=":files" />
 
                 <TextView
                     android:id="@+id/chipCmdTasks"
                     android:layout_width="wrap_content"
-                    android:layout_height="28dp"
+                    android:layout_height="48dp"
                     android:background="@drawable/bg_chip_filter"
                     android:gravity="center"
                     android:paddingStart="10dp"
@@ -1335,13 +1345,13 @@
                     android:layout_marginEnd="6dp"
                     android:fontFamily="monospace"
                     android:textColor="@color/text_primary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:text=":tasks" />
 
                 <TextView
                     android:id="@+id/chipCmdGraph"
                     android:layout_width="wrap_content"
-                    android:layout_height="28dp"
+                    android:layout_height="48dp"
                     android:background="@drawable/bg_chip_filter"
                     android:gravity="center"
                     android:paddingStart="10dp"
@@ -1349,13 +1359,13 @@
                     android:layout_marginEnd="6dp"
                     android:fontFamily="monospace"
                     android:textColor="@color/text_primary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:text=":graph" />
 
                 <TextView
                     android:id="@+id/chipCmdPower"
                     android:layout_width="wrap_content"
-                    android:layout_height="28dp"
+                    android:layout_height="48dp"
                     android:background="@drawable/bg_chip_filter"
                     android:gravity="center"
                     android:paddingStart="10dp"
@@ -1363,13 +1373,13 @@
                     android:layout_marginEnd="6dp"
                     android:fontFamily="monospace"
                     android:textColor="@color/text_primary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:text=":power" />
 
                 <TextView
                     android:id="@+id/chipCmdNotif"
                     android:layout_width="wrap_content"
-                    android:layout_height="28dp"
+                    android:layout_height="48dp"
                     android:background="@drawable/bg_chip_filter"
                     android:gravity="center"
                     android:paddingStart="10dp"
@@ -1377,20 +1387,20 @@
                     android:layout_marginEnd="6dp"
                     android:fontFamily="monospace"
                     android:textColor="@color/text_primary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:text=":notif" />
 
                 <TextView
                     android:id="@+id/chipCmdSettings"
                     android:layout_width="wrap_content"
-                    android:layout_height="28dp"
+                    android:layout_height="48dp"
                     android:background="@drawable/bg_chip_filter"
                     android:gravity="center"
                     android:paddingStart="10dp"
                     android:paddingEnd="10dp"
                     android:fontFamily="monospace"
                     android:textColor="@color/text_primary"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:text=":settings" />
             </LinearLayout>
         </HorizontalScrollView>
@@ -1422,7 +1432,7 @@
                     android:textColor="@color/still_secondary_text"
                     android:textSize="12sp"
                     android:lineSpacingExtra="3dp"
-                    android:text="Swipe down or tap ✕ CLOSE to return to Home." />
+                    android:text="" />
             </ScrollView>
         </FrameLayout>
     </LinearLayout>

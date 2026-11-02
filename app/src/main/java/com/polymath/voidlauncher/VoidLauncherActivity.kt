@@ -429,7 +429,8 @@ class VoidLauncherActivity : AppCompatActivity() {
         // (config-gated, off by default in v2) and the files browser
         // (not ported in this cycle) keep theirs.
         applyCardBackground(binding.telemetryCard, c.surfaceInt, c.borderInt)
-        applyCardBackground(binding.filesBrowserLayout, c.surfaceInt, c.borderInt)
+        // UI v2 files: flat, no card background at runtime either (the
+        // XML card background was removed in the same cycle).
 
         // Identity badge
         applyIdentityBadge()
@@ -771,6 +772,10 @@ class VoidLauncherActivity : AppCompatActivity() {
         isCommandCenterOpen = open
         if (open) {
             binding.stillCommandCenterLayout.visibility = View.VISIBLE
+            // UI v2: output only when present — a fresh open shows no
+            // stale output; a command submit repopulates it below.
+            binding.tvCommandCenterOutput.text = ""
+            binding.scrollCommandCenterOutput.visibility = View.GONE
             binding.etCommandCenterInput.requestFocus()
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
             imm?.showSoftInput(binding.etCommandCenterInput, InputMethodManager.SHOW_IMPLICIT)
@@ -793,7 +798,10 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun handleCommandCenterTextChange(text: String) {
         if (text.isEmpty() || text.startsWith(":")) {
             binding.rvCommandCenterApps.visibility = View.GONE
-            binding.scrollCommandCenterOutput.visibility = View.VISIBLE
+            // UI v2: output only when present — do not show an empty
+            // output pane for blank or ":" input.
+            binding.scrollCommandCenterOutput.visibility =
+                if (binding.tvCommandCenterOutput.text.isNullOrEmpty()) View.GONE else View.VISIBLE
             return
         }
         val matches = appIndexer.filterApps(text, maxResults = 10)
