@@ -186,6 +186,7 @@ class VoidLauncherActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         configSyncService.unregister()
+        widgetRegistry.shutdown()
     }
 
     /**
@@ -257,12 +258,23 @@ class VoidLauncherActivity : AppCompatActivity() {
             if (config.activePersona.isNotBlank()) selectPersona(config.activePersona)
         }
         glyphChoreographer = GlyphChoreographer(this).apply {
+            enabled = config.enableGlyphPulse
             loadCustomPatterns(config.glyphPatternsPath)
         }
+        glyphManager.choreographer = glyphChoreographer
         astGraphRenderer = AstGraphRenderer()
         liveScriptEngine = LiveScriptEngine(this)
-        agentOrchestrator = AgentOrchestrator(this, voidShellPort, voidProcessManager)
-        widgetRegistry = WidgetRegistry(this).apply {
+        agentOrchestrator = AgentOrchestrator(this, voidShellPort, voidProcessManager).apply {
+            onTaskCompleted = {
+                glyphChoreographer.play("TASK_SUCCESS")
+                if (isWidgetDeckOpen && !isFinishing) refreshWidgetDeckContent()
+            }
+            onTaskFailed = {
+                glyphChoreographer.play("TASK_FAIL")
+                if (isWidgetDeckOpen && !isFinishing) refreshWidgetDeckContent()
+            }
+        }
+        widgetRegistry = WidgetRegistry(this, voidShell).apply {
             if (config.widgetsEnabled) loadWidgets(config.widgetsDirectory)
         }
         focusScheduler = FocusScheduler(this, personaManager, glyphChoreographer).apply {
@@ -423,6 +435,21 @@ class VoidLauncherActivity : AppCompatActivity() {
         binding.tvGitBranch.setTextColor(c.textSecondaryInt)
         binding.tvActiveIntent.setTextColor(c.textPrimaryInt)
 
+        // Theme synchronization across STILL, Drawer, Files, and Command Center
+        binding.tvStillClock.setTextColor(c.textPrimaryInt)
+        binding.tvStillDate.setTextColor(c.textSecondaryInt)
+        binding.tvStillStatus.setTextColor(c.textMutedInt)
+        binding.tvDrawerAppCount.setTextColor(c.textPrimaryInt)
+        binding.etDrawerSearch.setTextColor(c.textPrimaryInt)
+        binding.etDrawerSearch.setHintTextColor(c.textMutedInt)
+        binding.tvFilesCurrentPath.setTextColor(c.textPrimaryInt)
+        binding.etCommandCenterInput.setTextColor(c.textPrimaryInt)
+        binding.etCommandCenterInput.setHintTextColor(c.textMutedInt)
+        binding.tvCommandCenterOutput.setTextColor(c.secondaryInt)
+        binding.tvTerminalOutput.setTextColor(c.secondaryInt)
+        binding.stillCommandCenterLayout.setBackgroundColor(c.backgroundInt)
+        binding.stillWidgetDeckLayout.setBackgroundColor(c.backgroundInt)
+
         // Card backgrounds. v2 COCKPIT: the intent line and the
         // notification count line are borderless (no card), so no card
         // background is applied to them any more; the telemetry card
@@ -487,6 +514,9 @@ class VoidLauncherActivity : AppCompatActivity() {
         voidTermPanel.rows = config.voidTermRows
         voidTermPanel.cols = config.voidTermCols
 
+        // Glyph feedback gate (config: enable_glyph_pulse)
+        glyphChoreographer.enabled = config.enableGlyphPulse
+
         // Apply app icon customizations to adapters (with tint + live refresh)
         appAdapter.showIcons = config.showAppIcons
         drawerAdapter.showIcons = config.showAppIcons
@@ -520,7 +550,9 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     private fun checkDefaultLauncherStatus() {
         val isDefault = isDefaultLauncher()
-        binding.bannerDefaultLauncher.visibility = if (!isDefault) View.VISIBLE else View.GONE
+        val mode = config.defaultHomeMode.uppercase()
+        val hideInCalmModes = mode == "STILL" || mode == "MINIMAL" || isMinimalMode
+        binding.bannerDefaultLauncher.visibility = if (!isDefault && !hideInCalmModes) View.VISIBLE else View.GONE
     }
 
     private fun isDefaultLauncher(): Boolean {
@@ -667,6 +699,11 @@ class VoidLauncherActivity : AppCompatActivity() {
                     haptic(it)
                     bareIntegerRouter.routeSlot(slot)
                 }
+                setOnLongClickListener {
+                    haptic(it)
+                    showEditDockSlotDialog(slot.index)
+                    true
+                }
             }
             container.addView(row)
         }
@@ -757,6 +794,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                 }
                 addView(title)
                 addView(content)
+                widgetRegistry.refreshWidget(w) { live -> content.text = live }
                 if (w.actionOnClick.isNotEmpty()) {
                     setOnClickListener {
                         haptic(it)
@@ -1011,10 +1049,18 @@ class VoidLauncherActivity : AppCompatActivity() {
         binding.btnSlot6.setOnClickListener { handleDigitKey(it, 6) }
         binding.btnSlot7.setOnClickListener { handleDigitKey(it, 7) }
 
+        binding.btnSlot1.setOnLongClickListener { haptic(it); showEditDockSlotDialog(1); true }
+        binding.btnSlot2.setOnLongClickListener { haptic(it); showEditDockSlotDialog(2); true }
+        binding.btnSlot3.setOnLongClickListener { haptic(it); showEditDockSlotDialog(3); true }
+        binding.btnSlot4.setOnLongClickListener { haptic(it); showEditDockSlotDialog(4); true }
+        binding.btnSlot5.setOnLongClickListener { haptic(it); showEditDockSlotDialog(5); true }
+        binding.btnSlot6.setOnLongClickListener { haptic(it); showEditDockSlotDialog(6); true }
+        binding.btnSlot7.setOnLongClickListener { haptic(it); showEditDockSlotDialog(7); true }
+
         // Dynamic digit keypad toggle (keys themselves are built in rebuildKeypad)
         binding.btnToggleKeypad.setOnClickListener { toggleKeypad() }
 
-        // Smart Persona cycle toggle (F-02)
+        // Smart Persona cycle toggle (F-02) + Long-press interactive selector
         binding.tvIdentityBadge.setOnClickListener {
             val newPersona = personaManager.cyclePersona()
             config = config.copy(activePersona = newPersona.id)
@@ -1022,6 +1068,11 @@ class VoidLauncherActivity : AppCompatActivity() {
             applyIdentityBadge()
             glyphChoreographer.play("FOCUS_MODE_ON")
             Toast.makeText(this, "Persona: ${newPersona.label} (${newPersona.subtitle})", Toast.LENGTH_SHORT).show()
+        }
+        binding.tvIdentityBadge.setOnLongClickListener {
+            haptic(it)
+            showPersonaPickerDialog()
+            true
         }
 
         // Notification Cockpit Controls
@@ -1549,7 +1600,22 @@ class VoidLauncherActivity : AppCompatActivity() {
     }
 
     private fun handleOmniSubmit(rawInput: String) {
-        val query = rawInput.trim()
+        val trimmed = rawInput.trim()
+        if (trimmed.isEmpty()) return
+
+        // Inline snippet saving via `## <alias>` (F-09)
+        val query = if (trimmed.contains("##")) {
+            val parts = trimmed.split("##", limit = 2)
+            val cmdPart = parts[0].trim()
+            val aliasPart = parts.getOrNull(1)?.trim().orEmpty()
+            if (cmdPart.isNotEmpty() && aliasPart.isNotEmpty()) {
+                commandPalette.saveSnippet(aliasPart, cmdPart)
+                Toast.makeText(this, "Saved snippet :$aliasPart", Toast.LENGTH_SHORT).show()
+            }
+            cmdPart
+        } else {
+            trimmed
+        }
         if (query.isEmpty()) return
 
         // Record history & macro step (F-09, F-15)
@@ -1585,6 +1651,19 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     private fun handleCommandMode(command: String) {
         when {
+            command == "help" || command == "?" -> {
+                showTerminalOutput(
+                    "=== VOID LAUNCHER QUICK GUIDE ===\n\n" +
+                    "• APPS       Type app name to search, or tap ‹ on right edge for App Drawer\n" +
+                    "• DOCK       Tap [1]..[5] to open slot; LONG-PRESS any slot to customize\n" +
+                    "• PERSONA    Tap [VOID] badge to cycle; LONG-PRESS to pick mode/persona\n" +
+                    "• MODES      :still | :cockpit | :minimal | :files\n" +
+                    "• THEMES     :themes | :theme <void|obsidian|midnight|graphite|matrix|amber>\n" +
+                    "• DECK & CC  :deck (Widgets) | :cmd (Command Center) | :settings\n" +
+                    "• TOOLS      :eval <math> | :tasks | :task <name> <cmd> | :power | :hud\n" +
+                    "• SNIPPETS   :snippet <alias> <cmd> | :snippets | <cmd> ## <alias>"
+                )
+            }
             // F-01 LiveScript Eval
             command.startsWith("eval ") -> {
                 val expr = command.removePrefix("eval ").trim()
@@ -1877,10 +1956,27 @@ class VoidLauncherActivity : AppCompatActivity() {
                 showTerminalOutput("[CONFIG RELOADED]")
             }
             else -> {
+                // Check saved snippets first so :alias runs the saved command
+                val snippet = commandPalette.getSnippets().firstOrNull {
+                    it.snippetAlias.equals(command, ignoreCase = true)
+                }
+                if (snippet != null) {
+                    val target = snippet.commandText.trim()
+                    if (target.startsWith(":")) {
+                        val inner = target.substring(1).trim()
+                        if (!inner.equals(command, ignoreCase = true)) {
+                            handleCommandMode(inner)
+                            return
+                        }
+                    } else {
+                        handleOmniSubmit(target)
+                        return
+                    }
+                }
                 // Generic shell escape hatch, now via VoidShell (Cycle 2):
                 // same one-shot run as :run, with real output.
                 if (command.isBlank()) {
-                    showTerminalOutput("[CMD]: empty command")
+                    showTerminalOutput("[CMD]: empty command (type :help for commands)")
                 } else {
                     showTerminalOutput("[RUNNING]: $command")
                     lifecycleScope.launch(Dispatchers.IO) {
@@ -2047,8 +2143,181 @@ class VoidLauncherActivity : AppCompatActivity() {
                 bareIntegerRouter.updateSlots(updated.dockSlots)
                 rebuildDockSlots()
                 rebuildStillFavorites()
+                rebuildKeypad()
                 Toast.makeText(this, "${entry.label} added to dock slot $index", Toast.LENGTH_SHORT).show()
             }
+            .show()
+    }
+
+    private fun showEditDockSlotDialog(slotIndex: Int) {
+        val current = config.dockSlots.firstOrNull { it.index == slotIndex }
+        val currentSummary = current?.let { "${it.label} (${it.action})" } ?: "Empty"
+        val options = arrayOf(
+            "📱 Assign Installed App…",
+            "⚡ Assign Quick Action…",
+            "✏️ Rename Slot Label…",
+            "🔄 Reset Slot to Default"
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Customize Dock Slot [$slotIndex] — $currentSummary")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showAssignAppToSlotDialog(slotIndex)
+                    1 -> showAssignActionToSlotDialog(slotIndex)
+                    2 -> showRenameSlotDialog(slotIndex)
+                    3 -> {
+                        val defaultSlot = com.polymath.voidlauncher.model.defaultDockSlots().firstOrNull { it.index == slotIndex }
+                        if (defaultSlot != null) {
+                            saveUpdatedDockSlot(defaultSlot)
+                            Toast.makeText(this, "Slot [$slotIndex] reset to ${defaultSlot.label}", Toast.LENGTH_SHORT).show()
+                        } else {
+                            val newSlots = config.dockSlots.filterNot { it.index == slotIndex }
+                            val updated = config.copy(dockSlots = newSlots)
+                            config = updated
+                            configManager.saveConfig(updated)
+                            bareIntegerRouter.updateSlots(updated.dockSlots)
+                            rebuildDockSlots()
+                            rebuildStillFavorites()
+                            rebuildKeypad()
+                            Toast.makeText(this, "Slot [$slotIndex] cleared", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showAssignAppToSlotDialog(slotIndex: Int) {
+        val apps = appIndexer.getAllApps().sortedBy { it.label.lowercase() }
+        if (apps.isEmpty()) {
+            Toast.makeText(this, "App index is still loading…", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val labels = apps.map { "${it.label} (${it.packageName})" }.toTypedArray()
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Assign App to Slot [$slotIndex]")
+            .setItems(labels) { _, which ->
+                val chosen = apps[which]
+                saveUpdatedDockSlot(
+                    DockSlot(
+                        index = slotIndex,
+                        label = chosen.label.uppercase(),
+                        subtitle = chosen.packageName,
+                        packageName = chosen.packageName,
+                        action = "launch_package"
+                    )
+                )
+                Toast.makeText(this, "Assigned ${chosen.label} to Slot [$slotIndex]", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Back") { _, _ -> showEditDockSlotDialog(slotIndex) }
+            .show()
+    }
+
+    private fun showAssignActionToSlotDialog(slotIndex: Int) {
+        val builtIn = listOf(
+            Triple("APPS DRAWER", "Installed Apps A-Z", "open_drawer"),
+            Triple("FILES", "Void File Explorer", "open_files"),
+            Triple("TERMINAL", "In-App VoidShell", "open_voidterm"),
+            Triple("BROWSER", "Web Search & URL", "open_browser"),
+            Triple("PHONE", "Dialer & Contacts", "open_dialer"),
+            Triple("SETTINGS", "Launcher Config", "open_settings")
+        )
+        val labels = builtIn.map { "${it.first} — ${it.second}" }.toTypedArray()
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Assign Action to Slot [$slotIndex]")
+            .setItems(labels) { _, which ->
+                val chosen = builtIn[which]
+                saveUpdatedDockSlot(
+                    DockSlot(
+                        index = slotIndex,
+                        label = chosen.first,
+                        subtitle = chosen.second,
+                        packageName = "",
+                        action = chosen.third
+                    )
+                )
+                Toast.makeText(this, "Assigned ${chosen.first} to Slot [$slotIndex]", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Back") { _, _ -> showEditDockSlotDialog(slotIndex) }
+            .show()
+    }
+
+    private fun showRenameSlotDialog(slotIndex: Int) {
+        val current = config.dockSlots.firstOrNull { it.index == slotIndex }
+        if (current == null) {
+            Toast.makeText(this, "Assign an app or action to Slot [$slotIndex] first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val input = EditText(this).apply {
+            setText(current.label)
+            setSelection(current.label.length)
+            hint = "Slot label"
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Rename Slot [$slotIndex]")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val newLabel = input.text.toString().trim()
+                if (newLabel.isNotEmpty()) {
+                    saveUpdatedDockSlot(current.copy(label = newLabel))
+                    Toast.makeText(this, "Slot [$slotIndex] renamed to $newLabel", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun saveUpdatedDockSlot(newSlot: DockSlot) {
+        val newSlots = config.dockSlots.toMutableList()
+        val existingPos = newSlots.indexOfFirst { it.index == newSlot.index }
+        if (existingPos >= 0) {
+            newSlots[existingPos] = newSlot
+        } else {
+            newSlots.add(newSlot)
+        }
+        val updated = config.copy(dockSlots = newSlots.sortedBy { it.index })
+        config = updated
+        configManager.saveConfig(updated)
+        bareIntegerRouter.updateSlots(updated.dockSlots)
+        rebuildDockSlots()
+        rebuildStillFavorites()
+        rebuildKeypad()
+    }
+
+    private fun showPersonaPickerDialog() {
+        val personas = personaManager.getAllPersonas()
+        val active = personaManager.getActivePersona()
+        val modeItems = listOf(
+            "🏠 Home Mode: STILL (Calm Minimal Clock & 3 Favorites)" to { setHomeMode("STILL") },
+            "🎛 Home Mode: COCKPIT (HUD, Notifications & 5-Slot Dock)" to { setHomeMode("COCKPIT") },
+            "⚡ Home Mode: MINIMAL (Omni-Bar & Dock Only)" to { setHomeMode("MINIMAL") },
+            "📁 Home Mode: FILES (Workspace File Browser)" to { setHomeMode("FILES") },
+            "🔍 Open Command Center (:cmd)" to { openCommandCenter(true) },
+            "🧩 Open Widget Deck (:deck)" to { openWidgetDeck(true) }
+        )
+        val personaLabels = personas.map { p ->
+            val mark = if (p.id.equals(active.id, ignoreCase = true)) "● " else "○ "
+            "${mark}Persona ${p.label} — ${p.subtitle}"
+        }
+        val allLabels = (personaLabels + modeItems.map { it.first }).toTypedArray()
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Workspace Identity & Mode")
+            .setItems(allLabels) { _, which ->
+                if (which < personas.size) {
+                    val chosen = personas[which]
+                    personaManager.selectPersona(chosen.id)
+                    config = config.copy(activePersona = chosen.id)
+                    configManager.saveConfig(config)
+                    applyIdentityBadge()
+                    glyphChoreographer.play("FOCUS_MODE_ON")
+                    Toast.makeText(this, "Persona: ${chosen.label}", Toast.LENGTH_SHORT).show()
+                } else {
+                    val modeIdx = which - personas.size
+                    modeItems.getOrNull(modeIdx)?.second?.invoke()
+                }
+            }
+            .setNegativeButton("Close", null)
             .show()
     }
 
@@ -2222,7 +2491,10 @@ class VoidLauncherActivity : AppCompatActivity() {
         val lists = listOf(
             binding.rvDrawerApps,
             binding.rvAppFilter,
-            binding.rvCommandCenterApps
+            binding.rvCommandCenterApps,
+            binding.bareIntegerDock,
+            binding.layoutStillFavorites,
+            binding.tvIdentityBadge
         )
         val location = IntArray(2)
         for (list in lists) {

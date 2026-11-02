@@ -2,6 +2,8 @@ package com.polymath.voidlauncher.core
 
 import android.content.Context
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -9,17 +11,27 @@ import android.util.Log
 import com.polymath.voidlauncher.model.GlyphPattern
 import org.json.JSONArray
 import java.io.File
+import java.lang.reflect.Method
+import java.lang.reflect.Proxy
 
 /**
  * Glyph Choreographer (F-03).
  *
  * Directs Nothing Phone (2a) rear Glyph LED channels with timed animation sequences.
- * Gracefully cascades to haptic vibration patterns on non-Nothing hardware.
+ *
+ * The Nothing Glyph Developer Kit (`com.nothing.ketchum`) is distributed outside public
+ * Maven repositories, so it is bridged reflectively: when the GDK classes are present on
+ * device, real `turnOn`/`turnOff` LED calls are issued; otherwise playback degrades to a
+ * synchronized haptic waveform so the signal is never lost.
  */
 class GlyphChoreographer(private val context: Context) {
 
     companion object {
         private const val TAG = "GlyphChoreographer"
+
+        private const val GDK_MANAGER_CLASS = "com.nothing.ketchum.GlyphManager"
+        private const val GDK_CALLBACK_CLASS = "com.nothing.ketchum.GlyphManager\$Callback"
+        private const val GDK_GLYPH_CLASS = "com.nothing.ketchum.Glyph"
 
         val PATTERN_THERMAL = GlyphPattern("THERMAL_WARNING", listOf(1, 2, 3), periodMs = 200, cycles = 4, curve = "STROBE")
         val PATTERN_SUCCESS = GlyphPattern("TASK_SUCCESS", listOf(1, 2), periodMs = 350, cycles = 2, curve = "SINE")
@@ -29,6 +41,15 @@ class GlyphChoreographer(private val context: Context) {
     }
 
     private var isNothingPhone = false
+    private val handler = Handler(Looper.getMainLooper())
+
+    /** Master gate for all glyph/haptic feedback (config: `enable_glyph_pulse`). */
+    var enabled: Boolean = true
+
+    /** True once a real GDK LED sequence has been issued successfully. */
+    var isGdkActive: Boolean = false
+        private set
+
     private val vibrator: Vibrator? by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
@@ -100,31 +121,129 @@ class GlyphChoreographer(private val context: Context) {
     }
 
     fun playPattern(pattern: GlyphPattern) {
+        if (!enabled) {
+            Log.d(TAG, "Glyph playback suppressed (enable_glyph_pulse=false)")
+            return
+        }
         Log.i(TAG, "Playing Glyph pattern '${pattern.name}' (channels=${pattern.channels}, cycles=${pattern.cycles})")
         if (isNothingPhone) {
-            // Extensible hook: invokes Nothing GDK GlyphManager if compiled with GDK library
             executeNothingGlyphSequence(pattern)
         } else {
             fallbackHapticPulse(pattern)
         }
     }
 
+    // ---- Nothing GDK reflective bridge --------------------------------------
+
     private fun executeNothingGlyphSequence(pattern: GlyphPattern) {
-        // Safe reflection/dynamic execution against Nothing GDK framework if installed on device
-        try {
-            val glyphServiceCls = Class.forName("com.nothing.ketchum.GlyphManager")
-            val getInstanceMethod = glyphServiceCls.getMethod("getInstance", Context::class.java)
-            val instance = getInstanceMethod.invoke(null, context)
-            if (instance != null) {
-                // Device GDK active
-                Log.d(TAG, "Dispatched pattern ${pattern.name} to Nothing GDK service")
-                return
-            }
-        } catch (_: Exception) {
-            // GDK library runtime class not on classpath — fallback to synchronized haptics
+        val managerCls = classForName(GDK_MANAGER_CLASS)
+        if (managerCls == null) {
+            fallbackHapticPulse(pattern)
+            return
         }
-        fallbackHapticPulse(pattern)
+        val instance = resolveGlyphInstance(managerCls)
+        if (instance == null) {
+            fallbackHapticPulse(pattern)
+            return
+        }
+
+        // Bind the GDK service connection (async; we proceed optimistically).
+        initGdkService(managerCls, instance)
+
+        val turnOn = methodOrNull(managerCls, "turnOn", Integer.TYPE)
+        val turnOff = methodOrNull(managerCls, "turnOff", Integer.TYPE)
+        if (turnOn == null || turnOff == null) {
+            Log.d(TAG, "GDK present but turnOn/turnOff unavailable — using haptics")
+            fallbackHapticPulse(pattern)
+            return
+        }
+
+        try {
+            methodOrNull(managerCls, "openSession")?.invoke(instance)
+            val cycles = if (pattern.cycles <= 0) 6 else pattern.cycles
+            val period = pattern.periodMs.coerceIn(50L, 5_000L)
+            val codes = pattern.channels.map { resolveChannelCode(it) }
+            val closeSession = methodOrNull(managerCls, "closeSession")
+
+            for (c in 0 until cycles) {
+                val startAt = c * period * 2
+                handler.postDelayed({ invokeQuietly(turnOn, instance, codes) }, startAt)
+                handler.postDelayed({
+                    invokeQuietly(turnOff, instance, codes)
+                    if (c == cycles - 1) {
+                        if (closeSession != null) invokeQuietly(closeSession, instance, emptyList())
+                    }
+                }, startAt + period)
+            }
+
+            isGdkActive = true
+            Log.i(TAG, "GDK LED sequence dispatched for '${pattern.name}' (cycles=$cycles, period=${period}ms)")
+        } catch (e: Exception) {
+            isGdkActive = false
+            Log.w(TAG, "GDK LED sequence failed (${e.message}) — using haptics")
+            fallbackHapticPulse(pattern)
+        }
     }
+
+    private fun resolveGlyphInstance(managerCls: Class<*>): Any? {
+        return try {
+            val withContext = methodOrNull(managerCls, "getInstance", Context::class.java)
+            if (withContext != null) withContext.invoke(null, context)
+            else methodOrNull(managerCls, "getInstance")?.invoke(null)
+        } catch (e: Exception) {
+            Log.d(TAG, "GDK getInstance failed: ${e.message}")
+            null
+        }
+    }
+
+    private fun initGdkService(managerCls: Class<*>, instance: Any) {
+        try {
+            val callbackCls = classForName(GDK_CALLBACK_CLASS) ?: return
+            val proxy = Proxy.newProxyInstance(callbackCls.classLoader, arrayOf(callbackCls)) { _, _, _ -> null }
+            methodOrNull(managerCls, "init", callbackCls)?.invoke(instance, proxy)
+        } catch (e: Exception) {
+            Log.d(TAG, "GDK init handshake skipped: ${e.message}")
+        }
+    }
+
+    private fun resolveChannelCode(channel: Int): Int {
+        val glyphCls = classForName(GDK_GLYPH_CLASS) ?: return channel
+        return try {
+            glyphCls.getField("Code_$channel").getInt(null)
+        } catch (_: Exception) {
+            channel
+        }
+    }
+
+    private fun invokeQuietly(method: Method, target: Any, codes: List<Int>) {
+        if (codes.isEmpty()) {
+            try {
+                method.invoke(target)
+            } catch (_: Exception) {
+            }
+            return
+        }
+        for (code in codes) {
+            try {
+                method.invoke(target, code)
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun classForName(name: String): Class<*>? = try {
+        Class.forName(name)
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun methodOrNull(cls: Class<*>, name: String, vararg params: Class<*>): Method? = try {
+        cls.getMethod(name, *params)
+    } catch (_: Exception) {
+        null
+    }
+
+    // ---- Haptic fallback ----------------------------------------------------
 
     private fun fallbackHapticPulse(pattern: GlyphPattern) {
         if (vibrator == null || !vibrator!!.hasVibrator()) return
@@ -142,6 +261,7 @@ class GlyphChoreographer(private val context: Context) {
                 @Suppress("DEPRECATION")
                 vibrator?.vibrate(timings, -1)
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
     }
 }

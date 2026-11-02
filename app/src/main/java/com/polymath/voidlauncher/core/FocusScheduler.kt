@@ -43,6 +43,12 @@ class FocusScheduler(
                 val duration = obj.optInt("duration_min", 60)
                 val glyph = obj.optString("glyph_pattern", "FOCUS_MODE_ON")
                 val enabled = obj.optBoolean("enabled", true)
+                val daysArr = obj.optJSONArray("days_of_week")
+                val days = if (daysArr != null && daysArr.length() > 0) {
+                    (0 until daysArr.length()).map { daysArr.optInt(it, 1) }
+                } else {
+                    listOf(1, 2, 3, 4, 5, 6, 7)
+                }
 
                 blocks.add(
                     FocusBlock(
@@ -52,6 +58,7 @@ class FocusScheduler(
                         startHour = startHour,
                         startMinute = startMin,
                         durationMinutes = duration,
+                        daysOfWeek = days,
                         glyphPatternName = glyph,
                         isEnabled = enabled
                     )

@@ -587,6 +587,19 @@
                         android:layout_height="wrap_content"
                         android:checked="true" />
                 </LinearLayout>
+
+                <TextView
+                    android:id="@+id/btnCustomizeDockSlots"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/cyan_accent"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:text="CUSTOMIZE DOCK SLOTS [1–7] ➔" />
             </LinearLayout>
 
             <!-- SECTION: HOMESCREEN CUSTOMIZATION -->

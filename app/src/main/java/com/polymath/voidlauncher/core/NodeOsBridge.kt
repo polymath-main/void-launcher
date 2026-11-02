@@ -4,10 +4,26 @@ import android.content.Context
 import com.polymath.voidlauncher.model.IntentStatus
 import org.json.JSONObject
 import java.io.File
+import java.util.concurrent.Executors
 
+/**
+ * NodeOS bridge.
+ *
+ * NodeOS legacy import is opt-in ([isLegacyImportEnabled] = false by default).
+ * When enabled, reads `workflow.json` and queries `agy_nodeos.db` via [AstGraphRenderer]
+ * on a background executor so the main thread never blocks.
+ */
 class NodeOsBridge(private val context: Context) {
 
     private val prefs = context.getSharedPreferences("void_launcher_prefs", Context.MODE_PRIVATE)
+    private val astGraph = AstGraphRenderer()
+    private val ioExecutor = Executors.newSingleThreadExecutor()
+    private val astQueryLock = Any()
+    private val astCacheTtlMs = 5_000L
+
+    @Volatile private var cachedAstNodes = 0
+    @Volatile private var cachedAstAlive = false
+    private var lastAstQueryMs = 0L
 
     companion object {
         const val PREF_IDENTITY_MODE = "pref_identity_mode"
@@ -15,20 +31,7 @@ class NodeOsBridge(private val context: Context) {
         const val IDENTITY_MAIN = "MAIN"
     }
 
-    /**
-     * Migration Cycle 2: NodeOS is legacy-import-only and optional.
-     * [isLegacyImportEnabled] is false by default (fresh install): the
-     * bridge then reports no NodeOS status at all, and the Activity
-     * shows Void daemon / VoidTaskStore status instead of a broken
-     * NodeOS card. Enable it only via the opt-in config flag
-     * (nodeos_legacy_import_enabled) plus user-chosen paths; no
-     * NodeOS installer exists in this repo and none is invented here.
-     */
     var isLegacyImportEnabled: Boolean = false
-
-    // Configurable paths — updated from LauncherConfig at runtime, but
-    // only honoured when legacy import is enabled (see pollIntentStatus).
-    // Defaults are blank: no path into another app's private directory.
     var workflowPath: String = ""
     var nodeosDbPath: String = ""
 
@@ -49,11 +52,6 @@ class NodeOsBridge(private val context: Context) {
         return next
     }
 
-    /**
-     * Reads current intent and AST status from legacy NodeOS host files
-     * ONLY when legacy import is enabled. Otherwise returns a neutral
-     * "not imported" status so the UI never shows a broken NodeOS card.
-     */
     fun pollIntentStatus(): IntentStatus {
         if (!isLegacyImportEnabled) {
             return IntentStatus(
@@ -69,15 +67,14 @@ class NodeOsBridge(private val context: Context) {
 
         var activeTask = "Sovereign Cockpit Ready"
         var taskStatus = "idle"
-        var gitBranch = "main"
-        var astNodes = 0
-        var daemonAlive = false
+        val gitBranch = "main"
+        var astNodes = cachedAstNodes
+        var daemonAlive = cachedAstAlive
 
         try {
             val workflowFile = File(workflowPath)
             if (workflowPath.isNotBlank() && workflowFile.exists() && workflowFile.canRead()) {
-                val content = workflowFile.readText()
-                val json = JSONObject(content)
+                val json = JSONObject(workflowFile.readText())
                 activeTask = json.optString("active_task", "Sovereign Cockpit Ready")
                 taskStatus = json.optString("status", "idle")
             }
@@ -87,9 +84,13 @@ class NodeOsBridge(private val context: Context) {
             val dbFile = File(nodeosDbPath)
             if (nodeosDbPath.isNotBlank() && dbFile.exists()) {
                 daemonAlive = true
-                // Rough AST node count from file size heuristic
-                val sizeKb = dbFile.length() / 1024
-                astNodes = if (sizeKb > 0) (sizeKb / 3).toInt().coerceAtLeast(1) else 0
+                scheduleAstRefreshIfStale()
+                if (cachedAstNodes > 0) {
+                    astNodes = cachedAstNodes
+                } else {
+                    val sizeKb = dbFile.length() / 1024
+                    astNodes = if (sizeKb > 0) (sizeKb / 3).toInt().coerceAtLeast(1) else 0
+                }
             }
         } catch (_: Exception) {}
 
@@ -102,5 +103,24 @@ class NodeOsBridge(private val context: Context) {
             isDaemonAlive = daemonAlive,
             identityMode = getIdentityMode()
         )
+    }
+
+    private fun scheduleAstRefreshIfStale() {
+        val now = System.currentTimeMillis()
+        synchronized(astQueryLock) {
+            if (now - lastAstQueryMs < astCacheTtlMs) return
+            lastAstQueryMs = now
+        }
+        val dbPath = nodeosDbPath
+        if (dbPath.isBlank()) return
+        ioExecutor.execute {
+            try {
+                val snapshot = astGraph.queryTopology(dbPath)
+                if (snapshot.isAlive) {
+                    cachedAstNodes = snapshot.totalNodes
+                    cachedAstAlive = true
+                }
+            } catch (_: Exception) {}
+        }
     }
 }
