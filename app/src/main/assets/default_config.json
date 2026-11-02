@@ -25,7 +25,7 @@
   "omni_font_size_sp": 12.5,
 
   "dock_slots": [
-    { "index": 1, "label": "TERMINAL", "subtitle": "Termux · VoidTerm",  "package_name": "com.termux",  "action": "launch_termux" },
+    { "index": 1, "label": "TERMINAL", "subtitle": "VoidTerm",           "package_name": "",            "action": "open_voidterm" },
     { "index": 2, "label": "FILES",    "subtitle": "Browse Projects",    "package_name": "",            "action": "open_files" },
     { "index": 3, "label": "DRAWER",   "subtitle": "All Applications",  "package_name": "",            "action": "open_drawer" },
     { "index": 4, "label": "BROWSER",  "subtitle": "WebAuth & Links",    "package_name": "",            "action": "open_browser" },

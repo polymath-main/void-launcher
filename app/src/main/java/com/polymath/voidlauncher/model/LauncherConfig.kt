@@ -235,11 +235,11 @@ data class DockSlot(
     val label: String,
     val subtitle: String,
     val packageName: String,             // target package or special action key
-    val action: String = "launch_package" // launch_package | launch_termux | open_browser | open_dialer | open_settings | open_files | open_drawer | termux_command
+    val action: String = "launch_package" // launch_package | open_voidterm | open_browser | open_dialer | open_settings | open_files | open_drawer | run_void_command
 )
 
 fun defaultDockSlots(): List<DockSlot> = listOf(
-    DockSlot(1, "TERMINAL",   "Termux · VoidTerm",  "com.termux",                        "launch_termux"),
+    DockSlot(1, "TERMINAL",   "VoidTerm",           "",                                   "open_voidterm"),
     DockSlot(2, "FILES",      "Browse Projects",    "",                                   "open_files"),
     DockSlot(3, "DRAWER",     "All Installed Apps", "",                                   "open_drawer"),
     DockSlot(4, "BROWSER",    "WebAuth & Links",     "",                                   "open_browser"),

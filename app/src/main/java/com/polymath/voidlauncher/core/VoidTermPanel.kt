@@ -13,11 +13,11 @@ import com.polymath.voidlauncher.core.terminal.TerminalSession
  * Coordinates an in-cockpit terminal line buffer, enabling direct
  * command dispatch and live output streaming without switching apps.
  *
- * Cycle 3: the buffer is now TerminalBuffer (pure, tested), and a
- * TerminalSession is available for real output. The legacy execute()
- * path (Termux dispatch, write-only) is kept unchanged for the
- * Activity in this cycle; executeVia() is the new path, to be wired
- * to VoidShell in an emulator-verified step, not blindly here.
+ * Termux-removal Cycle 1: when [terminalRunner] is set (the Activity
+ * wires it to VoidShell), execute() runs through it via executeVia()
+ * and shows real output. The legacy ShellPort dispatch path remains
+ * only as a fallback while other callers migrate; it is not used by
+ * the Activity any more.
  */
 class VoidTermPanel(
     private val context: Context,
@@ -27,6 +27,12 @@ class VoidTermPanel(
     private val session = TerminalSession(id = "voidterm-main")
 
     var isVisible: Boolean = false
+
+    /**
+     * Runner for the new path. Set by the Activity to a VoidShell
+     * adapter; when set, execute() uses it instead of ShellPort dispatch.
+     */
+    var terminalRunner: TerminalCommandRunner? = null
 
     /** Visible viewport height in rows (config: `voidterm_rows`). */
     var rows: Int
@@ -52,10 +58,15 @@ class VoidTermPanel(
     }
 
     fun execute(command: String, inBackground: Boolean = true) {
+        val runner = terminalRunner
+        if (runner != null) {
+            executeVia(command, runner)
+            return
+        }
         appendOutput(">_ $command")
         shellPort.dispatchCommand(command, inBackground = inBackground)
         if (inBackground) {
-            appendOutput("[DISPATCHED HEADLESS TO TERMUX]")
+            appendOutput("[DISPATCHED HEADLESS]")
         }
     }
 

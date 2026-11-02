@@ -8,14 +8,17 @@ class VoidActionTest {
 
     @Test
     fun knownActionsMapExactly() {
-        assertEquals(VoidAction.LAUNCH_TERMUX, VoidAction.fromAction("launch_termux", "com.termux"))
+        // Termux-removal Cycle 1: legacy strings route to Void actions.
+        assertEquals(VoidAction.OPEN_VOIDTERM, VoidAction.fromAction("launch_termux", "com.termux"))
+        assertEquals(VoidAction.OPEN_VOIDTERM, VoidAction.fromAction("open_voidterm", ""))
         assertEquals(VoidAction.OPEN_FILES, VoidAction.fromAction("open_files", ""))
         assertEquals(VoidAction.OPEN_DRAWER, VoidAction.fromAction("open_drawer", ""))
         assertEquals(VoidAction.OPEN_SETTINGS, VoidAction.fromAction("open_settings", ""))
         assertEquals(VoidAction.LAUNCH_PACKAGE, VoidAction.fromAction("launch_package", "com.example"))
         assertEquals(VoidAction.OPEN_BROWSER, VoidAction.fromAction("open_browser", ""))
         assertEquals(VoidAction.OPEN_DIALER, VoidAction.fromAction("open_dialer", ""))
-        assertEquals(VoidAction.TERMUX_COMMAND, VoidAction.fromAction("termux_command", "pmc status"))
+        assertEquals(VoidAction.RUN_VOID_COMMAND, VoidAction.fromAction("termux_command", "pmc status"))
+        assertEquals(VoidAction.RUN_VOID_COMMAND, VoidAction.fromAction("run_void_command", "pmc status"))
     }
 
     @Test
@@ -35,7 +38,7 @@ class VoidActionTest {
         // The 5 shipped default slots (see LauncherConfig.defaultDockSlots)
         // must all map to a real action, never UNKNOWN.
         val actions = listOf(
-            VoidAction.fromAction("launch_termux", "com.termux"),
+            VoidAction.fromAction("open_voidterm", ""),
             VoidAction.fromAction("open_files", ""),
             VoidAction.fromAction("open_drawer", ""),
             VoidAction.fromAction("open_browser", ""),

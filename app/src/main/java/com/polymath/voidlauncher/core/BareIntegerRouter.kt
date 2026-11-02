@@ -21,6 +21,8 @@ class BareIntegerRouter(
     var onOpenFilesRequested: (() -> Unit)? = null
     var onOpenDrawerRequested: (() -> Unit)? = null
     var onOpenSettingsRequested: (() -> Unit)? = null
+    /** Termux-removal Cycle 1: TERMINAL slot opens in-app VoidTerm, never an external terminal app. */
+    var onOpenVoidTermRequested: (() -> Unit)? = null
 
     fun updateSlots(newSlots: List<DockSlot>) {
         slots = newSlots
@@ -45,8 +47,11 @@ class BareIntegerRouter(
 
     private fun executeSlotAction(slot: DockSlot): Boolean {
         return when (VoidAction.fromAction(slot.action, slot.packageName)) {
-            VoidAction.LAUNCH_TERMUX -> {
-                shellPort.launchInteractive()
+            VoidAction.OPEN_VOIDTERM -> {
+                // VoidTerm via the Activity callback; fall back to the
+                // ShellPort's interactive hook (also VoidTerm on
+                // Android) if no callback is wired.
+                onOpenVoidTermRequested?.invoke() ?: shellPort.launchInteractive()
                 true
             }
             VoidAction.OPEN_FILES -> {
@@ -80,7 +85,7 @@ class BareIntegerRouter(
                 context.startActivity(dialerIntent)
                 true
             }
-            VoidAction.TERMUX_COMMAND -> {
+            VoidAction.RUN_VOID_COMMAND -> {
                 shellPort.dispatchCommand(slot.packageName, inBackground = false)
                 true
             }

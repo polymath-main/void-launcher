@@ -71,6 +71,8 @@ import com.polymath.voidlauncher.core.WidgetRegistry
 import com.polymath.voidlauncher.core.shell.DefaultProcessRunner
 import com.polymath.voidlauncher.core.shell.ShellResult
 import com.polymath.voidlauncher.core.shell.VoidShell
+import com.polymath.voidlauncher.core.shell.VoidShellPort
+import com.polymath.voidlauncher.core.terminal.VoidShellRunner
 import com.polymath.voidlauncher.databinding.ActivityVoidLauncherBinding
 import com.polymath.voidlauncher.model.AppEntry
 import com.polymath.voidlauncher.model.DockSlot
@@ -97,6 +99,7 @@ class VoidLauncherActivity : AppCompatActivity() {
     private lateinit var termuxIpc: TermuxIpcDispatcher
     private lateinit var clipboard: AndroidClipboard
     private lateinit var voidShell: VoidShell
+    private lateinit var voidShellPort: VoidShellPort
     private lateinit var nodeOsBridge: NodeOsBridge
     private lateinit var appIndexer: AppIndexer
     private lateinit var bareIntegerRouter: BareIntegerRouter
@@ -224,12 +227,17 @@ class VoidLauncherActivity : AppCompatActivity() {
         telemetryMonitor = TelemetryMonitor(this)
         termuxIpc = TermuxIpcDispatcher(this)
         clipboard = AndroidClipboard(this)
-        // VoidShell (Phase 1): /system/bin/sh on device, filesDir as default workdir.
-        // Only :run uses it in this cycle; :sh and all other paths stay on Termux.
+        // VoidShell (Phase 1 + Termux-removal Cycle 1): /system/bin/sh on
+        // device, filesDir as default workdir. :run, :sh, :term and the
+        // dock TERMINAL slot all run through VoidShell now; thermal and
+        // agent still use TermuxIpc until Cycle 2.
         voidShell = VoidShell(DefaultProcessRunner(), "/system/bin/sh", filesDir.absolutePath)
+        voidShellPort = VoidShellPort(voidShell) { openVoidTerm() }
         nodeOsBridge = NodeOsBridge(this)
         appIndexer = AppIndexer(this)
-        bareIntegerRouter = BareIntegerRouter(this, termuxIpc)
+        bareIntegerRouter = BareIntegerRouter(this, voidShellPort).apply {
+            onOpenVoidTermRequested = { openVoidTerm() }
+        }
         glyphManager = NothingGlyphManager(this)
         fileManager = FileManager(this)
 
@@ -256,9 +264,11 @@ class VoidLauncherActivity : AppCompatActivity() {
         focusScheduler = FocusScheduler(this, personaManager, glyphChoreographer).apply {
             if (config.focusSchedulerEnabled) loadSchedule(config.focusSchedulePath)
         }
-        voidTermPanel = VoidTermPanel(this, termuxIpc).apply {
+        voidTermPanel = VoidTermPanel(this, voidShellPort).apply {
             rows = config.voidTermRows
             cols = config.voidTermCols
+            // :term runs through VoidShell with real output (Cycle 1).
+            terminalRunner = VoidShellRunner(voidShell)
         }
         macroRecorder = MacroRecorder(this)
 
@@ -1714,9 +1724,26 @@ class VoidLauncherActivity : AppCompatActivity() {
                 }
             }
             command.startsWith("sh ") -> {
+                // :sh is an alias for :run (Termux-removal Cycle 1):
+                // same VoidShell run, same real output, off the UI thread.
                 val shellCmd = command.removePrefix("sh ").trim()
-                termuxIpc.dispatchCommand(shellCmd, inBackground = true)
-                showTerminalOutput("[DISPATCHED]: $shellCmd")
+                if (shellCmd.isBlank()) {
+                    showTerminalOutput("[SH]: empty command")
+                } else {
+                    showTerminalOutput("[RUNNING]: $shellCmd")
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val result = voidShell.run(shellCmd)
+                        withContext(Dispatchers.Main) {
+                            when (result) {
+                                is ShellResult.Success -> showTerminalOutput(
+                                    "[SH OK]:\n" + result.output.ifBlank { "(no output)" } +
+                                        if (result.error.isNotBlank()) "\nstderr: " + result.error else ""
+                                )
+                                is ShellResult.Failed -> showTerminalOutput("[SH FAILED]: " + result.reason)
+                            }
+                        }
+                    }
+                }
             }
             command.startsWith("work ") -> {
                 val projectName = command.removePrefix("work ").trim()
@@ -1781,6 +1808,22 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun openSettings() {
         val intent = Intent(this, VoidSettingsActivity::class.java)
         startActivity(intent)
+    }
+
+    /**
+     * Termux-removal Cycle 1: the in-app VoidTerm panel replaces the
+     * external terminal launch for the dock TERMINAL slot, the
+     * OPEN_TERMINAL gesture, and the VoidShellPort interactive hook.
+     * The panel has no separate window yet, so opening it shows its
+     * buffer in the terminal output area; :term <command> runs there.
+     */
+    private fun openVoidTerm() {
+        voidTermPanel.isVisible = true
+        val rendered = voidTermPanel.getRenderedBuffer()
+        showTerminalOutput(
+            if (rendered.isBlank()) "[VOIDTERM] Type :term <command> to run in VoidShell"
+            else rendered
+        )
     }
 
     // ── Helpers ──────────────────────────────────────────────
@@ -2097,7 +2140,7 @@ class VoidLauncherActivity : AppCompatActivity() {
             "OPEN_COMMAND_CENTER" -> openCommandCenter(true)
             "OPEN_WIDGET_DECK"    -> openWidgetDeck(true)
             "OPEN_SETTINGS"       -> openSettings()
-            "OPEN_TERMINAL"       -> termuxIpc.launchTermuxInteractive()
+            "OPEN_TERMINAL"       -> openVoidTerm()
             "NOTIFICATIONS"       -> VoidNotificationListenerService.openAccessSettings(this)
             "EXPAND_STATUS_BAR"   -> expandStatusBar()
             "TOGGLE_MINIMAL"      -> toggleMinimalMode()
