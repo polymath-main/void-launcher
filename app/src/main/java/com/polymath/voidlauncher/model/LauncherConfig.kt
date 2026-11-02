@@ -208,8 +208,18 @@ data class LauncherConfig(
     // Clamped at wiring time: 5–300 s, 1 KiB–256 KiB (VoidShell clamps).
     // No Settings UI in this step (area 7 owns Settings wiring).
     val shellTimeoutSeconds: Long = 30L,
-    val shellMaxOutputChars: Int = 16384
-)
+    val shellMaxOutputChars: Int = 16384,
+
+    // ── Config schema (impl-01 step 7) ────────────────────────
+    // 1 = the schema as of v3.0.0. Unknown future versions load with
+    // a warning and per-field defaults, never a crash or a rejection
+    // of the whole file; unknown keys are ignored, as before.
+    val schemaVersion: Int = CURRENT_SCHEMA_VERSION
+) {
+    companion object {
+        const val CURRENT_SCHEMA_VERSION = 1
+    }
+}
 
 data class ColorPalette(
     val background: String = "#000000",

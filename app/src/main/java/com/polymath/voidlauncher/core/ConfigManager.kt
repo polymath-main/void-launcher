@@ -60,6 +60,11 @@ class ConfigManager(private val context: Context) {
 
     /**
      * Saves the current config to the external user-editable path.
+     *
+     * impl-01 step 7: writes are atomic (tmp file + rename, as
+     * importConfig already did), so a crash mid-save leaves either
+     * the old or the new config, never a truncated file. A rename
+     * failure falls back to a direct write, as before.
      */
     fun saveConfig(config: LauncherConfig) {
         cachedConfig = config
@@ -68,17 +73,27 @@ class ConfigManager(private val context: Context) {
             if (!dir.exists()) dir.mkdirs()
 
             val json = serializeConfig(config)
-            File(EXTERNAL_CONFIG_FILE).writeText(json.toString(2))
+            writeAtomically(File(EXTERNAL_CONFIG_FILE), json.toString(2))
             Log.i(TAG, "Config saved to $EXTERNAL_CONFIG_FILE")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save external config: ${e.message}")
-            // Fallback: save internally
+            // Fallback: save internally, atomically as well.
             try {
                 val json = serializeConfig(config)
-                File(context.filesDir, INTERNAL_CONFIG_FILE).writeText(json.toString(2))
+                writeAtomically(File(context.filesDir, INTERNAL_CONFIG_FILE), json.toString(2))
             } catch (e2: Exception) {
                 Log.e(TAG, "Failed to save internal config: ${e2.message}")
             }
+        }
+    }
+
+    private fun writeAtomically(target: File, text: String) {
+        target.parentFile?.mkdirs()
+        val tmp = File(target.parentFile, "${target.name}.tmp")
+        tmp.writeText(text)
+        if (!tmp.renameTo(target)) {
+            target.writeText(text)
+            tmp.delete()
         }
     }
 
@@ -140,6 +155,12 @@ class ConfigManager(private val context: Context) {
     // ── JSON Parsing ──────────────────────────────────────────
 
     private fun parseConfig(json: JSONObject): LauncherConfig {
+        // impl-01 step 7: schema version is advisory, never a gate.
+        val schemaVersion = json.optInt("schema_version", LauncherConfig.CURRENT_SCHEMA_VERSION)
+        if (schemaVersion > LauncherConfig.CURRENT_SCHEMA_VERSION) {
+            Log.w(TAG, "Config schema_version $schemaVersion is newer than supported " +
+                "${LauncherConfig.CURRENT_SCHEMA_VERSION}; loading with defaults for unknown fields.")
+        }
         val colorsJson = json.optJSONObject("colors")
         val colors = if (colorsJson != null) parseColors(colorsJson) else ColorPalette()
 
@@ -234,7 +255,8 @@ class ConfigManager(private val context: Context) {
             macrosEnabled = json.optBoolean("macros_enabled", true),
             macrosDirectory = json.optString("macros_directory", VoidPaths.MACROS),
             shellTimeoutSeconds = json.optLong("shell_timeout_seconds", 30L),
-            shellMaxOutputChars = json.optInt("shell_max_output_chars", 16384)
+            shellMaxOutputChars = json.optInt("shell_max_output_chars", 16384),
+            schemaVersion = schemaVersion
         )
     }
 
@@ -467,6 +489,7 @@ class ConfigManager(private val context: Context) {
         json.put("macros_directory", config.macrosDirectory)
         json.put("shell_timeout_seconds", config.shellTimeoutSeconds)
         json.put("shell_max_output_chars", config.shellMaxOutputChars)
+        json.put("schema_version", config.schemaVersion)
 
         // Notification Intelligence filters
         val notifWhitelist = JSONArray()

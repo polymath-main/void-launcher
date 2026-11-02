@@ -432,7 +432,13 @@ class VoidLauncherActivity : AppCompatActivity() {
     }
 
     private fun reloadConfigFromSync() {
-        config = configManager.loadConfig()
+        // impl-01 step 7: own-save guard — the FileObserver also fires
+        // for saves the app itself made; if the parsed config equals
+        // the one already in effect, skip the re-apply (and the noise
+        // message) instead of redrawing for nothing.
+        val loaded = configManager.loadConfig()
+        if (loaded == config) return
+        config = loaded
         applyConfig()
         showTerminalOutput("[CONFIG AUTO-RELOADED VIA VOID CONFIG SYNC]")
     }
