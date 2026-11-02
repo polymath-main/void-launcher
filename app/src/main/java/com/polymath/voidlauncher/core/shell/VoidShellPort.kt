@@ -32,6 +32,18 @@ class VoidShellPort(
         }
     }
 
+    override fun dispatchTracked(
+        command: String,
+        workDir: String,
+        inBackground: Boolean
+    ): RunningCommand? {
+        val running = voidShell.start(command, workDir) ?: return null
+        return object : RunningCommand {
+            override fun cancel() = running.cancel()
+            override fun awaitSuccess(): Boolean = running.awaitSuccess()
+        }
+    }
+
     override fun launchInteractive(workDir: String) {
         onLaunchInteractive(workDir)
     }

@@ -75,9 +75,23 @@ class AgentOrchestrator(
         }
 
         // 2. Dispatch command asynchronously through the Void-owned shell.
+        // impl-01 step 3: prefer the tracked dispatch so a cancel (agent
+        // UI or thermal throttle) stops the real process via the
+        // registry handle, not just a status flag. Fall back to the
+        // Boolean dispatch when the executor has no process to hand out.
         io.execute {
             val ok = try {
-                shellPort.dispatchCommand(command, inBackground = true)
+                val tracked = shellPort.dispatchTracked(command, inBackground = true)
+                if (tracked != null) {
+                    processManager.attachHandle(voidTask.id) { tracked.cancel() }
+                    try {
+                        tracked.awaitSuccess()
+                    } catch (_: Exception) {
+                        false
+                    }
+                } else {
+                    shellPort.dispatchCommand(command, inBackground = true)
+                }
             } catch (_: Exception) {
                 false
             }

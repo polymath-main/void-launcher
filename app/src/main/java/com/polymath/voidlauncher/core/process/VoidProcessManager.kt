@@ -31,9 +31,20 @@ data class VoidTask(
     val completedAt: Long = 0L
 )
 
+/**
+ * A stop handle for a live task (impl-01 step 3). The registry holds
+ * these so [VoidProcessManager.cancel] can stop a real OS process,
+ * not just flip a status flag. Implementations must stop only the
+ * process they started — never a name/pattern match.
+ */
+fun interface CancelHandle {
+    fun cancel()
+}
+
 class VoidProcessManager {
 
     private val tasks = mutableMapOf<String, VoidTask>()
+    private val handles = mutableMapOf<String, CancelHandle>()
 
     /** Registers a new running task and returns its handle. */
     fun submit(title: String, command: String): VoidTask {
@@ -54,10 +65,24 @@ class VoidProcessManager {
     fun getRunning(): List<VoidTask> =
         getAll().filter { it.status == VoidTaskStatus.RUNNING }
 
+    /**
+     * Attaches a live stop handle to a running task. Returns false if
+     * the task is unknown or no longer running (handle not kept).
+     * The handle is invoked exactly once, on cancel, and dropped on
+     * finish — a finished task's process is never stopped twice.
+     */
+    fun attachHandle(taskId: String, handle: CancelHandle): Boolean {
+        val task = tasks[taskId] ?: return false
+        if (task.status != VoidTaskStatus.RUNNING) return false
+        handles[taskId] = handle
+        return true
+    }
+
     /** Marks a task finished. Returns false if the id is unknown or already finished. */
     fun markFinished(taskId: String, success: Boolean): Boolean {
         val task = tasks[taskId] ?: return false
         if (task.status != VoidTaskStatus.RUNNING) return false
+        handles.remove(taskId)
         tasks[taskId] = task.copy(
             status = if (success) VoidTaskStatus.COMPLETED else VoidTaskStatus.FAILED,
             completedAt = System.currentTimeMillis()
@@ -65,10 +90,17 @@ class VoidProcessManager {
         return true
     }
 
-    /** Cancels one task by handle. Returns false if unknown or already finished. */
+    /**
+     * Cancels one task by handle. Returns false if unknown or already
+     * finished. When a live handle is attached, it is invoked first so
+     * the real process stops — this is what thermal throttling and
+     * agent cancel now actually do (previously flag-only).
+     */
     fun cancel(taskId: String): Boolean {
         val task = tasks[taskId] ?: return false
         if (task.status != VoidTaskStatus.RUNNING) return false
+        val handle = handles.remove(taskId)
+        try { handle?.cancel() } catch (_: Exception) { }
         tasks[taskId] = task.copy(
             status = VoidTaskStatus.CANCELLED,
             completedAt = System.currentTimeMillis()
@@ -80,6 +112,8 @@ class VoidProcessManager {
     fun cancelRunning(): List<VoidTask> {
         val running = getRunning()
         for (task in running) {
+            val handle = handles.remove(task.id)
+            try { handle?.cancel() } catch (_: Exception) { }
             tasks[task.id] = task.copy(
                 status = VoidTaskStatus.CANCELLED,
                 completedAt = System.currentTimeMillis()

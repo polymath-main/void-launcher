@@ -51,6 +51,74 @@ fun interface ProcessRunner {
 }
 
 /**
+ * A started OS process with its stream drainers, owned by
+ * [DefaultProcessRunner.start]. [destroy] kills the process AND its
+ * descendants (children of `sh -c` would otherwise survive a plain
+ * destroy() and keep running) — descendants of this process only,
+ * never a name/pattern match, so unrelated processes are untouched.
+ * [await] waits up to the runner timeout and returns the final result.
+ */
+class StartedProcess internal constructor(
+    private val process: Process,
+    private val outDrain: DefaultProcessRunner.StreamDrainer,
+    private val errDrain: DefaultProcessRunner.StreamDrainer,
+    private val timeoutSeconds: Long
+) {
+    fun destroy() {
+        try {
+            val descendants = process.descendants()
+            try {
+                descendants.forEach { handle ->
+                    try { handle.destroy() } catch (_: Exception) { }
+                }
+            } finally {
+                descendants.close()
+            }
+        } catch (_: Exception) { }
+        try { process.destroy() } catch (_: Exception) { }
+        try {
+            if (!process.waitFor(500, TimeUnit.MILLISECONDS)) {
+                try {
+                    val descendants = process.descendants()
+                    try {
+                        descendants.forEach { handle ->
+                            try { handle.destroyForcibly() } catch (_: Exception) { }
+                        }
+                    } finally {
+                        descendants.close()
+                    }
+                } catch (_: Exception) { }
+                process.destroyForcibly()
+            }
+        } catch (_: Exception) { }
+    }
+
+    fun await(): ProcessResult {
+        return try {
+            val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+            if (!finished) {
+                destroy()
+                ProcessResult("", "VoidShell: command timed out after ${timeoutSeconds}s", -1, timedOut = true)
+            } else {
+                ProcessResult(outDrain.text(), errDrain.text(), process.exitValue())
+            }
+        } catch (e: Exception) {
+            ProcessResult("", "VoidShell: ${e.message}", -1)
+        } finally {
+            // Drainers end when the process's streams close; join briefly
+            // so no output is lost, but never hang await on them.
+            try { outDrain.joinThread(2000) } catch (_: Exception) { }
+            try { errDrain.joinThread(2000) } catch (_: Exception) { }
+        }
+    }
+
+    internal fun startDrainers() {
+        outDrain.startThread("voidshell-stdout")
+        errDrain.startThread("voidshell-stderr")
+    }
+}
+
+/**
  * Default runner: ProcessBuilder + a hard timeout. Merges nothing —
  * stdout and stderr are captured separately.
  *
@@ -92,6 +160,34 @@ class DefaultProcessRunner(
         return runInternal(shellPath, command, workDir, onStdoutLine, onStderrLine)
     }
 
+    /**
+     * Starts a process without waiting for it. The caller owns the
+     * returned [StartedProcess]: [StartedProcess.destroy] actually
+     * stops it, [StartedProcess.await] waits for its result. This is
+     * what makes task cancellation real (impl-01 step 3) — the old
+     * run-only API gave the registry no process to stop.
+     */
+    fun start(
+        shellPath: String,
+        command: String,
+        workDir: String,
+        onStdoutLine: ((String) -> Unit)? = null,
+        onStderrLine: ((String) -> Unit)? = null
+    ): StartedProcess {
+        val process = ProcessBuilder(shellPath, "-c", command)
+            .directory(File(workDir).takeIf { it.exists() })
+            .redirectErrorStream(false)
+            .start()
+        val started = StartedProcess(
+            process,
+            StreamDrainer(process.inputStream, onStdoutLine),
+            StreamDrainer(process.errorStream, onStderrLine),
+            timeoutSeconds
+        )
+        started.startDrainers()
+        return started
+    }
+
     private fun runInternal(
         shellPath: String,
         command: String,
@@ -100,25 +196,7 @@ class DefaultProcessRunner(
         onStderrLine: ((String) -> Unit)?
     ): ProcessResult {
         return try {
-            val process = ProcessBuilder(shellPath, "-c", command)
-                .directory(File(workDir).takeIf { it.exists() })
-                .redirectErrorStream(false)
-                .start()
-            val outDrain = StreamDrainer(process.inputStream, onStdoutLine)
-            val errDrain = StreamDrainer(process.errorStream, onStderrLine)
-            val outThread = Thread(outDrain, "voidshell-stdout").apply { isDaemon = true; start() }
-            val errThread = Thread(errDrain, "voidshell-stderr").apply { isDaemon = true; start() }
-            val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
-            if (!finished) {
-                process.destroyForcibly()
-                outThread.join(2000)
-                errThread.join(2000)
-                return ProcessResult("", "VoidShell: command timed out after ${timeoutSeconds}s", -1, timedOut = true)
-            }
-            // Streams close when the process exits; join so no output is lost.
-            outThread.join()
-            errThread.join()
-            ProcessResult(outDrain.text(), errDrain.text(), process.exitValue())
+            start(shellPath, command, workDir, onStdoutLine, onStderrLine).await()
         } catch (e: Exception) {
             ProcessResult("", "VoidShell: ${e.message}", -1)
         }
@@ -131,14 +209,23 @@ class DefaultProcessRunner(
      * in memory — it keeps draining past the cap so the process can
      * never block on a full pipe, it just stops accumulating.
      */
-    private class StreamDrainer(
+    internal class StreamDrainer(
         private val stream: InputStream,
         private val onLine: ((String) -> Unit)?
     ) : Runnable {
         private val kept = StringBuilder()
         private val pending = StringBuilder()
+        @Volatile private var thread: Thread? = null
 
         fun text(): String = synchronized(kept) { kept.toString() }
+
+        fun startThread(name: String) {
+            thread = Thread(this, name).apply { isDaemon = true; start() }
+        }
+
+        fun joinThread(timeoutMs: Long) {
+            try { thread?.join(timeoutMs) } catch (_: Exception) { }
+        }
 
         override fun run() {
             try {
@@ -207,6 +294,42 @@ class VoidShell(
         val result = runner.run(shellPath, command, workDir)
         emitRecord(command, workDir, started, result)
         return toShellResult(result)
+    }
+
+    /**
+     * A started-but-not-awaited shell run (impl-01 step 3). The caller
+     * owns it: [cancel] actually stops the OS process (via
+     * [StartedProcess.destroy], descendants included), [await] waits
+     * for the result and emits the run record. Returns null for a
+     * blank command or for a non-default runner, which has no process
+     * to hand out — callers fall back to [run] in that case.
+     */
+    inner class RunningShell internal constructor(
+        private val started: StartedProcess,
+        private val commandText: String,
+        private val workDirText: String,
+        private val startedAtMs: Long
+    ) {
+        fun cancel() = started.destroy()
+
+        fun await(): ShellResult {
+            val result = started.await()
+            emitRecord(commandText, workDirText, startedAtMs, result)
+            return toShellResult(result)
+        }
+
+        fun awaitSuccess(): Boolean = await() is ShellResult.Success
+    }
+
+    fun start(command: String, workDir: String = defaultWorkDir): RunningShell? {
+        if (command.isBlank()) return null
+        val defaultRunner = runner as? DefaultProcessRunner ?: return null
+        return try {
+            val started = defaultRunner.start(shellPath, command, workDir)
+            RunningShell(started, command, workDir, System.currentTimeMillis())
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**
