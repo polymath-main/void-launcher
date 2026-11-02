@@ -185,6 +185,7 @@ class ConfigManager(private val context: Context) {
             defaultWorkspacePath = json.optString("default_workspace_path", "/data/data/com.termux/files/home/Projects"),
             workflowJsonPath = json.optString("workflow_json_path", "/data/data/com.termux/files/home/Projects/workflow.json"),
             nodeosDbPath = json.optString("nodeos_db_path", "/data/data/com.termux/files/home/Projects/agy_nodeos.db"),
+            nodeOsLegacyImportEnabled = json.optBoolean("nodeos_legacy_import_enabled", false),
             useSystemWallpaper = json.optBoolean("use_system_wallpaper", false),
             cockpitCardRadiusDp = json.optDouble("cockpit_card_radius_dp", 14.0).toFloat(),
             showStatusBarTime = json.optBoolean("show_status_bar_time", true),
@@ -422,6 +423,7 @@ class ConfigManager(private val context: Context) {
         json.put("default_workspace_path", config.defaultWorkspacePath)
         json.put("workflow_json_path", config.workflowJsonPath)
         json.put("nodeos_db_path", config.nodeosDbPath)
+        json.put("nodeos_legacy_import_enabled", config.nodeOsLegacyImportEnabled)
 
         // Glyph & Haptics
         json.put("enable_glyph_pulse", config.enableGlyphPulse)

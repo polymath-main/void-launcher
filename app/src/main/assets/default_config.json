@@ -101,6 +101,7 @@
   "default_workspace_path": "/data/data/com.termux/files/home/Projects",
   "workflow_json_path":     "/data/data/com.termux/files/home/Projects/workflow.json",
   "nodeos_db_path":         "/data/data/com.termux/files/home/Projects/agy_nodeos.db",
+  "nodeos_legacy_import_enabled": false,
 
   "enable_glyph_pulse": true,
   "glyph_patterns_path": "/storage/emulated/0/.voidlauncher/glyph_patterns.json",

@@ -120,6 +120,7 @@ data class LauncherConfig(
     // ── Thermal Envelope & Guardian (F-06) ───────────────────
     val thermalLimitCelsius: Float = 39.0f,
     val thermalGuardianEnabled: Boolean = true,
+    /** DEPRECATED (Termux-removal Cycle 2): never executed as shell; kept only so old configs still parse. */
     val thermalKillCommands: List<String> = emptyList(),
     val thermalHysteresisCelsius: Float = 2.0f,
 
@@ -141,6 +142,8 @@ data class LauncherConfig(
     val defaultWorkspacePath: String = "/data/data/com.termux/files/home/Projects",
     val workflowJsonPath: String = "/data/data/com.termux/files/home/Projects/workflow.json",
     val nodeosDbPath: String = "/data/data/com.termux/files/home/Projects/agy_nodeos.db",
+    /** Termux-removal Cycle 2: NodeOS legacy import is opt-in; false = Void daemon status is shown instead. */
+    val nodeOsLegacyImportEnabled: Boolean = false,
 
     // ── Glyph & Choreographer (F-03) ─────────────────────────
     val enableGlyphPulse: Boolean = true,

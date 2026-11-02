@@ -687,7 +687,7 @@
                 android:text="Projects" />
 
             <TextView
-                android:id="@+id/btnChipTermux"
+                android:id="@+id/btnChipVoid"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
@@ -699,7 +699,7 @@
                 android:fontFamily="monospace"
                 android:textColor="@color/void_crimson"
                 android:textSize="10sp"
-                android:text="~Termux" />
+                android:text="~Void" />
         </LinearLayout>
 
         <!-- Storage Permission Notice Card (Shown if ungranted) -->
@@ -851,7 +851,7 @@
                     android:fontFamily="monospace"
                     android:textColor="@color/text_muted"
                     android:textSize="11sp"
-                    android:text="Termux · VoidTerm" />
+                    android:text="VoidTerm" />
             </LinearLayout>
 
             <LinearLayout

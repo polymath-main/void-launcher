@@ -24,7 +24,21 @@ class FileManager(private val context: Context) {
         const val PATH_SDCARD = "/storage/emulated/0"
         const val PATH_DOWNLOADS = "/storage/emulated/0/Download"
         const val PATH_PROJECTS = "/storage/emulated/0/Projects"
-        const val PATH_TERMUX_HOME = "/data/data/com.termux/files/home"
+    }
+
+    /**
+     * Termux-removal Cycle 2: the Void-owned workspace root —
+     * app files/void/. Created on first use. This is the default
+     * workspace for files the launcher itself owns; a user-chosen
+     * shared-storage workspace via SAF is the alternative, never
+     * another app's private directory (unreadable under Android DAC).
+     */
+    fun voidHomePath(): String {
+        val dir = File(context.filesDir, "void")
+        try {
+            if (!dir.exists()) dir.mkdirs()
+        } catch (_: Exception) {}
+        return dir.absolutePath
     }
 
     /**
@@ -67,13 +81,10 @@ class FileManager(private val context: Context) {
         }
     }
 
-    fun isTermuxPrivatePath(path: String): Boolean {
-        return path.startsWith("/data/data/com.termux")
-    }
-
     /**
      * Verifies if a given directory path is readable.
      * If unreadable or pointing to a restricted path, resolves to the best available fallback.
+     * Void home is tried first: it is always app-owned and readable.
      */
     fun resolveAccessiblePath(initialPath: String): String {
         val target = File(initialPath)
@@ -83,6 +94,7 @@ class FileManager(private val context: Context) {
 
         // Test fallback locations in priority order
         val candidates = listOf(
+            File(voidHomePath()),
             File(PATH_PROJECTS),
             File(PATH_DOWNLOADS),
             File(PATH_SDCARD),

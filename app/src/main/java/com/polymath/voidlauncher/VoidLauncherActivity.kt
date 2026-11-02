@@ -61,7 +61,6 @@ import com.polymath.voidlauncher.core.NotifIntelligence
 import com.polymath.voidlauncher.core.PersonaManager
 import com.polymath.voidlauncher.core.PowerProfileAdaptor
 import com.polymath.voidlauncher.core.TelemetryMonitor
-import com.polymath.voidlauncher.core.TermuxIpcDispatcher
 import com.polymath.voidlauncher.core.ThemeEngine
 import com.polymath.voidlauncher.core.ThermalGuardian
 import com.polymath.voidlauncher.core.VoidGestureDetector
@@ -71,6 +70,7 @@ import com.polymath.voidlauncher.core.WidgetRegistry
 import com.polymath.voidlauncher.core.shell.DefaultProcessRunner
 import com.polymath.voidlauncher.core.shell.ShellResult
 import com.polymath.voidlauncher.core.shell.VoidShell
+import com.polymath.voidlauncher.core.process.VoidProcessManager
 import com.polymath.voidlauncher.core.shell.VoidShellPort
 import com.polymath.voidlauncher.core.terminal.VoidShellRunner
 import com.polymath.voidlauncher.databinding.ActivityVoidLauncherBinding
@@ -96,10 +96,10 @@ class VoidLauncherActivity : AppCompatActivity() {
     // Core v1 subsystems
     private lateinit var configManager: ConfigManager
     private lateinit var telemetryMonitor: TelemetryMonitor
-    private lateinit var termuxIpc: TermuxIpcDispatcher
     private lateinit var clipboard: AndroidClipboard
     private lateinit var voidShell: VoidShell
     private lateinit var voidShellPort: VoidShellPort
+    private lateinit var voidProcessManager: VoidProcessManager
     private lateinit var nodeOsBridge: NodeOsBridge
     private lateinit var appIndexer: AppIndexer
     private lateinit var bareIntegerRouter: BareIntegerRouter
@@ -225,14 +225,14 @@ class VoidLauncherActivity : AppCompatActivity() {
         config = configManager.loadConfig()
 
         telemetryMonitor = TelemetryMonitor(this)
-        termuxIpc = TermuxIpcDispatcher(this)
         clipboard = AndroidClipboard(this)
-        // VoidShell (Phase 1 + Termux-removal Cycle 1): /system/bin/sh on
-        // device, filesDir as default workdir. :run, :sh, :term and the
-        // dock TERMINAL slot all run through VoidShell now; thermal and
-        // agent still use TermuxIpc until Cycle 2.
+        // VoidShell (Phase 1 + Termux-removal Cycles 1-2): /system/bin/sh
+        // on device, filesDir as default workdir. :run, :sh, :term, the
+        // dock TERMINAL slot, agent dispatch and thermal throttling all
+        // run through Void-owned code now; no Termux IPC remains here.
         voidShell = VoidShell(DefaultProcessRunner(), "/system/bin/sh", filesDir.absolutePath)
         voidShellPort = VoidShellPort(voidShell) { openVoidTerm() }
+        voidProcessManager = VoidProcessManager()
         nodeOsBridge = NodeOsBridge(this)
         appIndexer = AppIndexer(this)
         bareIntegerRouter = BareIntegerRouter(this, voidShellPort).apply {
@@ -243,7 +243,7 @@ class VoidLauncherActivity : AppCompatActivity() {
 
         // Initialize Blueprint v2 engines
         commandPalette = CommandPalette(this)
-        thermalGuardian = ThermalGuardian(termuxIpc)
+        thermalGuardian = ThermalGuardian(voidProcessManager)
         powerProfileAdaptor = PowerProfileAdaptor()
         notifIntelligence = NotifIntelligence()
         personaManager = PersonaManager(this).apply {
@@ -255,9 +255,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         }
         astGraphRenderer = AstGraphRenderer()
         liveScriptEngine = LiveScriptEngine(this)
-        agentOrchestrator = AgentOrchestrator(this, termuxIpc).apply {
-            workflowPath = config.workflowJsonPath
-        }
+        agentOrchestrator = AgentOrchestrator(this, voidShellPort, voidProcessManager)
         widgetRegistry = WidgetRegistry(this).apply {
             if (config.widgetsEnabled) loadWidgets(config.widgetsDirectory)
         }
@@ -279,8 +277,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         currentFilesPath = fileManager.resolveAccessiblePath(config.filesDefaultPath)
 
         // Push config into subsystems
-        nodeOsBridge.workflowPath = config.workflowJsonPath
-        nodeOsBridge.nodeosDbPath = config.nodeosDbPath
+        syncAgentAndNodeOsPaths()
         nodeOsBridge.setDefaultIdentity(config.defaultIdentity)
         bareIntegerRouter.updateSlots(config.dockSlots)
 
@@ -1089,9 +1086,9 @@ class VoidLauncherActivity : AppCompatActivity() {
             loadFilesDirectory(FileManager.PATH_PROJECTS)
         }
 
-        binding.btnChipTermux.setOnClickListener {
+        binding.btnChipVoid.setOnClickListener {
             haptic(it)
-            loadFilesDirectory(FileManager.PATH_TERMUX_HOME)
+            loadFilesDirectory(fileManager.voidHomePath())
         }
 
         binding.btnGrantStoragePermission.setOnClickListener {
@@ -1195,7 +1192,7 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun loadFilesDirectory(path: String) {
         val targetPath = fileManager.resolveAccessiblePath(path)
         currentFilesPath = targetPath
-        binding.tvFilesCurrentPath.text = targetPath.replace("/data/data/com.termux/files/home", "~")
+        binding.tvFilesCurrentPath.text = targetPath
 
         val hasStorage = fileManager.hasStoragePermission()
         binding.storagePermissionCard.visibility = if (hasStorage) View.GONE else View.VISIBLE
@@ -1206,9 +1203,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                 fileAdapter.submitList(items)
                 if (items.isEmpty()) {
                     binding.tvFilesEmptyState.visibility = View.VISIBLE
-                    if (fileManager.isTermuxPrivatePath(targetPath)) {
-                        binding.tvFilesEmptyState.text = "Termux private directory (~/Projects) is restricted by Android OS DAC.\nTap [OPEN IN TERMUX] or switch to /sdcard."
-                    } else if (!hasStorage) {
+                    if (!hasStorage) {
                         binding.tvFilesEmptyState.text = "All Files Access permission required to list /sdcard contents."
                     } else {
                         binding.tvFilesEmptyState.text = "Directory is empty: $targetPath"
@@ -1231,7 +1226,7 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     private fun showFileOperationsDialog(item: FileItem) {
         val options = arrayOf(
-            "⚡ Open in Termux (${if (item.isDirectory) "cd here" else "cat / run"})",
+            "⚡ Open in VoidTerm (${if (item.isDirectory) "cd here" else "run here"})",
             "📄 Read Text Preview",
             "📋 Copy Full Path",
             "✏️ Rename",
@@ -1243,12 +1238,11 @@ class VoidLauncherActivity : AppCompatActivity() {
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> {
-                        if (item.isDirectory) {
-                            termuxIpc.dispatchCommand("cd \"${item.path}\" && exec bash", workDir = item.path, inBackground = false)
-                        } else {
-                            val parentDir = File(item.path).parent ?: config.defaultWorkspacePath
-                            termuxIpc.dispatchCommand("cd \"$parentDir\" && termux-open \"${item.path}\"", inBackground = false)
-                        }
+                        // VoidTerm opens in-app; the path is shown so a
+                        // :term command can run against it. No external
+                        // terminal app is launched any more.
+                        openVoidTerm()
+                        showTerminalOutput("[VOIDTERM] ${item.path}\nType :term <command> to run here.")
                     }
                     1 -> {
                         val preview = fileManager.readTextPreview(item.path, maxLines = 60)
@@ -1425,7 +1419,27 @@ class VoidLauncherActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Termux-removal Cycle 2: fresh install shows Void daemon /
+     * VoidTaskStore status. The legacy NodeOS card appears only when
+     * the opt-in legacy import flag is on.
+     */
     private fun updateNodeOsHudView() {
+        if (!config.nodeOsLegacyImportEnabled) {
+            val running = voidProcessManager.getRunning()
+            val latest = running.firstOrNull()
+            binding.tvDaemonStatus.text =
+                if (running.isEmpty()) "○ VOID: IDLE" else "● VOID: ${running.size} TASK(S)"
+            binding.tvDaemonStatus.setTextColor(
+                if (running.isEmpty()) config.colors.criticalInt else config.colors.secondaryInt
+            )
+            binding.tvAstCount.text = "TASKS: ${voidProcessManager.getAll().size}"
+            binding.tvWorkspace.text = "CWD: Void home"
+            binding.tvGitBranch.text = "git: ${if (latest != null) "running" else "idle"}"
+            binding.tvActiveIntent.text =
+                if (latest != null) "[RUNNING] ${latest.title}" else "[IDLE] Void daemon ready"
+            return
+        }
         val status = nodeOsBridge.pollIntentStatus()
         binding.tvDaemonStatus.text = if (status.isDaemonAlive) "● NODEOS: ALIVE" else "○ NODEOS: OFFLINE"
         binding.tvDaemonStatus.setTextColor(
@@ -1437,6 +1451,18 @@ class VoidLauncherActivity : AppCompatActivity() {
         binding.tvGitBranch.text = "git: ${status.gitBranch}"
 
         binding.tvActiveIntent.text = "[${status.taskStatus.uppercase()}] ${status.activeTaskTitle}"
+    }
+
+    /** Shared Void status output for :hud/:status and the OPEN_HUD gesture. */
+    private fun showVoidStatus() {
+        val running = voidProcessManager.getRunning()
+        val all = voidProcessManager.getAll()
+        val lines = StringBuilder("[VOID STATUS]: ${running.size} running / ${all.size} tracked")
+        for (task in running) lines.append("\n- [RUNNING] ${task.title}")
+        if (!config.nodeOsLegacyImportEnabled) {
+            lines.append("\n[NodeOS legacy import: off — opt-in via config]")
+        }
+        showTerminalOutput(lines.toString())
     }
 
     private fun refreshIndexAsync() {
@@ -1747,8 +1773,9 @@ class VoidLauncherActivity : AppCompatActivity() {
             }
             command.startsWith("work ") -> {
                 val projectName = command.removePrefix("work ").trim()
-                termuxIpc.openProjectInTermux(projectName)
-                showTerminalOutput("[WORKSPACE]: ~/Projects/$projectName")
+                // Void workspace project folder, opened in the files browser.
+                loadFilesDirectory(File(fileManager.voidHomePath(), projectName).absolutePath)
+                showTerminalOutput("[WORKSPACE]: Void home/$projectName")
             }
             command == "default" || command == "home" -> {
                 requestSetDefaultLauncher()
@@ -1770,11 +1797,16 @@ class VoidLauncherActivity : AppCompatActivity() {
                 showTerminalOutput("[CLIPBOARD]:\n$clipText")
             }
             command == "nodeos" || command == "ping" -> {
-                termuxIpc.dispatchCommand("nodeos -c ping", inBackground = true)
-                showTerminalOutput("[PING]: nodeos -c ping")
+                // Cycle 2: no NodeOS daemon to ping without the opt-in
+                // legacy import; report Void daemon / task status instead.
+                val running = voidProcessManager.getRunning()
+                showTerminalOutput(
+                    "[VOID DAEMON]: ${running.size} task(s) running" +
+                        if (config.nodeOsLegacyImportEnabled) "\n[NodeOS legacy import: enabled]" else "\n[NodeOS legacy import: off — opt-in via config]"
+                )
             }
             command == "hud" || command == "status" -> {
-                termuxIpc.dispatchCommand("pmc status", inBackground = false)
+                showVoidStatus()
             }
             command == "deck" || command == "widgets" -> {
                 openWidgetDeck(true)
@@ -1800,7 +1832,25 @@ class VoidLauncherActivity : AppCompatActivity() {
                 showTerminalOutput("[CONFIG RELOADED]")
             }
             else -> {
-                termuxIpc.dispatchCommand(command, inBackground = false)
+                // Generic shell escape hatch, now via VoidShell (Cycle 2):
+                // same one-shot run as :run, with real output.
+                if (command.isBlank()) {
+                    showTerminalOutput("[CMD]: empty command")
+                } else {
+                    showTerminalOutput("[RUNNING]: $command")
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val result = voidShell.run(command)
+                        withContext(Dispatchers.Main) {
+                            when (result) {
+                                is ShellResult.Success -> showTerminalOutput(
+                                    "[CMD OK]:\n" + result.output.ifBlank { "(no output)" } +
+                                        if (result.error.isNotBlank()) "\nstderr: " + result.error else ""
+                                )
+                                is ShellResult.Failed -> showTerminalOutput("[CMD FAILED]: " + result.reason)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1808,6 +1858,29 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun openSettings() {
         val intent = Intent(this, VoidSettingsActivity::class.java)
         startActivity(intent)
+    }
+
+    /**
+     * Termux-removal Cycle 2: agent workflow sync goes to a Void-owned
+     * path. A config path pointing into another app's private directory
+     * is unreadable under Android DAC, so it is replaced by
+     * Void home workflow.json; any other configured path is honoured.
+     * NodeOS paths are wired only when the opt-in legacy import flag
+     * is on; otherwise the bridge stays blank and reports no NodeOS.
+     */
+    private fun syncAgentAndNodeOsPaths() {
+        val voidWorkflow = File(fileManager.voidHomePath(), "workflow.json").absolutePath
+        agentOrchestrator.workflowPath =
+            if (config.workflowJsonPath.startsWith("/data/data/com.termux")) voidWorkflow
+            else config.workflowJsonPath
+        nodeOsBridge.isLegacyImportEnabled = config.nodeOsLegacyImportEnabled
+        if (config.nodeOsLegacyImportEnabled) {
+            nodeOsBridge.workflowPath = config.workflowJsonPath
+            nodeOsBridge.nodeosDbPath = config.nodeosDbPath
+        } else {
+            nodeOsBridge.workflowPath = ""
+            nodeOsBridge.nodeosDbPath = ""
+        }
     }
 
     /**
@@ -2023,8 +2096,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         val newConfig = configManager.loadConfig()
         if (newConfig != config) {
             config = newConfig
-            nodeOsBridge.workflowPath = config.workflowJsonPath
-            nodeOsBridge.nodeosDbPath = config.nodeosDbPath
+            syncAgentAndNodeOsPaths()
             bareIntegerRouter.updateSlots(config.dockSlots)
             applyConfig()
             startTelemetryFlow()
@@ -2151,7 +2223,7 @@ class VoidLauncherActivity : AppCompatActivity() {
             }
             "COCKPIT_MODE"        -> { isMinimalMode = false; applyConfig() }
             "FOCUS_OMNI"          -> { binding.etOmniInput.requestFocus(); showKeyboard() }
-            "OPEN_HUD"            -> termuxIpc.dispatchCommand("pmc status", inBackground = false)
+            "OPEN_HUD"            -> showVoidStatus()
             "TOGGLE_IDENTITY"     -> {
                 val newP = personaManager.cyclePersona()
                 config = config.copy(activePersona = newP.id)

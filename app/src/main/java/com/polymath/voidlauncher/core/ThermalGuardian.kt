@@ -1,26 +1,29 @@
 package com.polymath.voidlauncher.core
 
-import com.polymath.voidlauncher.core.shell.ShellPort
-
 import android.util.Log
+import com.polymath.voidlauncher.core.process.VoidProcessManager
 
 /**
  * Thermal Throttle Guardian (F-06).
  *
  * Actively protects the Nothing Phone (2a) Dimensity 7200 Pro from thermal saturation
  * during intensive local agent or ML compilation loops.
+ *
+ * Termux-removal Cycle 2: throttling cancels Void-owned tasks by handle
+ * through [VoidProcessManager]. It NEVER shells out to `pkill -f`
+ * patterns any more. The [killCommands] parameter is kept only for
+ * call-site compatibility (the Activity still passes
+ * config.thermalKillCommands) and is deprecated: any supplied commands
+ * are logged and ignored, never executed. The config field itself is
+ * deprecated in LauncherConfig and is removed from the shipped default
+ * config in Cycle 3.
  */
 class ThermalGuardian(
-    private val shellPort: ShellPort
+    private val processManager: VoidProcessManager
 ) {
 
     companion object {
         private const val TAG = "ThermalGuardian"
-        private val DEFAULT_KILL_COMMANDS = listOf(
-            "pkill -f 'nodeos.*daemon'",
-            "pkill -f 'python.*agent'",
-            "pkill -f 'pytest'"
-        )
     }
 
     var isThrottled: Boolean = false
@@ -34,7 +37,11 @@ class ThermalGuardian(
 
     /**
      * Inspects incoming telemetry temperature and enforces the thermal hysteresis envelope.
+     *
+     * @param killCommands DEPRECATED and ignored: shell kill commands are
+     * never executed. Kept so existing call sites keep compiling.
      */
+    @Deprecated("Shell kill commands are never executed; throttling cancels Void tasks by handle.")
     fun evaluateThermalEnvelope(
         tempC: Float,
         limitC: Float = 39.0f,
@@ -45,13 +52,13 @@ class ThermalGuardian(
 
         if (!isThrottled && tempC >= limitC) {
             isThrottled = true
-            val targets = if (killCommands.isNotEmpty()) killCommands else DEFAULT_KILL_COMMANDS
-            val combinedCmd = targets.joinToString(" ; ")
+            if (killCommands.isNotEmpty()) {
+                Log.w(TAG, "Ignoring deprecated thermal_kill_commands (never executed as shell): $killCommands")
+            }
+            val cancelled = processManager.cancelRunning()
+            Log.w(TAG, "Thermal limit tripped (${tempC}°C >= ${limitC}°C). Cancelled ${cancelled.size} Void task(s) by handle.")
 
-            Log.w(TAG, "Thermal limit tripped (${tempC}°C >= ${limitC}°C). Dispatching throttle: $combinedCmd")
-            shellPort.dispatchCommand(combinedCmd, inBackground = true)
-
-            val summary = "Throttled background workloads at ${tempC}°C (limit: ${limitC}°C)"
+            val summary = "Throttled background workloads at ${tempC}°C (limit: ${limitC}°C, ${cancelled.size} task(s) cancelled)"
             onThrottleTriggered?.invoke(tempC, summary)
         } else if (isThrottled && tempC <= (limitC - hysteresisC)) {
             isThrottled = false

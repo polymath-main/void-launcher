@@ -15,9 +15,22 @@ class NodeOsBridge(private val context: Context) {
         const val IDENTITY_MAIN = "MAIN"
     }
 
-    // Configurable paths — updated from LauncherConfig at runtime
-    var workflowPath: String = "/data/data/com.termux/files/home/Projects/workflow.json"
-    var nodeosDbPath: String = "/data/data/com.termux/files/home/Projects/agy_nodeos.db"
+    /**
+     * Termux-removal Cycle 2: NodeOS is legacy-import-only and optional.
+     * [isLegacyImportEnabled] is false by default (fresh install): the
+     * bridge then reports no NodeOS status at all, and the Activity
+     * shows Void daemon / VoidTaskStore status instead of a broken
+     * NodeOS card. Enable it only via the opt-in config flag
+     * (nodeos_legacy_import_enabled) plus user-chosen paths; no
+     * NodeOS installer exists in this repo and none is invented here.
+     */
+    var isLegacyImportEnabled: Boolean = false
+
+    // Configurable paths — updated from LauncherConfig at runtime, but
+    // only honoured when legacy import is enabled (see pollIntentStatus).
+    // Defaults are blank: no path into another app's private directory.
+    var workflowPath: String = ""
+    var nodeosDbPath: String = ""
 
     fun getIdentityMode(): String {
         return prefs.getString(PREF_IDENTITY_MODE, IDENTITY_VOID) ?: IDENTITY_VOID
@@ -37,9 +50,23 @@ class NodeOsBridge(private val context: Context) {
     }
 
     /**
-     * Reads current intent and AST status from host files if accessible.
+     * Reads current intent and AST status from legacy NodeOS host files
+     * ONLY when legacy import is enabled. Otherwise returns a neutral
+     * "not imported" status so the UI never shows a broken NodeOS card.
      */
     fun pollIntentStatus(): IntentStatus {
+        if (!isLegacyImportEnabled) {
+            return IntentStatus(
+                activeTaskTitle = "NodeOS import not enabled (opt-in)",
+                taskStatus = "idle",
+                workspacePath = "Void home",
+                gitBranch = "main",
+                astNodeCount = 0,
+                isDaemonAlive = false,
+                identityMode = getIdentityMode()
+            )
+        }
+
         var activeTask = "Sovereign Cockpit Ready"
         var taskStatus = "idle"
         var gitBranch = "main"
@@ -48,7 +75,7 @@ class NodeOsBridge(private val context: Context) {
 
         try {
             val workflowFile = File(workflowPath)
-            if (workflowFile.exists() && workflowFile.canRead()) {
+            if (workflowPath.isNotBlank() && workflowFile.exists() && workflowFile.canRead()) {
                 val content = workflowFile.readText()
                 val json = JSONObject(content)
                 activeTask = json.optString("active_task", "Sovereign Cockpit Ready")
@@ -58,7 +85,7 @@ class NodeOsBridge(private val context: Context) {
 
         try {
             val dbFile = File(nodeosDbPath)
-            if (dbFile.exists()) {
+            if (nodeosDbPath.isNotBlank() && dbFile.exists()) {
                 daemonAlive = true
                 // Rough AST node count from file size heuristic
                 val sizeKb = dbFile.length() / 1024
