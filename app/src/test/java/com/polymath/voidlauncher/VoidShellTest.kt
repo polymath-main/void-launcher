@@ -58,8 +58,8 @@ class VoidShellTest {
             ProcessResult("ok", "", 0)
         }
         val shell = VoidShell(runner, "/bin/sh", "/tmp")
-        shell.run("echo ok", "/tmp/void-test")
-        assertEquals("/tmp/void-test", seenWorkDir)
+        shell.run("echo ok", "/tmp")
+        assertEquals("/tmp", seenWorkDir)
     }
 
     @Test
@@ -69,7 +69,9 @@ class VoidShellTest {
             seenWorkDir = workDir
             ProcessResult("ok", "", 0)
         }
-        VoidShell(runner, "/bin/sh", "/tmp/default-dir").run("echo ok")
-        assertEquals("/tmp/default-dir", seenWorkDir)
+        // Workdirs are validated in VoidShell (impl-01 step 5), so
+        // the fixture dir must actually exist; /tmp always does.
+        VoidShell(runner, "/bin/sh", "/tmp").run("echo ok")
+        assertEquals("/tmp", seenWorkDir)
     }
 }

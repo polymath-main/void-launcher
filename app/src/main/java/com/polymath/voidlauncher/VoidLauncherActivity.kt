@@ -75,6 +75,7 @@ import com.polymath.voidlauncher.core.services.PersonaIdentityMicroService
 import com.polymath.voidlauncher.core.services.WallpaperMicroService
 import com.polymath.voidlauncher.core.shell.DefaultProcessRunner
 import com.polymath.voidlauncher.core.shell.ShellResult
+import com.polymath.voidlauncher.core.shell.VoidRoots
 import com.polymath.voidlauncher.core.shell.VoidShell
 import com.polymath.voidlauncher.core.process.VoidProcessManager
 import com.polymath.voidlauncher.core.shell.VoidShellPort
@@ -259,7 +260,12 @@ class VoidLauncherActivity : AppCompatActivity() {
         // every downstream caller behaves exactly as before. The task
         // registry still comes via DaemonShim (its migration is a later
         // cycle); the shim itself is deleted, not left as dead code.
-        voidShellPort = VoidShellPort(voidShell) { openVoidTerm() }
+        // impl-01 step 5: openProject resolves project names under
+        // the files home (filesDir/void) before invoking the hook.
+        voidShellPort = VoidShellPort(
+            voidShell,
+            File(filesDir, "void").absolutePath
+        ) { openVoidTerm() }
         voidProcessManager = DaemonShim.create()
         nodeOsBridge = NodeOsBridge(this)
         appIndexer = AppIndexer(this)
@@ -1841,8 +1847,15 @@ class VoidLauncherActivity : AppCompatActivity() {
             command.startsWith("work ") -> {
                 val projectName = command.removePrefix("work ").trim()
                 // Void workspace project folder, opened in the files browser.
-                loadFilesDirectory(File(fileManager.voidHomePath(), projectName).absolutePath)
-                showTerminalOutput("[WORKSPACE]: Void home/$projectName")
+                // Same resolution as VoidShellPort.openProject: names
+                // that escape the files home are refused, not opened.
+                val resolved = VoidRoots.resolveProject(filesDir, projectName)
+                if (resolved == null) {
+                    showTerminalOutput("[WORKSPACE]: invalid project name: $projectName")
+                } else {
+                    loadFilesDirectory(resolved.absolutePath)
+                    showTerminalOutput("[WORKSPACE]: Void home/$projectName")
+                }
             }
             command == "default" || command == "home" -> {
                 requestSetDefaultLauncher()

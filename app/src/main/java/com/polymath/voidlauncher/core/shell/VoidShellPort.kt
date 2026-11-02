@@ -14,6 +14,8 @@ package com.polymath.voidlauncher.core.shell
  */
 class VoidShellPort(
     private val voidShell: VoidShell,
+    /** Files home (filesDir/void) used to resolve project names; "" = no resolution. */
+    private val filesHome: String = "",
     private val onLaunchInteractive: (workDir: String) -> Unit = {}
 ) : ShellPort {
 
@@ -49,6 +51,27 @@ class VoidShellPort(
     }
 
     override fun openProject(projectName: String) {
-        onLaunchInteractive(projectName)
+        // impl-01 step 5: resolve the name to a directory under the
+        // files home before invoking the hook, and refuse names that
+        // escape it. Previously the bare name was passed as the
+        // workDir argument, so the hook received a name, not a dir.
+        // When no files home is configured, the hook keeps the old
+        // behaviour (bare name) so unconfigured callers do not break.
+        if (filesHome.isBlank()) {
+            onLaunchInteractive(projectName)
+            return
+        }
+        val resolved = VoidRoots.resolveProject(
+            java.io.File(filesHome).parentFile ?: java.io.File(filesHome),
+            projectName
+        )
+        // resolveProject expects filesDir (parent of files home); the
+        // files home itself is filesDir/void, so pass its parent.
+        if (resolved != null) {
+            onLaunchInteractive(resolved.absolutePath)
+        }
+        // Invalid/escaping names are silently ignored: openProject
+        // has no result channel, and inventing a directory for a bad
+        // name would be worse than opening nothing.
     }
 }

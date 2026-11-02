@@ -100,15 +100,18 @@ class StartedProcess internal constructor(
                 destroy()
                 ProcessResult("", "VoidShell: command timed out after ${timeoutSeconds}s", -1, timedOut = true)
             } else {
+                // Join the drainers BEFORE reading: the process has
+                // exited, so its streams are at EOF, but the reader
+                // threads may still be flushing buffered data. Reading
+                // first (the pre-step-5 code's shape, via await) races
+                // and can return empty output. The join is capped so
+                // a grandchild holding a pipe open cannot hang await.
+                outDrain.joinThread(2000)
+                errDrain.joinThread(2000)
                 ProcessResult(outDrain.text(), errDrain.text(), process.exitValue())
             }
         } catch (e: Exception) {
             ProcessResult("", "VoidShell: ${e.message}", -1)
-        } finally {
-            // Drainers end when the process's streams close; join briefly
-            // so no output is lost, but never hang await on them.
-            try { outDrain.joinThread(2000) } catch (_: Exception) { }
-            try { errDrain.joinThread(2000) } catch (_: Exception) { }
         }
     }
 
@@ -288,8 +291,22 @@ class VoidShell(
         fun clampMaxOutputChars(value: Int): Int = value.coerceIn(1024, 262144)
     }
 
+    /**
+     * impl-01 step 5: a non-blank workdir must exist and be a
+     * directory, otherwise the run fails loudly. Previously the
+     * runner silently ignored a nonexistent workdir and ran in the
+     * process's inherited cwd — surprising and untestable. An empty
+     * workdir still means "inherited cwd", as before.
+     */
+    private fun workDirError(workDir: String): String? {
+        if (workDir.isBlank()) return null
+        val dir = File(workDir)
+        return if (!dir.isDirectory) "workdir is not a directory: $workDir" else null
+    }
+
     fun run(command: String, workDir: String = defaultWorkDir): ShellResult {
         if (command.isBlank()) return ShellResult.Failed("empty command")
+        workDirError(workDir)?.let { return ShellResult.Failed(it) }
         val started = System.currentTimeMillis()
         val result = runner.run(shellPath, command, workDir)
         emitRecord(command, workDir, started, result)
@@ -323,6 +340,7 @@ class VoidShell(
 
     fun start(command: String, workDir: String = defaultWorkDir): RunningShell? {
         if (command.isBlank()) return null
+        if (workDirError(workDir) != null) return null
         val defaultRunner = runner as? DefaultProcessRunner ?: return null
         return try {
             val started = defaultRunner.start(shellPath, command, workDir)
@@ -346,6 +364,7 @@ class VoidShell(
         onStderrLine: ((String) -> Unit)? = null
     ): ShellResult {
         if (command.isBlank()) return ShellResult.Failed("empty command")
+        workDirError(workDir)?.let { return ShellResult.Failed(it) }
         val started = System.currentTimeMillis()
         val defaultRunner = runner as? DefaultProcessRunner
         val result = if (defaultRunner != null) {
