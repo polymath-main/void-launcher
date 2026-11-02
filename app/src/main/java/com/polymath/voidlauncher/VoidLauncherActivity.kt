@@ -72,6 +72,8 @@ import com.polymath.voidlauncher.core.shell.ShellResult
 import com.polymath.voidlauncher.core.shell.VoidShell
 import com.polymath.voidlauncher.core.process.VoidProcessManager
 import com.polymath.voidlauncher.core.shell.VoidShellPort
+import com.polymath.voidlauncher.core.shim.DaemonShim
+import com.polymath.voidlauncher.core.shim.ShellShim
 import com.polymath.voidlauncher.core.terminal.VoidShellRunner
 import com.polymath.voidlauncher.databinding.ActivityVoidLauncherBinding
 import com.polymath.voidlauncher.model.AppEntry
@@ -231,8 +233,14 @@ class VoidLauncherActivity : AppCompatActivity() {
         // dock TERMINAL slot, agent dispatch and thermal throttling all
         // run through Void-owned code now; no external-terminal IPC remains here.
         voidShell = VoidShell(DefaultProcessRunner(), "/system/bin/sh", filesDir.absolutePath)
-        voidShellPort = VoidShellPort(voidShell) { openVoidTerm() }
-        voidProcessManager = VoidProcessManager()
+        // v2 Cycle 1: the shell port and the task registry are obtained
+        // through the single shim surfaces (ShellShim, DaemonShim). The
+        // types are unchanged (VoidShellPort, VoidProcessManager), so
+        // every downstream caller (router, panel, orchestrator, thermal
+        // guardian) behaves exactly as before; Cycle 3 migrates one
+        // surface off again, starting with ShellShim.
+        voidShellPort = ShellShim.port(voidShell) { openVoidTerm() }
+        voidProcessManager = DaemonShim.create()
         nodeOsBridge = NodeOsBridge(this)
         appIndexer = AppIndexer(this)
         bareIntegerRouter = BareIntegerRouter(this, voidShellPort).apply {
