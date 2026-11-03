@@ -134,6 +134,9 @@ class VoidLauncherActivity : AppCompatActivity() {
     private lateinit var voidTermPanel: VoidTermPanel
     private lateinit var macroRecorder: MacroRecorder
 
+    /** Depth of nested snippet-alias re-entry (impl-04 step 1). */
+    private var snippetChainDepth: Int = 0
+
     // Modular Micro-Services
     private lateinit var wallpaperService: WallpaperMicroService
     private lateinit var dockSlotService: DockSlotMicroService
@@ -1798,9 +1801,15 @@ class VoidLauncherActivity : AppCompatActivity() {
                 }
             }
             command.startsWith("kill ") -> {
-                val taskId = command.removePrefix("kill ").trim()
-                agentOrchestrator.cancelTask(taskId)
-                showTerminalOutput("[TASK CANCELLED]: $taskId")
+                // impl-04 step 1: :kill was ungated while :task/:tasks
+                // were gated (plan gap G-C4) — same gate, same message.
+                if (!config.agentOrchestratorEnabled) {
+                    showTerminalOutput("[AGENT GATE] Orchestrator disabled (agent_orchestrator_enabled=false)")
+                } else {
+                    val taskId = command.removePrefix("kill ").trim()
+                    agentOrchestrator.cancelTask(taskId)
+                    showTerminalOutput("[TASK CANCELLED]: $taskId")
+                }
             }
             // F-05 NodeOS AST Graph Query
             command == "graph" -> {
@@ -1840,8 +1849,11 @@ class VoidLauncherActivity : AppCompatActivity() {
                     showTerminalOutput("[MACRO GATE] Disabled (macros_enabled=false)")
                 } else {
                     val name = command.removePrefix("record ").trim()
-                    macroRecorder.startRecording(name)
-                    showTerminalOutput("[MACRO RECORDING STARTED]: $name\nType :stop to finish")
+                    if (macroRecorder.startRecording(name)) {
+                        showTerminalOutput("[MACRO RECORDING STARTED]: $name\nType :stop to finish")
+                    } else {
+                        showTerminalOutput("[MACRO ERROR]: cannot start recording '${name}': ${macroRecorder.lastError ?: "already recording"}")
+                    }
                 }
             }
             command == "stop" -> {
@@ -1849,7 +1861,10 @@ class VoidLauncherActivity : AppCompatActivity() {
                     showTerminalOutput("[MACRO GATE] Disabled (macros_enabled=false)")
                 } else {
                     val saved = macroRecorder.stopRecording(config.macrosDirectory)
-                    showTerminalOutput(if (saved != null) "[MACRO SAVED]: $saved" else "[MACRO]: Not recording")
+                    showTerminalOutput(
+                        if (saved != null) "[MACRO SAVED]: $saved"
+                        else macroRecorder.lastError?.let { "[MACRO ERROR]: $it" } ?: "[MACRO]: Not recording"
+                    )
                 }
             }
             command.startsWith("play ") -> {
@@ -1858,7 +1873,10 @@ class VoidLauncherActivity : AppCompatActivity() {
                 } else {
                     val name = command.removePrefix("play ").trim()
                     val ok = macroRecorder.playMacro(name, config.macrosDirectory) { step -> handleOmniSubmit(step) }
-                    showTerminalOutput(if (ok) "[MACRO EXECUTED]: $name" else "[ERROR]: Macro $name not found")
+                    showTerminalOutput(
+                        if (ok) "[MACRO EXECUTED]: $name"
+                        else macroRecorder.lastError?.let { "[MACRO ERROR]: $it" } ?: "[ERROR]: Macro $name not found"
+                    )
                 }
             }
             // F-09 History & Snippets
@@ -1879,8 +1897,9 @@ class VoidLauncherActivity : AppCompatActivity() {
                 val rest = command.removePrefix("snippet ").trim()
                 val parts = rest.split(" ", limit = 2)
                 if (parts.size == 2) {
-                    commandPalette.saveSnippet(parts[0], parts[1])
-                    showTerminalOutput("[SNIPPET SAVED]: ${parts[0]} -> ${parts[1]}")
+                    val result = commandPalette.saveSnippetUnique(parts[0], parts[1])
+                    val note = if (result == com.polymath.voidlauncher.core.CommandPalette.SnippetSaveResult.REPLACED) " (replaced the previous command for this alias)" else ""
+                    showTerminalOutput("[SNIPPET SAVED]: ${parts[0]} -> ${parts[1]}$note")
                 } else {
                     showTerminalOutput("Usage: :snippet <alias> <command>")
                 }
@@ -2059,32 +2078,17 @@ class VoidLauncherActivity : AppCompatActivity() {
                 applyConfig()
                 showTerminalOutput("[CONFIG RELOADED]")
             }
-            else -> {
-                // Check saved snippets first so :alias runs the saved command
-                val snippet = commandPalette.getSnippets().firstOrNull {
-                    it.snippetAlias.equals(command, ignoreCase = true)
-                }
-                if (snippet != null) {
-                    val target = snippet.commandText.trim()
-                    if (target.startsWith(":")) {
-                        val inner = target.substring(1).trim()
-                        if (!inner.equals(command, ignoreCase = true)) {
-                            handleCommandMode(inner)
-                            return
-                        }
-                    } else {
-                        handleOmniSubmit(target)
-                        return
-                    }
-                }
-                // Generic shell escape hatch, now via VoidShell (Cycle 2):
-                // same one-shot run as :run, with real output.
-                if (command.isBlank()) {
-                    showTerminalOutput("[CMD]: empty command (type :help for commands)")
+            // impl-04 step 1 (plan gate S2): the ONLY shell escape
+            // hatch for typed input. Unknown :commands no longer fall
+            // through to shell — see the else branch below.
+            command.startsWith("! ") || command == "!" -> {
+                val shellCmd = command.removePrefix("!").trim()
+                if (shellCmd.isBlank()) {
+                    showTerminalOutput("[CMD]: usage: :! <shell command>")
                 } else {
-                    showTerminalOutput("[RUNNING]: $command")
+                    showTerminalOutput("[RUNNING]: $shellCmd")
                     lifecycleScope.launch(Dispatchers.IO) {
-                        val result = voidShell.run(command)
+                        val result = voidShell.run(shellCmd)
                         withContext(Dispatchers.Main) {
                             when (result) {
                                 is ShellResult.Success -> showTerminalOutput(
@@ -2095,6 +2099,43 @@ class VoidLauncherActivity : AppCompatActivity() {
                             }
                         }
                     }
+                }
+            }
+            else -> {
+                // Check saved snippets first so :alias runs the saved command.
+                // Snippet chains are depth-guarded (plan gap: only
+                // self-reference was guarded; A->B->A was not).
+                val snippet = commandPalette.getSnippets().firstOrNull {
+                    it.snippetAlias.equals(command, ignoreCase = true)
+                }
+                if (snippet != null) {
+                    if (snippetChainDepth >= 3) {
+                        showTerminalOutput("[SNIPPET ERROR]: snippet recursion limit (chain depth exceeded)")
+                        return
+                    }
+                    val target = snippet.commandText.trim()
+                    if (target.startsWith(":")) {
+                        val inner = target.substring(1).trim()
+                        if (!inner.equals(command, ignoreCase = true)) {
+                            snippetChainDepth++
+                            try { handleCommandMode(inner) } finally { snippetChainDepth-- }
+                            return
+                        }
+                    } else {
+                        handleOmniSubmit(target)
+                        return
+                    }
+                }
+                // impl-04 step 1 (plan gate S2): unknown :commands do
+                // NOT run shell any more. A typo must not execute.
+                // :run / :sh / :! are the explicit shell paths.
+                if (command.isBlank()) {
+                    showTerminalOutput("[CMD]: empty command (type :help for commands)")
+                } else {
+                    val firstWord = command.split(" ", limit = 2).first()
+                    val suggestions = com.polymath.voidlauncher.core.CommandGuide.suggest(firstWord)
+                    val hint = if (suggestions.isNotEmpty()) "\nDid you mean: " + suggestions.joinToString(", ") { ":$it" } else ""
+                    showTerminalOutput("[UNKNOWN COMMAND]: :$firstWord$hint\nUse :! <cmd> to run shell explicitly, or :help for commands.")
                 }
             }
         }

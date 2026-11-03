@@ -13,7 +13,11 @@ class CommandPalette(context: Context) : SQLiteOpenHelper(context, DB_NAME, null
 
     companion object {
         private const val DB_NAME = "void_command_history.db"
-        private const val DB_VERSION = 1
+        // impl-04 step 1: v2 adds the snippet-alias index and dedupes
+        // aliases. onUpgrade must NEVER drop the table again (plan
+        // gap G-S4: the old DROP TABLE wiped all history + snippets
+        // on any future version bump).
+        private const val DB_VERSION = 2
 
         private const val TABLE_HISTORY = "history"
         private const val COL_ID = "id"
@@ -39,11 +43,25 @@ class CommandPalette(context: Context) : SQLiteOpenHelper(context, DB_NAME, null
         )
         db.execSQL("CREATE INDEX idx_history_timestamp ON $TABLE_HISTORY ($COL_TIMESTAMP DESC);")
         db.execSQL("CREATE INDEX idx_history_cmd ON $TABLE_HISTORY ($COL_COMMAND);")
+        db.execSQL("CREATE INDEX idx_snippet_alias ON $TABLE_HISTORY ($COL_ALIAS);")
     }
 
+    /**
+     * impl-04 step 1/4: migration discipline. v1 -> v2 keeps every
+     * row: duplicate snippet aliases (same alias, different commands)
+     * are deduped to the newest row, then the alias index is created.
+     * There is no data-loss path in this file any more; a future
+     * version must add its own incremental branch here, never DROP.
+     */
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_HISTORY")
-        onCreate(db)
+        if (oldVersion < 2) {
+            db.execSQL(
+                "DELETE FROM $TABLE_HISTORY WHERE $COL_IS_SNIPPET = 1 AND $COL_ALIAS <> '' AND " +
+                    "$COL_ID NOT IN (SELECT MAX($COL_ID) FROM $TABLE_HISTORY " +
+                    "WHERE $COL_IS_SNIPPET = 1 AND $COL_ALIAS <> '' GROUP BY UPPER($COL_ALIAS))"
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_snippet_alias ON $TABLE_HISTORY ($COL_ALIAS);")
+        }
     }
 
     /**
@@ -125,11 +143,12 @@ class CommandPalette(context: Context) : SQLiteOpenHelper(context, DB_NAME, null
 
         val result = mutableListOf<CommandEntry>()
         val db = readableDatabase
-        val pattern = "%$trimmed%"
+        // impl-04 step 1: escape %/_ so they do not act as wildcards.
+        val pattern = SearchPattern.escapeLikePattern(trimmed)
         val cursor = db.query(
             TABLE_HISTORY,
             null,
-            "$COL_COMMAND LIKE ? OR $COL_ALIAS LIKE ?",
+            "$COL_COMMAND LIKE ? ESCAPE '\\' OR $COL_ALIAS LIKE ? ESCAPE '\\'",
             arrayOf(pattern, pattern),
             null,
             null,
@@ -178,7 +197,58 @@ class CommandPalette(context: Context) : SQLiteOpenHelper(context, DB_NAME, null
      * Saves a named snippet alias.
      */
     fun saveSnippet(alias: String, command: String) {
-        recordCommand(commandText = command, isSnippet = true, snippetAlias = alias)
+        saveSnippetUnique(alias, command)
+    }
+
+    enum class SnippetSaveResult { NEW, SAME, REPLACED }
+
+    /**
+     * impl-04 step 1: one alias -> exactly one command (plan gap
+     * G-S6). Saving an alias already used by a different command
+     * deletes the old row and reports REPLACED — never a silent
+     * overwrite of the first alias, never two rows sharing an alias.
+     * Saving the same alias for the same command reports SAME.
+     */
+    fun saveSnippetUnique(alias: String, command: String): SnippetSaveResult {
+        val cleanAlias = alias.trim()
+        val cleanCommand = command.trim()
+        if (cleanAlias.isEmpty() || cleanCommand.isEmpty()) return SnippetSaveResult.SAME
+        val db = writableDatabase
+        var replaced = false
+        var same = false
+        val cursor = db.query(
+            TABLE_HISTORY, arrayOf(COL_ID, COL_COMMAND), "$COL_IS_SNIPPET = 1 AND UPPER($COL_ALIAS) = ?",
+            arrayOf(cleanAlias.uppercase()), null, null, null
+        )
+        try {
+            while (cursor.moveToNext()) {
+                val id = cursor.getLong(0)
+                val existing = cursor.getString(1) ?: ""
+                if (existing.trim() == cleanCommand) {
+                    same = true
+                } else {
+                    db.delete(TABLE_HISTORY, "$COL_ID = ?", arrayOf(id.toString()))
+                    replaced = true
+                }
+            }
+        } finally {
+            cursor.close()
+        }
+        if (!same) recordCommand(commandText = cleanCommand, isSnippet = true, snippetAlias = cleanAlias)
+        return when {
+            same && !replaced -> SnippetSaveResult.SAME
+            replaced -> SnippetSaveResult.REPLACED
+            else -> SnippetSaveResult.NEW
+        }
+    }
+
+    /** Deletes a snippet by alias (case-insensitive); true if a row was removed. */
+    fun deleteSnippet(alias: String): Boolean {
+        val db = writableDatabase
+        return db.delete(
+            TABLE_HISTORY, "$COL_IS_SNIPPET = 1 AND UPPER($COL_ALIAS) = ?",
+            arrayOf(alias.trim().uppercase())
+        ) > 0
     }
 
     /**
