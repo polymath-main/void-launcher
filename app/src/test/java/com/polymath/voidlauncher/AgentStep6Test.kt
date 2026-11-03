@@ -39,9 +39,15 @@ class AgentStep6Test {
         assertTrue(activity.contains("coerceIn(1, 20)"))
         assertTrue(activity.contains("nodeOsLegacyImportEnabled = binding.switchNodeOsLegacyImport.isChecked"))
         assertTrue(activity.contains("btnOpenWidgetsFolder"))
-        // Explicitly NOT built in step 6:
-        assertFalse("persona editor belongs to step 8", activity.contains("PersonaEditor") || activity.contains("showPersonaEditor"))
-        assertFalse("schedule editor belongs to step 8", activity.contains("FocusScheduleEditor") || activity.contains("showScheduleEditor"))
+        // Area 07 step 3 supersedes the step-6 scope guard below:
+        // the editors themselves are still NOT rebuilt in Settings
+        // (they live in the main Activity, as :persona edit /
+        // :focus edit), but Settings now has entry-point buttons
+        // for them — that is area 07's brief, not scope creep.
+        assertTrue("Settings must have a persona editor entry point", activity.contains("btnOpenPersonaEditor"))
+        assertTrue("Settings must have a focus editor entry point", activity.contains("btnOpenFocusEditor"))
+        assertFalse("persona editor dialog must not be defined in Settings", activity.contains("fun showPersonaManagerDialog"))
+        assertFalse("schedule editor dialog must not be defined in Settings", activity.contains("fun showScheduleDialog"))
         assertFalse("widget editor is not step 6", activity.contains("WidgetEditor"))
         assertFalse("SAF picker belongs to step 9", activity.contains("ACTION_OPEN_DOCUMENT_TREE"))
 

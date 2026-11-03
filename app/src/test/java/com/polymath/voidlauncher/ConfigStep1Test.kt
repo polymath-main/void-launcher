@@ -22,10 +22,12 @@ import org.junit.Test
  * too), (e) persona surface/glyph_pattern round-trip — fixed in
  * area 01 step 8, asserted here as passing, not known-failing.
  *
- * Id count note: the plan counted 52 ids at 598afac. This base has
- * 67: all 52 plan ids are still present, plus 15 added by areas
- * 03/06 (area-06 settings rows + widgets folder button). No plan
- * id was deleted.
+ * Id count note: the plan counted 52 ids at 598afac. The impl-06
+ * base had 67: all 52 plan ids still present, plus 15 added by
+ * areas 03/06. Area 07 step 3 adds 14 more (font seeks/labels,
+ * persona/focus editor buttons, save status, JSON-only note,
+ * group-reset buttons) → 81. No plan id was deleted. This count
+ * is updated by later steps when they add ids (steps 4/5).
  */
 class ConfigStep1Test {
 
@@ -69,7 +71,7 @@ class ConfigStep1Test {
     fun settingsIdSetIsPlanIdsPlusArea0306Additions() {
         val text = settingsText()
         val ids = Regex("""android:id="@\+id/([^"]+)"""").findAll(text).map { it.groupValues[1] }.toSet()
-        assertEquals("settings id count on this base", 67, ids.size)
+        assertEquals("settings id count after area 07 step 3", 81, ids.size)
         val planIds = listOf(
             "btnConfigureNotifListener", "btnConfigureWallpaper", "btnCustomizeDockSlots",
             "btnExportJson", "btnGrantStorageSettings", "btnResetDefaults",

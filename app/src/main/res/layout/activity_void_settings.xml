@@ -258,6 +258,66 @@
                         android:textSize="11sp"
                         android:text="#080808" />
                 </LinearLayout>
+
+                <!-- Area 07 step 3: font sizes as CONFIG edits (the
+                     schema owns runtime sizes; XML sizes are only
+                     starting points). 8–20sp in 0.5sp steps. -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_muted"
+                    android:textSize="10sp"
+                    android:text="FONT SIZES (CONFIG, 8–20sp)" />
+
+                <TextView
+                    android:id="@+id/tvHudFontLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="HUD font: 11.0sp" />
+                <SeekBar
+                    android:id="@+id/seekHudFont"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="40"
+                    android:progress="22" />
+
+                <TextView
+                    android:id="@+id/tvDockFontLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="Dock font: 12.5sp" />
+                <SeekBar
+                    android:id="@+id/seekDockFont"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="40"
+                    android:progress="25" />
+
+                <TextView
+                    android:id="@+id/tvOmniFontLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="Omni font: 12.5sp" />
+                <SeekBar
+                    android:id="@+id/seekOmniFont"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="40"
+                    android:progress="25" />
             </LinearLayout>
 
             <!-- SECTION: DRAWER & TRANSPARENCY -->
@@ -711,6 +771,23 @@
                     android:textSize="11sp"
                     android:textStyle="bold"
                     android:text="CUSTOMIZE DOCK SLOTS [1–7] ➔" />
+
+                <!-- Area 07 step 3: Settings entry point for the
+                     area-06 persona editor (:persona edit dialog).
+                     Identity is edited here via the editor, not
+                     rebuilt in Settings. -->
+                <TextView
+                    android:id="@+id/btnOpenPersonaEditor"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/cyan_accent"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:text="EDIT PERSONAS / IDENTITY ➔" />
             </LinearLayout>
 
             <!-- SECTION: HOMESCREEN CUSTOMIZATION -->
@@ -722,7 +799,7 @@
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
-                android:text="03b. HOMESCREEN CUSTOMIZATION" />
+                android:text="04. HOMESCREEN CUSTOMIZATION" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -871,7 +948,7 @@
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
-                android:text="00. SYSTEM ROLES &amp; ACCESS PERMISSIONS" />
+                android:text="05. SYSTEM ROLES &amp; ACCESS PERMISSIONS" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -999,7 +1076,7 @@
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
-                android:text="03c. GESTURE CONTROLS" />
+                android:text="06. GESTURE CONTROLS" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -1103,7 +1180,7 @@
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
-                android:text="05. HARDWARE &amp; THERMAL" />
+                android:text="07. HARDWARE &amp; THERMAL" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -1191,7 +1268,7 @@
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
-                android:text="05. AGENT, AST &amp; FOCUS" />
+                android:text="08. AGENT, AST &amp; FOCUS" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -1298,6 +1375,21 @@
                     android:textColor="@color/text_secondary"
                     android:textSize="11sp"
                     android:text="Focus schedule path (read-only; editor in step 8):" />
+
+                <!-- Area 07 step 3: Settings entry point for the
+                     area-06 focus schedule editor (:focus edit). -->
+                <TextView
+                    android:id="@+id/btnOpenFocusEditor"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/cyan_accent"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:text="EDIT FOCUS SCHEDULE ➔" />
             </LinearLayout>
 
             <TextView
@@ -1319,7 +1411,7 @@
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.08"
-                android:text="04. FILE BROWSER &amp; WORKSPACE" />
+                android:text="09. FILE BROWSER &amp; WORKSPACE" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -1434,6 +1526,99 @@
                     android:fontFamily="monospace"
                     android:textColor="@color/text_primary"
                     android:textSize="11sp" />
+
+                <!-- Area 07 step 2/3: save-store status + validation
+                     warnings surface (was silent before). -->
+                <TextView
+                    android:id="@+id/tvConfigSaveStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="Config store: external" />
+
+                <!-- Area 07 step 3: JSON-only fields note (plan G-09).
+                     Settings edits a minority of the ~80 schema
+                     fields; the rest survive via currentConfig.copy()
+                     and are edited as JSON only. -->
+                <TextView
+                    android:id="@+id/tvJsonOnlyNote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_muted"
+                    android:textSize="10sp"
+                    android:text="JSON-ONLY FIELDS (not edited here, preserved on save): compound gestures, clock format/suffix, telemetry poll &amp; power profile, AST node cap is edited above, VoidTerm rows/cols, macro/JS-macro directories, shell timeout &amp; output cap are edited in step 4's advanced rows, widget/focus file paths, notification package lists are edited above, full 15-colour palette (Settings edits accent/secondary/surface only), per-persona dock slots &amp; workspace paths (use EDIT PERSONAS). See docs/SCHEMA.md for the full field list." />
+            </LinearLayout>
+
+            <!-- Area 07 step 3: per-group reset (preview semantics,
+                 same as RESET DEFAULTS: leaving without SAVE discards
+                 the preview; see VoidSettingsActivity.onPause). -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="RESET ONE GROUP (PREVIEW)" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/bg_cockpit_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:id="@+id/btnResetAppearance"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/amber_warn"
+                    android:textSize="11sp"
+                    android:text="RESET APPEARANCE ➔" />
+                <TextView
+                    android:id="@+id/btnResetHome"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/amber_warn"
+                    android:textSize="11sp"
+                    android:text="RESET HOME ➔" />
+                <TextView
+                    android:id="@+id/btnResetSystem"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/amber_warn"
+                    android:textSize="11sp"
+                    android:text="RESET SYSTEM ➔" />
+                <TextView
+                    android:id="@+id/btnResetData"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/amber_warn"
+                    android:textSize="11sp"
+                    android:text="RESET DATA ➔" />
             </LinearLayout>
 
             <!-- Reset & Export Buttons -->

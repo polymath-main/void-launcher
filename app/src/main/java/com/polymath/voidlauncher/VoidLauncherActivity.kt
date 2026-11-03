@@ -332,6 +332,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         configSyncService.register()
         handleThemeIntent(intent)
         handleOpenFilesIntent(intent)
+        handleSettingsEditorIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -339,6 +340,31 @@ class VoidLauncherActivity : AppCompatActivity() {
         setIntent(intent)
         handleThemeIntent(intent)
         handleOpenFilesIntent(intent)
+        handleSettingsEditorIntent(intent)
+    }
+
+    // Area 07 step 3: Settings entry points for the area-06
+    // editors. These reuse the :persona edit / :focus edit dialogs
+    // verbatim — Settings does not rebuild them.
+    private fun handleSettingsEditorIntent(intent: Intent?) {
+        if (intent == null) return
+        if (intent.getBooleanExtra("void_open_persona_editor", false)) {
+            com.polymath.voidlauncher.core.services.PersonaEditorService(this)
+                .showPersonaManagerDialog(
+                    config = config,
+                    personaManager = personaManager,
+                    appsProvider = { appIndexer.getAllApps() },
+                    onCommit = { updated -> commitPersonaConfig(updated) }
+                )
+        }
+        if (intent.getBooleanExtra("void_open_focus_editor", false)) {
+            com.polymath.voidlauncher.core.services.FocusScheduleEditorService(this)
+                .showScheduleDialog(
+                    schedulePath = config.focusSchedulePath,
+                    personaManager = personaManager,
+                    onSaved = { focusScheduler.loadSchedule(config.focusSchedulePath) }
+                )
+        }
     }
 
     // impl-06 step 6: Settings "OPEN WIDGETS FOLDER" route. The main

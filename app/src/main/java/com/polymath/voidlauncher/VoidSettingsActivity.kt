@@ -33,6 +33,11 @@ class VoidSettingsActivity : AppCompatActivity() {
     private var currentConfig: LauncherConfig = LauncherConfig()
     private var pendingThemeId: String = "void"
     private var suppressThemeCallback: Boolean = false
+    // Area 07 step 3: dirty-check state. savedConfigAtLoad is the
+    // last SAVED config (not the form); resetPreviewPending marks a
+    // Reset / group-reset preview that must NOT be saved by onPause.
+    private var savedConfigAtLoad: LauncherConfig = LauncherConfig()
+    private var resetPreviewPending: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,6 +47,7 @@ class VoidSettingsActivity : AppCompatActivity() {
         configManager = ConfigManager(this)
         fileManager = FileManager(this)
         currentConfig = configManager.loadConfig()
+        savedConfigAtLoad = currentConfig
 
         setupSpinners()
         populateUiFromConfig(currentConfig)
@@ -82,6 +88,20 @@ class VoidSettingsActivity : AppCompatActivity() {
             binding.btnGrantStorageSettings.text = "GRANT ➔"
             binding.btnGrantStorageSettings.isEnabled = true
         }
+
+        // Area 07 step 2/3: config store + validation status.
+        // This is the surface for lastSaveWasFallback (was silent)
+        // and lastValidationWarnings (was log-only).
+        val storeLine = if (configManager.lastSaveWasFallback) {
+            "Config store: INTERNAL FALLBACK — external write failed" +
+                (configManager.lastSaveError?.let { ": $it" } ?: "")
+        } else {
+            "Config store: external (${VoidPaths.CONFIG})"
+        }
+        val warnings = configManager.lastValidationWarnings
+        binding.tvConfigSaveStatus.text = if (warnings.isEmpty()) storeLine
+        else storeLine + "\nConfig warnings (${warnings.size}): " +
+            warnings.take(3).joinToString("; ") { "${it.key}: ${it.message}" }
 
         // 3. Notification Listener Status
         val hasNotif = VoidNotificationListenerService.isAccessGranted(this)
@@ -274,6 +294,15 @@ class VoidSettingsActivity : AppCompatActivity() {
         binding.switchGlyphPulse.isChecked = cfg.enableGlyphPulse
         binding.switchHaptics.isChecked = cfg.enableHaptics
 
+        // Area 07 step 3: font sizes as config edits. SeekBar
+        // progress is sp x 2 (0.5sp steps), clamped 8–20sp.
+        binding.seekHudFont.progress = (cfg.hudFontSizeSp * 2).toInt().coerceIn(16, 40)
+        binding.seekDockFont.progress = (cfg.dockFontSizeSp * 2).toInt().coerceIn(16, 40)
+        binding.seekOmniFont.progress = (cfg.omniFontSizeSp * 2).toInt().coerceIn(16, 40)
+        binding.tvHudFontLabel.text = "HUD font: ${cfg.hudFontSizeSp}sp"
+        binding.tvDockFontLabel.text = "Dock font: ${cfg.dockFontSizeSp}sp"
+        binding.tvOmniFontLabel.text = "Omni font: ${cfg.omniFontSizeSp}sp"
+
         // impl-06 step 6 (area 06 subset only — broader Settings
         // redesign stays area 07): notification rules, widgets, agent,
         // AST, focus, legacy import. Lists are comma-separated text;
@@ -353,6 +382,20 @@ class VoidSettingsActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
+        // Area 07 step 3: font-size seek listeners (label only;
+        // values are read in buildUpdatedConfig).
+        fun fontListener(label: android.widget.TextView, name: String) =
+            object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    label.text = "$name font: ${progress / 2f}sp"
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            }
+        binding.seekHudFont.setOnSeekBarChangeListener(fontListener(binding.tvHudFontLabel, "HUD"))
+        binding.seekDockFont.setOnSeekBarChangeListener(fontListener(binding.tvDockFontLabel, "Dock"))
+        binding.seekOmniFont.setOnSeekBarChangeListener(fontListener(binding.tvOmniFontLabel, "Omni"))
+
         binding.btnSettingsSave.setOnClickListener {
             saveAndApply()
         }
@@ -374,6 +417,7 @@ class VoidSettingsActivity : AppCompatActivity() {
                 configProvider = { currentConfig },
                 onCommit = { updated ->
                     currentConfig = updated
+                    savedConfigAtLoad = updated
                     configManager.saveConfig(currentConfig)
                 }
             )
@@ -385,6 +429,7 @@ class VoidSettingsActivity : AppCompatActivity() {
                 currentConfig = buildUpdatedConfig(),
                 onUpdateConfig = { updated ->
                     currentConfig = updated
+                    savedConfigAtLoad = updated
                     binding.switchUseWallpaper.isChecked = updated.useSystemWallpaper
                     populateUiFromConfig(updated)
                     configManager.saveConfig(currentConfig)
@@ -395,7 +440,38 @@ class VoidSettingsActivity : AppCompatActivity() {
         binding.btnResetDefaults.setOnClickListener {
             val defaults = LauncherConfig()
             populateUiFromConfig(defaults)
-            Toast.makeText(this, "Reset to defaults preview. Tap SAVE to apply.", Toast.LENGTH_SHORT).show()
+            // Area 07 step 3: a preview, not a save. onPause must
+            // NOT persist it (the old bug: leaving after Reset
+            // saved the previewed defaults anyway).
+            resetPreviewPending = true
+            Toast.makeText(this, "Reset to defaults preview. Tap SAVE to apply — leaving without SAVE discards it.", Toast.LENGTH_SHORT).show()
+        }
+
+        // Area 07 step 3: per-group reset previews (same semantics
+        // as whole-config Reset: preview until SAVE, discarded on
+        // leave without SAVE).
+        binding.btnResetAppearance.setOnClickListener { resetGroup("appearance") }
+        binding.btnResetHome.setOnClickListener { resetGroup("home") }
+        binding.btnResetSystem.setOnClickListener { resetGroup("system") }
+        binding.btnResetData.setOnClickListener { resetGroup("data") }
+
+        // Area 07 step 3: Settings entry points for the area-06
+        // editors (not rebuilt here). Leaving Settings auto-persists
+        // only if dirty (see onPause), so the form state is saved
+        // before the main Activity opens the editor.
+        binding.btnOpenPersonaEditor.setOnClickListener {
+            val intent = Intent(this, com.polymath.voidlauncher.VoidLauncherActivity::class.java).apply {
+                putExtra("void_open_persona_editor", true)
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+        }
+        binding.btnOpenFocusEditor.setOnClickListener {
+            val intent = Intent(this, com.polymath.voidlauncher.VoidLauncherActivity::class.java).apply {
+                putExtra("void_open_focus_editor", true)
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
         }
 
         binding.btnExportJson.setOnClickListener {
@@ -429,6 +505,10 @@ class VoidSettingsActivity : AppCompatActivity() {
         return currentConfig.copy(
             colors = newColors,
             themeId = pendingThemeId,
+            // Area 07 step 3: font sizes are config edits (8–20sp).
+            hudFontSizeSp = (binding.seekHudFont.progress / 2f).coerceIn(8f, 20f),
+            dockFontSizeSp = (binding.seekDockFont.progress / 2f).coerceIn(8f, 20f),
+            omniFontSizeSp = (binding.seekOmniFont.progress / 2f).coerceIn(8f, 20f),
             drawerAlpha = opacity,
             drawerEdgeTransparent = binding.switchDrawerEdge.isChecked,
             showAppIcons = binding.switchShowAppIcons.isChecked,
@@ -484,23 +564,118 @@ class VoidSettingsActivity : AppCompatActivity() {
         )
     }
 
+    /**
+     * Area 07 step 3: resets ONE group to LauncherConfig() defaults
+     * as a form preview (not a save). Group mapping, documented
+     * here because the XML groups are visual only:
+     * - appearance: colours, theme, drawer, icons, scrubber, card
+     *   radius, font sizes;
+     * - home: mode, telemetry/intent/notifications/dock/keypad
+     *   toggles, wallpaper switch, status-bar toggles, widgets;
+     * - system: gestures (simple + compound), thermal, glyph,
+     *   haptics, agent, AST, focus toggles;
+     * - data: files path/hidden, legacy-import switch + paths.
+     * Telemetry/NodeOS rows stay in the Home card by design (they
+     * are home-display toggles, not system roles) — the v3
+     * Home-vs-System placement divergence is closed as intentional
+     * here, not moved.
+     */
+    private fun resetGroup(group: String) {
+        val defaults = LauncherConfig()
+        val built = buildUpdatedConfig()
+        val updated = when (group) {
+            "appearance" -> built.copy(
+                colors = defaults.colors, themeId = defaults.themeId,
+                drawerAlpha = defaults.drawerAlpha,
+                drawerEdgeTransparent = defaults.drawerEdgeTransparent,
+                showAppIcons = defaults.showAppIcons,
+                appIconStyle = defaults.appIconStyle,
+                enableAtoZScrubber = defaults.enableAtoZScrubber,
+                cockpitCardRadiusDp = defaults.cockpitCardRadiusDp,
+                hudFontSizeSp = defaults.hudFontSizeSp,
+                dockFontSizeSp = defaults.dockFontSizeSp,
+                omniFontSizeSp = defaults.omniFontSizeSp
+            )
+            "home" -> built.copy(
+                defaultHomeMode = defaults.defaultHomeMode,
+                showTelemetryBar = defaults.showTelemetryBar,
+                showNodeOsCard = defaults.showNodeOsCard,
+                showIntentCard = defaults.showIntentCard,
+                showNotificationsCard = defaults.showNotificationsCard,
+                filterOngoingNotifications = defaults.filterOngoingNotifications,
+                showDock = defaults.showDock,
+                showDigitKeypad = defaults.showDigitKeypad,
+                useSystemWallpaper = defaults.useSystemWallpaper,
+                showStatusBarTime = defaults.showStatusBarTime,
+                showStatusBarBattery = defaults.showStatusBarBattery,
+                showStatusBarRam = defaults.showStatusBarRam,
+                widgetsEnabled = defaults.widgetsEnabled
+            )
+            "system" -> built.copy(
+                gestureSwipeUp = defaults.gestureSwipeUp,
+                gestureSwipeDown = defaults.gestureSwipeDown,
+                gestureSwipeLeft = defaults.gestureSwipeLeft,
+                gestureSwipeRight = defaults.gestureSwipeRight,
+                gestureDoubleTap = defaults.gestureDoubleTap,
+                gestureLongPress = defaults.gestureLongPress,
+                compoundGesturesEnabled = defaults.compoundGesturesEnabled,
+                gestureTwoFingerUp = defaults.gestureTwoFingerUp,
+                gesturePinchIn = defaults.gesturePinchIn,
+                gesturePinchOut = defaults.gesturePinchOut,
+                gestureLeftEdgeSwipe = defaults.gestureLeftEdgeSwipe,
+                gestureRightEdgeSwipe = defaults.gestureRightEdgeSwipe,
+                gestureBottomEdgeSwipe = defaults.gestureBottomEdgeSwipe,
+                thermalLimitCelsius = defaults.thermalLimitCelsius,
+                enableGlyphPulse = defaults.enableGlyphPulse,
+                enableHaptics = defaults.enableHaptics,
+                agentOrchestratorEnabled = defaults.agentOrchestratorEnabled,
+                astGraphEnabled = defaults.astGraphEnabled,
+                astGraphNodeCap = defaults.astGraphNodeCap,
+                focusSchedulerEnabled = defaults.focusSchedulerEnabled
+            )
+            else -> built.copy(
+                filesDefaultPath = defaults.filesDefaultPath,
+                filesShowHidden = defaults.filesShowHidden,
+                nodeOsLegacyImportEnabled = defaults.nodeOsLegacyImportEnabled,
+                workflowJsonPath = defaults.workflowJsonPath,
+                nodeosDbPath = defaults.nodeosDbPath
+            )
+        }
+        populateUiFromConfig(updated)
+        resetPreviewPending = true
+        Toast.makeText(this, "Reset $group preview. Tap SAVE to apply — leaving without SAVE discards it.", Toast.LENGTH_SHORT).show()
+    }
+
     /** Persists the on-screen form. Called by SAVE and automatically on leave (instant apply). */
     private fun persist(finishAfter: Boolean) {
         val updated = buildUpdatedConfig()
         currentConfig = updated
+        savedConfigAtLoad = updated
+        resetPreviewPending = false
         configManager.saveConfig(updated)
         setResult(RESULT_OK)
         if (finishAfter) finish()
     }
 
     private fun saveAndApply() {
+        // Area 07 step 2: back up the store before a Reset-apply
+        // overwrites it (import already backs up in area 01).
+        if (resetPreviewPending) configManager.backupCurrentStore()
         persist(true)
         Toast.makeText(this, "Configuration Saved & Applied", Toast.LENGTH_SHORT).show()
     }
 
     override fun onPause() {
         super.onPause()
-        // Instant apply: leaving Settings persists the current form, no SAVE required.
-        persist(false)
+        // Area 07 step 3 (plan G-05, decided as a BUG, not a
+        // product choice): leaving Settings persists the form ONLY
+        // if it differs from the last saved config, and NEVER when
+        // a Reset/group-reset preview is pending without SAVE.
+        // Clean form → leave does not rewrite the file (no mtime
+        // churn, no silent Reset-apply). Ordinary edits still
+        // instant-apply on leave, as before.
+        if (resetPreviewPending) return
+        val built = buildUpdatedConfig()
+        if (built != savedConfigAtLoad) persist(false)
     }
 }
