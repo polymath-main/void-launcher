@@ -23,7 +23,10 @@ import java.util.Locale
  */
 class DockSlotMicroService(private val activity: Activity) {
 
-    private val builtInActions = listOf(
+    // impl-06 step 8: exposed (read-only) so the per-persona dock
+    // editor reuses the same built-in actions instead of duplicating
+    // the list and drifting from it.
+    val builtInActions = listOf(
         Triple("TERMINAL", "In-App VoidShell", "open_voidterm"),
         Triple("FILES", "Void File Explorer", "open_files"),
         Triple("APPS DRAWER", "Installed Apps A-Z", "open_drawer"),

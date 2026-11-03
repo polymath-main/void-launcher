@@ -164,6 +164,9 @@ data class LauncherConfig(
     val defaultIdentity: String = "VOID",       // "VOID" or "MAIN"
     val identityVoidLabel: String = "[VOID]",
     val identityMainLabel: String = "[MAIN]",
+    // impl-06 step 8: badge label override extended to STILL, same
+    // mechanism as void/main (NUMERIC_BRACKET badge style only).
+    val identityStillLabel: String = "[STILL]",
     val activePersona: String = "void",
     val personas: List<PersonaProfile> = emptyList(),
 

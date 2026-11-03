@@ -49,6 +49,7 @@ class PersonaIdentityMicroService(
             DockStyle.NUMERIC_BRACKET -> when (persona.id.lowercase(Locale.US)) {
                 "void" -> config.identityVoidLabel.ifBlank { "[$rawName]" }
                 "main" -> config.identityMainLabel.ifBlank { "[$rawName]" }
+                "still" -> config.identityStillLabel.ifBlank { "[$rawName]" }
                 else -> "[$rawName]"
             }
             DockStyle.ASCII_TTY -> "::$rawName::"

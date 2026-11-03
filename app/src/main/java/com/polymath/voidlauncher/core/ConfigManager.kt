@@ -227,6 +227,7 @@ class ConfigManager(private val context: Context) {
             defaultIdentity = json.optString("default_identity", "VOID"),
             identityVoidLabel = json.optString("identity_void_label", "[VOID]"),
             identityMainLabel = json.optString("identity_main_label", "[MAIN]"),
+            identityStillLabel = json.optString("identity_still_label", "[STILL]"),
             // impl-06 step 3: activePersona is the single source of
             // truth. default_identity is a migration-only fallback for
             // old configs that predate active_persona, migrated ON
@@ -489,6 +490,7 @@ class ConfigManager(private val context: Context) {
         json.put("default_identity", config.defaultIdentity)
         json.put("identity_void_label", config.identityVoidLabel)
         json.put("identity_main_label", config.identityMainLabel)
+        json.put("identity_still_label", config.identityStillLabel)
         json.put("active_persona", config.activePersona)
 
         val personasArr = JSONArray()

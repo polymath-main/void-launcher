@@ -2146,8 +2146,26 @@ class VoidLauncherActivity : AppCompatActivity() {
                     val mark = if (p.id == active.id) "●" else "○"
                     sb.appendLine("$mark ${p.label} - ${p.subtitle}")
                 }
-                sb.append("\nType :id <name> to switch")
+                sb.append("\nType :id <name> to switch · :persona edit to manage")
                 showTerminalOutput(sb.toString())
+            }
+            // impl-06 step 8: JSON-free editors (dialogs, validate-first).
+            command == "persona edit" -> {
+                com.polymath.voidlauncher.core.services.PersonaEditorService(this)
+                    .showPersonaManagerDialog(
+                        config = config,
+                        personaManager = personaManager,
+                        appsProvider = { appIndexer.getAllApps() },
+                        onCommit = { updated -> commitPersonaConfig(updated) }
+                    )
+            }
+            command == "focus edit" -> {
+                com.polymath.voidlauncher.core.services.FocusScheduleEditorService(this)
+                    .showScheduleDialog(
+                        schedulePath = config.focusSchedulePath,
+                        personaManager = personaManager,
+                        onSaved = { focusScheduler.loadSchedule(config.focusSchedulePath) }
+                    )
             }
             command.startsWith("id ") -> {
                 val targetId = command.removePrefix("id ").trim()
@@ -2806,6 +2824,26 @@ class VoidLauncherActivity : AppCompatActivity() {
             appsProvider = { appIndexer.getAllApps() },
             onCommit = { updated -> commitUpdatedDockConfig(updated) }
         )
+    }
+
+    /**
+     * impl-06 step 8: commit path for persona editor dialogs. Syncs
+     * the manager (including REMOVING deleted customs), re-applies
+     * the active persona's fields (dock override, files default),
+     * and falls back to void if the active persona was deleted.
+     */
+    private fun commitPersonaConfig(updated: LauncherConfig) {
+        config = updated
+        configManager.saveConfig(updated)
+        personaManager.syncConfigProfiles(updated.personas)
+        val active = personaManager.getAllPersonas()
+            .firstOrNull { it.id.equals(config.activePersona, ignoreCase = true) }
+        if (active != null) {
+            applyPersonaSwitch(active, persist = false)
+        } else {
+            val fallback = personaManager.selectPersona("void")
+            if (fallback != null) applyPersonaSwitch(fallback)
+        }
     }
 
     private fun commitUpdatedDockConfig(updated: LauncherConfig) {

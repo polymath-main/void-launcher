@@ -105,6 +105,26 @@ class PersonaManager(private val context: Context) {
         }
     }
 
+    /**
+     * impl-06 step 8: full config-profile sync for editor commits.
+     * Unlike registerConfigProfiles (additive), this also REMOVES
+     * config profiles absent from the new list — so a deleted custom
+     * persona actually disappears. A removed id that shadows a
+     * built-in reverts to the built-in profile.
+     */
+    fun syncConfigProfiles(profiles: List<PersonaProfile>) {
+        val newIds = profiles.map { it.id.lowercase() }.toSet()
+        val removed = configProfiles.filter { it.id.lowercase() !in newIds }
+        for (old in removed) {
+            val builtin = builtinProfiles.firstOrNull { it.id.equals(old.id, ignoreCase = true) }
+            if (builtin != null) memoryProfiles[old.id.lowercase()] = builtin
+            else memoryProfiles.remove(old.id.lowercase())
+        }
+        configProfiles.clear()
+        configProfiles.addAll(profiles)
+        for (p in profiles) memoryProfiles[p.id.lowercase()] = p
+    }
+
     private fun registerExternalProfile(profile: PersonaProfile) {
         memoryProfiles[profile.id.lowercase()] = profile
         externalProfiles.removeAll { it.id.equals(profile.id, ignoreCase = true) }
