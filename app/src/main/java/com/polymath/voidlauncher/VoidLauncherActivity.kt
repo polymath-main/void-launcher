@@ -94,6 +94,7 @@ import com.polymath.voidlauncher.model.AppEntry
 import com.polymath.voidlauncher.model.DockSlot
 import com.polymath.voidlauncher.model.FileItem
 import com.polymath.voidlauncher.model.LauncherConfig
+import com.polymath.voidlauncher.model.PersonaProfile
 import com.polymath.voidlauncher.ui.AppFilterAdapter
 import com.polymath.voidlauncher.ui.DrawerAppAdapter
 import com.polymath.voidlauncher.ui.FileBrowserAdapter
@@ -171,6 +172,41 @@ class VoidLauncherActivity : AppCompatActivity() {
     private var notificationJob: Job? = null
     private var config: LauncherConfig = LauncherConfig()
     private var currentFilesPath: String = ""
+    // impl-06 step 3: session-only persona dock override. When the
+    // active persona carries customDockSlots, the dock/keypad/STILL
+    // favorites render those slots; config.dockSlots is NEVER
+    // overwritten by a persona switch, so switching back restores
+    // the config dock exactly. An explicit dock edit (commitUpdated-
+    // DockConfig) clears the override — the edited config dock wins.
+    private var personaDockOverride: List<DockSlot>? = null
+    private fun effectiveDockSlots(): List<DockSlot> =
+        personaDockOverride ?: config.dockSlots
+
+    /**
+     * impl-06 step 3: the one persona-switch path. Applies the stored
+     * fields switching used to ignore: the persona's dock slots (as a
+     * session override, see above) and its workspacePath as the
+     * session files-browser default (config.filesDefaultPath is NOT
+     * rewritten, so a restart restores the config default). Also
+     * persists activePersona so the switch survives a restart — the
+     * old :id path switched PersonaManager prefs only and the next
+     * onCreate re-selected config.activePersona, silently reverting.
+     */
+    private fun applyPersonaSwitch(persona: PersonaProfile, persist: Boolean = true) {
+        personaDockOverride = persona.customDockSlots
+        if (persist) {
+            config = config.copy(activePersona = persona.id)
+            configManager.saveConfig(config)
+        }
+        currentFilesPath = if (persona.workspacePath.isNotBlank()) {
+            fileManager.resolveAccessiblePath(persona.workspacePath)
+        } else currentFilesPath
+        bareIntegerRouter.updateSlots(effectiveDockSlots())
+        rebuildDockSlots()
+        rebuildStillFavorites()
+        rebuildKeypad()
+        applyIdentityBadge()
+    }
     // impl-02 step 4: files search/sort state. The search query survives
     // directory changes inside one browser session; the last loaded
     // (unfiltered) listing is kept so search/sort re-apply without I/O.
@@ -406,7 +442,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         // Push config into subsystems
         syncAgentAndNodeOsPaths()
         nodeOsBridge.setDefaultIdentity(config.defaultIdentity)
-        bareIntegerRouter.updateSlots(config.dockSlots)
+        bareIntegerRouter.updateSlots(effectiveDockSlots())
 
         // Wire bare integer custom callbacks
         bareIntegerRouter.onOpenFilesRequested = { toggleFilesBrowser() }
@@ -625,8 +661,10 @@ class VoidLauncherActivity : AppCompatActivity() {
         if (config.activePersona.isNotBlank() &&
             !personaManager.getActivePersona().id.equals(config.activePersona, ignoreCase = true)
         ) {
-            personaManager.selectPersona(config.activePersona)
-            applyIdentityBadge()
+            val selected = personaManager.selectPersona(config.activePersona)
+            // persist=false: applyConfig already owns this config; saving
+            // here could re-trigger the config-sync reload loop.
+            if (selected != null) applyPersonaSwitch(selected, persist = false) else applyIdentityBadge()
         }
 
         // Liquid touch surface (config: liquid_touch_enabled)
@@ -787,7 +825,7 @@ class VoidLauncherActivity : AppCompatActivity() {
 
         // v2 STILL favorites: slots 1/3/5 only, as a text list (no card
         // background), 48dp rows, "index · LABEL" with a muted sub-line.
-        for (slot in config.dockSlots.filter { it.index in setOf(1, 3, 5) }) {
+        for (slot in effectiveDockSlots().filter { it.index in setOf(1, 3, 5) }) {
             val row = LinearLayout(this).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1082,7 +1120,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         )
 
         for ((i, slotView) in slotViews.withIndex()) {
-            val slot = config.dockSlots.firstOrNull { it.index == (i + 1) }
+            val slot = effectiveDockSlots().firstOrNull { it.index == (i + 1) }
             if (slot != null) {
                 slotView.visibility = View.VISIBLE
                 slotView.minimumHeight = dpToPx(theme.touchTargetMinDp.coerceAtLeast(48))
@@ -1118,7 +1156,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         row.removeAllViews()
         val c = config.colors
 
-        for (slot in config.dockSlots.sortedBy { it.index }) {
+        for (slot in effectiveDockSlots().sortedBy { it.index }) {
             row.addView(buildKeypadKey(slot.index.toString(), c.textSecondaryInt) { view ->
                 handleDigitKey(view, slot.index)
             })
@@ -1221,9 +1259,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         // Smart Persona cycle toggle (F-02) + Long-press interactive selector
         binding.tvIdentityBadge.setOnClickListener {
             val newPersona = personaManager.cyclePersona()
-            config = config.copy(activePersona = newPersona.id)
-            configManager.saveConfig(config)
-            applyIdentityBadge()
+            applyPersonaSwitch(newPersona)
             glyphChoreographer.play("FOCUS_MODE_ON")
             Toast.makeText(this, "Persona: ${newPersona.label} (${newPersona.subtitle})", Toast.LENGTH_SHORT).show()
         }
@@ -2001,7 +2037,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                 val targetId = command.removePrefix("id ").trim()
                 val switched = personaManager.selectPersona(targetId)
                 if (switched != null) {
-                    applyIdentityBadge()
+                    applyPersonaSwitch(switched)
                     glyphChoreographer.play("FOCUS_MODE_ON")
                     showTerminalOutput("[PERSONA SWITCHED]: ${switched.label}")
                 } else {
@@ -2633,6 +2669,8 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun commitUpdatedDockConfig(updated: LauncherConfig) {
         config = updated
         configManager.saveConfig(updated)
+        // Explicit dock edit wins over any persona override (step 3).
+        personaDockOverride = null
         bareIntegerRouter.updateSlots(updated.dockSlots)
         rebuildDockSlots()
         rebuildStillFavorites()
@@ -2642,10 +2680,10 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun showPersonaPickerDialog() {
         personaIdentityService.showPersonaAndModeDialog(
             config = config,
-            onPersonaSelected = { _, updated ->
+            onPersonaSelected = { chosen, updated ->
                 config = updated
                 configManager.saveConfig(config)
-                applyIdentityBadge()
+                applyPersonaSwitch(chosen, persist = false)
                 glyphChoreographer.play("FOCUS_MODE_ON")
             },
             onSetHomeMode = { setHomeMode(it) },
@@ -2698,7 +2736,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         if (newConfig != config) {
             config = newConfig
             syncAgentAndNodeOsPaths()
-            bareIntegerRouter.updateSlots(config.dockSlots)
+            bareIntegerRouter.updateSlots(effectiveDockSlots())
             applyConfig()
             startTelemetryFlow()
             startNotificationsFlow()
@@ -2830,9 +2868,7 @@ class VoidLauncherActivity : AppCompatActivity() {
             "OPEN_HUD"            -> showVoidStatus()
             "TOGGLE_IDENTITY"     -> {
                 val newP = personaManager.cyclePersona()
-                config = config.copy(activePersona = newP.id)
-                configManager.saveConfig(config)
-                applyIdentityBadge()
+                applyPersonaSwitch(newP)
                 Toast.makeText(this, "Persona: ${newP.label}", Toast.LENGTH_SHORT).show()
             }
             "NONE"              -> {}

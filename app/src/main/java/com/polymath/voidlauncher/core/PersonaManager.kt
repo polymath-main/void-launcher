@@ -75,6 +75,13 @@ class PersonaManager(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val memoryProfiles = mutableMapOf<String, PersonaProfile>()
 
+    // impl-06 step 3: origin lists, so getAllPersonas() returns the
+    // PINNED order (builtins -> config -> external) instead of the
+    // accidental registration order (builtins -> external -> config).
+    private val builtinProfiles = mutableListOf<PersonaProfile>()
+    private val configProfiles = mutableListOf<PersonaProfile>()
+    private val externalProfiles = mutableListOf<PersonaProfile>()()
+
     init {
         registerProfile(DEFAULT_VOID)
         registerProfile(DEFAULT_MAIN)
@@ -86,16 +93,26 @@ class PersonaManager(private val context: Context) {
 
     fun registerProfile(profile: PersonaProfile) {
         memoryProfiles[profile.id.lowercase()] = profile
+        builtinProfiles.removeAll { it.id.equals(profile.id, ignoreCase = true) }
+        builtinProfiles.add(profile)
     }
 
     fun registerConfigProfiles(profiles: List<PersonaProfile>) {
         for (p in profiles) {
-            registerProfile(p)
+            memoryProfiles[p.id.lowercase()] = p
+            configProfiles.removeAll { it.id.equals(p.id, ignoreCase = true) }
+            configProfiles.add(p)
         }
     }
 
+    private fun registerExternalProfile(profile: PersonaProfile) {
+        memoryProfiles[profile.id.lowercase()] = profile
+        externalProfiles.removeAll { it.id.equals(profile.id, ignoreCase = true) }
+        externalProfiles.add(profile)
+    }
+
     fun getAllPersonas(): List<PersonaProfile> {
-        return memoryProfiles.values.toList()
+        return PersonaOrder.order(builtinProfiles, configProfiles, externalProfiles)
     }
 
     fun getActivePersona(): PersonaProfile {
@@ -111,7 +128,7 @@ class PersonaManager(private val context: Context) {
     }
 
     fun cyclePersona(): PersonaProfile {
-        val all = memoryProfiles.values.toList()
+        val all = getAllPersonas()
         if (all.isEmpty()) return DEFAULT_VOID
 
         val current = getActivePersona()
@@ -129,7 +146,9 @@ class PersonaManager(private val context: Context) {
             val dir = File(EXTERNAL_PERSONAS_DIR)
             if (!dir.exists() || !dir.isDirectory) return
 
-            dir.listFiles { f -> f.extension == "json" }?.forEach { file ->
+            // impl-06 step 3: filename order, so the pinned cycle order
+            // is deterministic for external profiles too.
+            dir.listFiles { f -> f.extension == "json" }?.sortedBy { it.name }?.forEach { file ->
                 try {
                     val json = JSONObject(file.readText())
                     val id = json.optString("id", file.nameWithoutExtension)
@@ -143,7 +162,7 @@ class PersonaManager(private val context: Context) {
                         workspacePath = json.optString("workspace", VoidPaths.WORKSPACE),
                         glyphPatternName = json.optString("glyph_pattern", "DEFAULT")
                     )
-                    registerProfile(profile)
+                    registerExternalProfile(profile)
                 } catch (e: Exception) {
                     Log.w(TAG, "Error loading persona from ${file.name}: ${e.message}")
                 }

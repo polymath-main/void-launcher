@@ -158,6 +158,9 @@ data class LauncherConfig(
     val thermalHysteresisCelsius: Float = 2.0f,
 
     // ── Identity & Smart Personas (F-02) ─────────────────────
+    // DEPRECATED (impl-06 step 3): migration-only fallback for old
+    // configs. activePersona is the single source of truth; new code
+    // must not read this. Still written for old readers.
     val defaultIdentity: String = "VOID",       // "VOID" or "MAIN"
     val identityVoidLabel: String = "[VOID]",
     val identityMainLabel: String = "[MAIN]",

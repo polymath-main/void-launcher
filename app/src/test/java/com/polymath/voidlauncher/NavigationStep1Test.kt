@@ -128,7 +128,12 @@ class NavigationStep1Test {
     @Test
     fun keypadIsGeneratedFromConfiguredSlotsNotADialer() {
         val body = functionBody(activityText(), "private fun rebuildKeypad()")
-        assertTrue("keypad must iterate configured slots sorted by index", body.contains("config.dockSlots.sortedBy { it.index }"))
+        // impl-06 step 3: keypad iterates effectiveDockSlots() (persona
+        // override ?: config.dockSlots), still sorted by index — so the
+        // no-override behaviour this test guards is unchanged.
+        assertTrue("keypad must iterate configured slots sorted by index",
+            body.contains("effectiveDockSlots().sortedBy { it.index }") ||
+            body.contains("config.dockSlots.sortedBy { it.index }"))
         assertFalse("keypad must not be a 1-9 phone grid", body.contains("1..9") || body.contains("\"*\""))
     }
 

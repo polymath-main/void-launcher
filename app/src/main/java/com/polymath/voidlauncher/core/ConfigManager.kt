@@ -227,7 +227,17 @@ class ConfigManager(private val context: Context) {
             defaultIdentity = json.optString("default_identity", "VOID"),
             identityVoidLabel = json.optString("identity_void_label", "[VOID]"),
             identityMainLabel = json.optString("identity_main_label", "[MAIN]"),
-            activePersona = json.optString("active_persona", "void"),
+            // impl-06 step 3: activePersona is the single source of
+            // truth. default_identity is a migration-only fallback for
+            // old configs that predate active_persona, migrated ON
+            // LOAD (never written by new code as an authority — it is
+            // still written for old readers, see serializeConfig).
+            // DEPRECATED: do not read defaultIdentity anywhere new.
+            activePersona = if (json.has("active_persona")) json.optString("active_persona", "void")
+                else when (json.optString("default_identity", "VOID").uppercase()) {
+                    "MAIN" -> "main"
+                    else -> "void"
+                },
             personas = personas,
             omniBarHint = json.optString("omni_bar_hint", ">_ search apps or enter :cmd"),
             omniPromptSymbol = json.optString("omni_prompt_symbol", ">_ "),
@@ -342,6 +352,13 @@ class ConfigManager(private val context: Context) {
                 // Now parsed, so a saved persona loads back exactly.
                 surfaceColor = obj.optString("surface", "#080808"),
                 workspacePath = obj.optString("workspace", VoidPaths.WORKSPACE),
+                // impl-06 step 3: customDockSlots were stored on the
+                // model but never parsed or serialized — now round-
+                // tripped, so step 3's application has data to apply.
+                // Empty array = no override (NOT the default dock).
+                customDockSlots = if (obj.has("custom_dock_slots") &&
+                    obj.optJSONArray("custom_dock_slots")?.length() ?: 0 > 0
+                ) parseDockSlots(obj.optJSONArray("custom_dock_slots")!!) else null,
                 glyphPatternName = obj.optString("glyph_pattern", "DEFAULT")
             ))
         }
@@ -466,6 +483,8 @@ class ConfigManager(private val context: Context) {
         json.put("thermal_hysteresis_celsius", config.thermalHysteresisCelsius.toDouble())
 
         // Identity & Personas
+        // default_identity is written only so old readers keep working;
+        // it is NOT the authority — active_persona is (impl-06 step 3).
         json.put("default_identity", config.defaultIdentity)
         json.put("identity_void_label", config.identityVoidLabel)
         json.put("identity_main_label", config.identityMainLabel)
@@ -481,6 +500,17 @@ class ConfigManager(private val context: Context) {
                 put("secondary", p.secondaryColor)
                 put("surface", p.surfaceColor)
                 put("workspace", p.workspacePath)
+                p.customDockSlots?.let { slots ->
+                    val arr = JSONArray()
+                    for (s in slots) arr.put(JSONObject().apply {
+                        put("index", s.index)
+                        put("label", s.label)
+                        put("subtitle", s.subtitle)
+                        put("package_name", s.packageName)
+                        put("action", s.action)
+                    })
+                    put("custom_dock_slots", arr)
+                }
                 put("glyph_pattern", p.glyphPatternName)
             })
         }
