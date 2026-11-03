@@ -3,6 +3,7 @@ package com.polymath.voidlauncher.core
 import android.content.Context
 import com.polymath.voidlauncher.core.shell.ShellPort
 import com.polymath.voidlauncher.core.terminal.TerminalCommandRunner
+import com.polymath.voidlauncher.core.terminal.VoidShellRunner
 import com.polymath.voidlauncher.core.terminal.TerminalRunResult
 import com.polymath.voidlauncher.core.terminal.TerminalSession
 
@@ -44,6 +45,19 @@ class VoidTermPanel(
         return sessions.getOrPut(id) {
             TerminalSession(id = id, workDir = workDir, rows = rows, cols = cols)
         }
+    }
+
+    /**
+     * impl-02 step 6: creates (or reuses) and switches to the session
+     * for a directory, so "Open in VoidTerm" from the files browser
+     * lands the user in that directory. The session id embeds the
+     * directory, so reopening the same folder reuses its buffer and
+     * history instead of spawning a duplicate session.
+     */
+    fun openDirectorySession(dir: String): TerminalSession {
+        val session = createSession("dir:$dir", workDir = dir)
+        switchSession(session.id)
+        return session
     }
 
     /** Switches the shown session. Returns false for an unknown id. */
@@ -118,6 +132,10 @@ class VoidTermPanel(
      * Returns the run result for the caller.
      */
     fun executeVia(command: String, runner: TerminalCommandRunner): TerminalRunResult {
+        // impl-02 step 6: sync the runner's workdir from the current
+        // session before every run — otherwise a directory session
+        // would still execute in VoidShell's default directory.
+        if (runner is VoidShellRunner) runner.workDir = getSession().workDir
         return getSession().execute(command, runner)
     }
 

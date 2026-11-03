@@ -1400,9 +1400,21 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun showFileOperationsDialog(item: FileItem) {
         fileOperationsService.showFileOperationsDialog(
             item = item,
+            // impl-02 step 6: Open in VoidTerm now really lands in the
+            // file's directory (a directory item opens in itself).
+            // The old code only printed a hint and ran :term in
+            // filesDir, despite the "run here" label. Invalid paths
+            // fall back to Void home, never to a crash.
             onOpenInVoidTerm = {
+                val dir = if (item.isDirectory) {
+                    item.path
+                } else {
+                    File(item.path).parentFile?.absolutePath ?: fileManager.voidHomePath()
+                }
+                val safeDir = if (File(dir).isDirectory) dir else fileManager.voidHomePath()
+                voidTermPanel.openDirectorySession(safeDir)
                 openVoidTerm()
-                showTerminalOutput("[VOIDTERM] ${item.path}\nType :term <command> to run here.")
+                showTerminalOutput("[VOIDTERM] $safeDir\nType :term <command> to run here.")
             },
             onShowPreview = { text -> showTerminalOutput(text) },
             onCopyPath = { path -> clipboard.setText(path) },
