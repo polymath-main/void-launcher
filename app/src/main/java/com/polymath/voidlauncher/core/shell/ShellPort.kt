@@ -38,8 +38,16 @@ interface ShellPort {
  * A started command: [awaitSuccess] blocks until it finishes and
  * reports success, [cancel] stops the underlying process (and its
  * descendants) — never by name or pattern.
+ *
+ * impl-06 step 2: [awaitResult] is the observable variant — it returns
+ * the real [ShellResult] (output, error, exit code) instead of a bare
+ * boolean, so agent tasks can record real output/exit codes. Default
+ * null = executor has no result to hand out; callers fall back to
+ * [awaitSuccess] and keep the old synthesised 0/1 exit codes, and say
+ * so where they do.
  */
 interface RunningCommand {
     fun cancel()
     fun awaitSuccess(): Boolean
+    fun awaitResult(): ShellResult? = null
 }

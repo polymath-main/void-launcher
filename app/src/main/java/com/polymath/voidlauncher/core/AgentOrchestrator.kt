@@ -79,24 +79,34 @@ class AgentOrchestrator(
         // UI or thermal throttle) stops the real process via the
         // registry handle, not just a status flag. Fall back to the
         // Boolean dispatch when the executor has no process to hand out.
+        // impl-06 step 2: prefer awaitResult() so outputPreview and
+        // exitCode are REAL (taskOutcomeFromShellResult); only the
+        // no-result fallback keeps synthesised 0/1, as before.
         io.execute {
-            val ok = try {
+            val outcome: TaskOutcome? = try {
                 val tracked = shellPort.dispatchTracked(command, inBackground = true)
                 if (tracked != null) {
                     processManager.attachHandle(voidTask.id) { tracked.cancel() }
                     try {
-                        tracked.awaitSuccess()
+                        val result = tracked.awaitResult()
+                        if (result != null) {
+                            taskOutcomeFromShellResult(result)!!
+                        } else {
+                            val ok = tracked.awaitSuccess()
+                            TaskOutcome(ok, "", if (ok) 0 else 1)
+                        }
                     } catch (_: Exception) {
-                        false
+                        TaskOutcome(false, "", 1)
                     }
                 } else {
-                    shellPort.dispatchCommand(command, inBackground = true)
+                    val ok = shellPort.dispatchCommand(command, inBackground = true)
+                    TaskOutcome(ok, "", if (ok) 0 else 1)
                 }
             } catch (_: Exception) {
-                false
+                TaskOutcome(false, "", 1)
             }
             main.post {
-                finishTask(task.id, ok)
+                finishTask(task.id, outcome)
             }
         }
         Log.i(TAG, "Dispatched agent task [${task.id}]: $title")
@@ -105,15 +115,16 @@ class AgentOrchestrator(
         return task
     }
 
-    private fun finishTask(taskId: String, success: Boolean) {
-        val marked = processManager.markFinished(taskId, success)
+    private fun finishTask(taskId: String, outcome: TaskOutcome) {
+        val marked = processManager.markFinished(taskId, outcome.success)
         val existing = memoryTasks[taskId] ?: return
         if (!marked && existing.status != "running") return
 
         val updated = existing.copy(
-            status = if (success) "completed" else "failed",
+            status = if (outcome.success) "completed" else "failed",
             completedAt = System.currentTimeMillis(),
-            exitCode = if (success) 0 else 1
+            outputPreview = outcome.outputPreview,
+            exitCode = outcome.exitCode
         )
         memoryTasks[taskId] = updated
         persistTasks()
@@ -123,48 +134,24 @@ class AgentOrchestrator(
                 json.put("status", updated.status)
                 json.put("completed_at", updated.completedAt)
                 json.put("exit_code", updated.exitCode)
+                json.put("output_preview", updated.outputPreview)
             }
         }
 
-        if (success) {
+        if (outcome.success) {
             onTaskCompleted?.invoke(updated)
         } else {
             onTaskFailed?.invoke(updated)
         }
     }
 
-    /**
-     * Polls the configured workflow.json to inspect task state.
-     * Returns null when no workflow path is configured or the file is unreadable.
-     */
-    fun pollWorkflow(): AgentTask? {
-        if (workflowPath.isBlank()) return null
-        val file = File(workflowPath)
-        if (!file.exists() || !file.canRead()) return null
-
-        return try {
-            val json = JSONObject(file.readText())
-            val id = json.optString("id", "current")
-            val title = json.optString("active_task", "Idle")
-            val cmd = json.optString("command", "")
-            val status = json.optString("status", "idle")
-            val startedAt = json.optLong("started_at", System.currentTimeMillis())
-
-            val tracked = memoryTasks[id]
-            if (tracked != null) return tracked
-
-            AgentTask(
-                id = id,
-                title = title,
-                command = cmd,
-                status = status,
-                startedAt = startedAt
-            )
-        } catch (e: Exception) {
-            Log.w(TAG, "Error reading workflow.json: ${e.message}")
-            null
-        }
-    }
+    // impl-06 step 2: pollWorkflow() DELETED (plan step 2.2). It had no
+    // caller in the Activity; the HUD's legacy reader is NodeOsBridge
+    // and its Void reader is VoidProcessManager. Keeping a second
+    // reader with different semantics (prefer in-memory task for the
+    // same id) was dead code posing as documentation. If a workflow
+    // reader is ever needed again, it must agree with NodeOsBridge
+    // first — not be added back as a parallel path.
 
     fun getAllTasks(): List<AgentTask> {
         val live = processManager.getAll().map { voidTask ->
@@ -178,11 +165,13 @@ class AgentOrchestrator(
                     VoidTaskStatus.COMPLETED -> "completed"
                     VoidTaskStatus.FAILED -> "failed"
                     VoidTaskStatus.CANCELLED -> "cancelled"
+                    // TIMED_OUT arrives in step 7 (task timeouts); mapped there.
                 },
                 startedAt = voidTask.startedAt,
                 completedAt = voidTask.completedAt,
                 outputPreview = mem?.outputPreview ?: "",
-                exitCode = mem?.exitCode ?: 0
+                exitCode = mem?.exitCode ?: 0,
+                cancelReason = mem?.cancelReason ?: ""
             )
         }
         val liveIds = live.map { it.id }.toSet()
@@ -197,7 +186,8 @@ class AgentOrchestrator(
         if (existing != null) {
             memoryTasks[taskId] = existing.copy(
                 status = "cancelled",
-                completedAt = System.currentTimeMillis()
+                completedAt = System.currentTimeMillis(),
+                cancelReason = "user"
             )
             persistTasks()
         }
@@ -206,6 +196,38 @@ class AgentOrchestrator(
         mergeWorkflowJson { json ->
             if (json.optString("id", "") == taskId || json.optString("id", "").isEmpty()) {
                 json.put("status", "cancelled")
+                json.put("cancel_reason", "user")
+            }
+        }
+    }
+
+    /**
+     * impl-06 step 2, thermal-kill staleness (plan R4): ThermalGuardian
+     * cancels via VoidProcessManager directly, so the registry already
+     * says CANCELLED — but the orchestrator's memory copy, its persisted
+     * store, and workflow.json did NOT, until this sync. The Activity
+     * calls this from onThrottleTriggered with the guardian's
+     * last-trip ids. No auto-retry: a thermally-cancelled task stays
+     * cancelled until the user dispatches it again.
+     */
+    fun markExternalCancellation(taskIds: List<String>, reason: String) {
+        var changed = false
+        for (id in taskIds) {
+            val existing = memoryTasks[id] ?: continue
+            if (existing.status != "running") continue
+            memoryTasks[id] = existing.copy(
+                status = "cancelled",
+                completedAt = System.currentTimeMillis(),
+                cancelReason = reason
+            )
+            changed = true
+        }
+        if (!changed) return
+        persistTasks()
+        mergeWorkflowJson { json ->
+            if (json.optString("id", "") in taskIds) {
+                json.put("status", "cancelled")
+                json.put("cancel_reason", reason)
             }
         }
     }
@@ -245,6 +267,7 @@ class AgentOrchestrator(
                         put("completed_at", task.completedAt)
                         put("exit_code", task.exitCode)
                         put("output_preview", task.outputPreview)
+                        put("cancel_reason", task.cancelReason)
                     }
                 )
             }
@@ -268,7 +291,8 @@ class AgentOrchestrator(
                     startedAt = obj.optLong("started_at", 0L),
                     completedAt = obj.optLong("completed_at", 0L),
                     outputPreview = obj.optString("output_preview", ""),
-                    exitCode = obj.optInt("exit_code", 0)
+                    exitCode = obj.optInt("exit_code", 0),
+                    cancelReason = obj.optString("cancel_reason", "")
                 )
                 val reconciled = if (task.status == "running") {
                     task.copy(status = "interrupted", completedAt = System.currentTimeMillis())

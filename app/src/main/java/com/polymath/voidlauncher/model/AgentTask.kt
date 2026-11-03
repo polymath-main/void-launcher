@@ -11,5 +11,7 @@ data class AgentTask(
     val startedAt: Long = System.currentTimeMillis(),
     val completedAt: Long = 0L,
     val outputPreview: String = "",
-    val exitCode: Int = 0
+    val exitCode: Int = 0,
+    /** How a cancelled task was cancelled: "user", "thermal", "" = n/a. */
+    val cancelReason: String = ""
 )

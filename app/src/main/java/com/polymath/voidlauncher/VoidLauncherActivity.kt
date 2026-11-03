@@ -349,10 +349,14 @@ class VoidLauncherActivity : AppCompatActivity() {
         agentOrchestrator = AgentOrchestrator(this, voidShellPort, voidProcessManager).apply {
             onTaskCompleted = {
                 glyphChoreographer.play("TASK_SUCCESS")
+                // impl-06 step 2: intent line refreshes on completion, not
+                // only on the next telemetry tick.
+                updateNodeOsHudView()
                 if (isWidgetDeckOpen && !isFinishing) refreshWidgetDeckContent()
             }
             onTaskFailed = {
                 glyphChoreographer.play("TASK_FAIL")
+                updateNodeOsHudView()
                 if (isWidgetDeckOpen && !isFinishing) refreshWidgetDeckContent()
             }
         }
@@ -413,6 +417,11 @@ class VoidLauncherActivity : AppCompatActivity() {
         thermalGuardian.onThrottleTriggered = { tempC, summary ->
             binding.liquidSurface.isThermalThrottled = true
             glyphChoreographer.play("THERMAL_WARNING")
+            // impl-06 step 2: sync the orchestrator's copy + workflow.json
+            // so a thermally-cancelled task is not left "running" there.
+            agentOrchestrator.markExternalCancellation(
+                thermalGuardian.lastTripCancelledTaskIds, "thermal"
+            )
             Toast.makeText(this, "⚠ $summary", Toast.LENGTH_LONG).show()
         }
         thermalGuardian.onThrottleCleared = { _ ->
@@ -1945,7 +1954,13 @@ class VoidLauncherActivity : AppCompatActivity() {
                     val tasks = agentOrchestrator.getAllTasks()
                     val sb = StringBuilder("=== Active Agent Tasks (${tasks.size}) ===\n\n")
                     for (t in tasks.take(10)) {
-                        sb.appendLine("[${t.status.uppercase()}] ${t.title} (id: ${t.id})")
+                        // impl-06 step 2: real output + exit code, when
+                        // the task produced any (tracked runs only).
+                        sb.appendLine("[${t.status.uppercase()}] ${t.title} (id: ${t.id}, exit: ${t.exitCode})" +
+                            if (t.cancelReason.isNotEmpty()) " [cancel: ${t.cancelReason}]" else "")
+                        if (t.outputPreview.isNotBlank()) {
+                            sb.appendLine("  ${t.outputPreview.take(500)}")
+                        }
                     }
                     showTerminalOutput(sb.toString().trimEnd())
                 }

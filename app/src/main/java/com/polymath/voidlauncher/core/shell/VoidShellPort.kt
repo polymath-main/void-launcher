@@ -43,6 +43,7 @@ class VoidShellPort(
         return object : RunningCommand {
             override fun cancel() = running.cancel()
             override fun awaitSuccess(): Boolean = running.awaitSuccess()
+            override fun awaitResult(): ShellResult = running.await()
         }
     }
 
