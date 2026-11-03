@@ -73,6 +73,8 @@ VoidLauncher implements a 4-tier configuration resolution engine:
 
 Every time `VoidLauncherActivity.onResume()` triggers, `ConfigManager.loadConfig()` checks the file timestamp/content. If changes are detected, it updates colors, redraws card surfaces, re-binds dock slots, adjusts drawer transparency, and refreshes the HUD in sub-millisecond time.
 
+Area 07 additions (config surface, final): full field schema in `docs/SCHEMA.md` (generated from `LauncherConfig.kt`, guarded by `SchemaDocTest`); Settings edits font sizes, shell timeout/output cap, agent task timeout, wallpaper fit + status, and the notifications count-line toggle (default OFF), plus per-group reset previews, a dirty-check so leaving Settings without SAVE discards Reset previews and never rewrites a clean form, and a generation stamp (store mtime + length) that warns instead of silently overwriting an externally changed store. Export writes the CURRENT config, never defaults; the Settings button is now honestly labelled SAVE TO STORE, and EXPORT FILE… / IMPORT FILE… are SAF picker operations driven by `ConfigSyncService` streams, with a share-carefully warning (a config file can reveal paths and package names) and restore from `config.json.bak`. Legacy-config auto-read is kept as a read-only migration path for the legacy config file only; new legacy reads (NodeOS card, bridge, SAF file import) stay gated behind `nodeOsLegacyImportEnabled` (area 07 step 4, plan G-06 decision). The CI "release" APK is debug-signed (`signingConfigs.debug`) and is labelled as such in the workflow; a real signed release needs Shuvo's keystore decision.
+
 ---
 
 ## 5. Right-Edge App Drawer & A-Z Scrubber
