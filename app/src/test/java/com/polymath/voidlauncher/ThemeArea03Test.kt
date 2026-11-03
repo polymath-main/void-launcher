@@ -114,5 +114,16 @@ class ThemeArea03Test {
         assertTrue(svc.contains("id = ThemeEngine.CUSTOM_ID"))
     }
 
-    // noElevation test is added in step 6, with the elevation removal itself.
+    @Test fun noElevationInMainLayout() {
+        val root = repoRoot() ?: return
+        val xml = File(root, "app/src/main/res/layout/activity_void_launcher.xml").readText()
+        assertFalse(xml.contains("android:elevation="))
+    }
+
+    @Test fun liquidUsesCoalescer() {
+        val root = repoRoot() ?: return
+        val src = File(root, "app/src/main/java/com/polymath/voidlauncher/ui/LiquidTouchSurfaceView.kt").readText()
+        assertTrue(src.contains("RippleCoalescer.shouldSpawn"))
+        assertTrue(src.contains("dpToPx"))
+    }
 }

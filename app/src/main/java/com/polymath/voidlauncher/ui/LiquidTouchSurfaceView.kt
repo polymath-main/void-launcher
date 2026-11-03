@@ -13,6 +13,7 @@ import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
 import android.view.animation.DecelerateInterpolator
+import com.polymath.voidlauncher.core.RippleCoalescer
 import com.polymath.voidlauncher.model.OverlayShaderType
 import kotlin.math.cos
 import kotlin.math.sin
@@ -115,8 +116,19 @@ class LiquidTouchSurfaceView @JvmOverloads constructor(
         val type: OverlayShaderType
     )
 
+    private var lastRippleTimeMs: Long? = null
+    private var lastRippleX: Float? = null
+    private var lastRippleY: Float? = null
+
     fun spawnLiquidWave(x: Float, y: Float) {
         if (!isLiquidEffectEnabled) return
+
+        // impl-03: coalesce rapid near-identical ACTION_DOWN events so
+        // fast tapping cannot queue unbounded ripples (80 ms / 24 px).
+        if (!RippleCoalescer.shouldSpawn(System.currentTimeMillis(), x, y, lastRippleTimeMs, lastRippleX, lastRippleY)) return
+        lastRippleTimeMs = System.currentTimeMillis()
+        lastRippleX = x
+        lastRippleY = y
 
         // Under thermal saturation, limit ripple stack depth
         if (isThermalThrottled && ripples.size >= 2) {

@@ -28,3 +28,38 @@ Controls the visual presentation layer: 6 built-in OLED/dark color palettes + cu
 - **Files Browser**: Tap any `.jpg`, `.jpeg`, `.png`, or `.webp` file → `🖼 Set as Wallpaper`.
 - **Omni-Bar**: `:wallpaper` (or `:wp`), `:wallpaper on`, `:wallpaper off`, `:wallpaper pick`, `:wallpaper set <path>`, `:wallpaper clear`.
 - **Identity Badge Long-Press**: `🖼 Wallpaper Studio`.
+
+## Impl-03 update (scheme theme, merged)
+- Built-in themes are now the 5 scheme presets in `core/BuiltInThemes.kt`
+  (OBSIDIAN_VOID, PHOSPHOR_TERMINAL, STILLNESS_EINK, CYBER_TELEMETRY,
+  TACTICAL_BLUEPRINT); the old 6 inline presets are superseded.
+- Scrim (default 115 / SCRIM_45), custom wallpaper path, and fit
+  (CENTER_CROP / FIT_CENTER) live in `LauncherConfig` and round-trip
+  through export/import/reset. A one-time migration copies them from
+  `SharedPreferences "void_wallpaper_prefs"` on first load, then clears
+  those prefs keys (copy-first: config is written before prefs are cleared).
+- Custom wallpapers are owned copies: `setWallpaperFromFile` copies the
+  source into Void home as `custom_wallpaper.jpg`; the stored path is the
+  copy, so deleting the source no longer drops the wallpaper. Relative
+  `:wallpaper set` paths resolve against the Void files home, not the
+  process working directory.
+- STILL follows the preset at runtime: `applyConfig` sets clock/date/status
+  colours from `config.colors` and favorites are built from `config.colors`.
+  XML `still_*` colours are only pre-applyConfig defaults.
+- Type scale decision (recorded, not silently changed): COCKPIT sizes stay
+  at the config floats 11 / 12.5 / 12.5, applied in the single
+  `applyTypography()` (+ dock size in `rebuildDockSlots()`). The spec
+  12/14/16/20 scale is NOT adopted unilaterally; it needs a product
+  decision, and a Settings UI for font sizes is area 07 follow-up.
+- Card radius: each scheme preset carries its own `cornerRadiusDp`
+  (14/4/2/10/0); `ThemeEngine.applyTheme` sets `cockpitCardRadiusDp` from
+  the theme. Spec radius 12 is superseded by scheme presets.
+- Elevations removed from the drawer and command centre per the spec's
+  "no shadows" rule; both surfaces are opaque, so separation is by colour.
+- `:wallpaper status` reports mode, custom image, scrim %, and fit. The
+  Studio dialog gained a preview dialog and a fit picker; the token
+  customizer now covers all 7 schema colour tokens, and any token edit
+  marks the theme id `custom`.
+- VoidSim parsers (`voidsim.py`, `build_ui_v2.py`) read
+  `BuiltInThemes.ALL` (5 presets); the old `ThemeEngine` inline-preset
+  parser is retired (it parsed only 1 preset after the merge).
