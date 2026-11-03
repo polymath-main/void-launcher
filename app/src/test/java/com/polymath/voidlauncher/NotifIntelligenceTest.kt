@@ -22,8 +22,8 @@ class NotifIntelligenceTest {
             ),
             NotificationItem(
                 key = "2",
-                packageName = "com.termux",
-                appName = "Termux",
+                packageName = "com.example.agent",
+                appName = "Agent",
                 title = "Agent Loop Finished",
                 text = "task build completed successfully"
             ),
@@ -36,7 +36,7 @@ class NotifIntelligenceTest {
             )
         )
 
-        val whitelist = listOf("com.termux")
+        val whitelist = listOf("com.example.agent")
         val blacklist = listOf("com.spam.ads")
         val priorityKeywords = listOf("completed", "error", "failed", "agent")
 
@@ -51,8 +51,8 @@ class NotifIntelligenceTest {
 
         // Spam is blacklisted
         assertEquals(2, result.size)
-        // Termux with keywords has highest score and must be first
-        assertEquals("com.termux", result[0].packageName)
+        // Whitelisted agent app with keywords has highest score and must be first
+        assertEquals("com.example.agent", result[0].packageName)
         assertTrue(result[0].title.contains("Agent"))
     }
 }

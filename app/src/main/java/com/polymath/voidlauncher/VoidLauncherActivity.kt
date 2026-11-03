@@ -73,6 +73,9 @@ import com.polymath.voidlauncher.core.VoidGestureDetector
 import com.polymath.voidlauncher.core.VoidNotificationListenerService
 import com.polymath.voidlauncher.core.VoidTermPanel
 import com.polymath.voidlauncher.core.WidgetRegistry
+import com.polymath.voidlauncher.core.AstProvenance
+import com.polymath.voidlauncher.core.formatAstLine
+import com.polymath.voidlauncher.core.voidTaskLabel
 import com.polymath.voidlauncher.core.services.AppActionsMicroService
 import com.polymath.voidlauncher.core.services.CommandHelpMicroService
 import com.polymath.voidlauncher.core.services.DockSlotMicroService
@@ -1712,7 +1715,8 @@ class VoidLauncherActivity : AppCompatActivity() {
             )
             binding.tvAstCount.text = "TASKS: ${voidProcessManager.getAll().size}"
             binding.tvWorkspace.text = "CWD: Void home"
-            binding.tvGitBranch.text = "git: ${if (latest != null) "running" else "idle"}"
+            // impl-06 step 1: this is task state, never a git branch.
+            binding.tvGitBranch.text = voidTaskLabel(latest != null)
             binding.tvActiveIntent.text =
                 if (latest != null) "[RUNNING] ${latest.title}" else "[IDLE] Void daemon ready"
             return
@@ -1723,9 +1727,17 @@ class VoidLauncherActivity : AppCompatActivity() {
             if (status.isDaemonAlive) config.colors.secondaryInt else config.colors.criticalInt
         )
 
-        binding.tvAstCount.text = "AST: ${status.astNodeCount}"
+        // impl-06 step 1: AST provenance is shown, and the git line is
+        // "—" — IntentStatus.gitBranch was a hardcoded "main", never a
+        // branch read from any repo, so it is no longer displayed.
+        val provenance = when (status.astProvenance) {
+            "exact" -> AstProvenance.EXACT
+            "estimate" -> AstProvenance.ESTIMATE
+            else -> AstProvenance.NONE
+        }
+        binding.tvAstCount.text = formatAstLine(status.astNodeCount, provenance)
         binding.tvWorkspace.text = "CWD: ${status.workspacePath}"
-        binding.tvGitBranch.text = "git: ${status.gitBranch}"
+        binding.tvGitBranch.text = "git: —"
 
         binding.tvActiveIntent.text = "[${status.taskStatus.uppercase()}] ${status.activeTaskTitle}"
     }

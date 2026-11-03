@@ -58,50 +58,64 @@ class NodeOsBridge(private val context: Context) {
                 activeTaskTitle = "NodeOS import not enabled (opt-in)",
                 taskStatus = "idle",
                 workspacePath = "Void home",
-                gitBranch = "main",
                 astNodeCount = 0,
                 isDaemonAlive = false,
-                identityMode = getIdentityMode()
+                identityMode = getIdentityMode(),
+                astProvenance = "none",
+                workflowPresent = false
             )
         }
 
-        var activeTask = "Sovereign Cockpit Ready"
-        var taskStatus = "idle"
-        val gitBranch = "main"
-        var astNodes = cachedAstNodes
-        var daemonAlive = cachedAstAlive
-
+        // impl-06 step 1: the pure seam decides title / AST provenance;
+        // this bridge only feeds it parsed facts. A missing workflow
+        // file is "No workflow file", never the Sovereign fallback, and
+        // an AST estimate is labelled as an estimate, never a count.
+        var workflowExists = false
+        var activeTask: String? = null
+        var taskStatus: String? = null
         try {
             val workflowFile = File(workflowPath)
             if (workflowPath.isNotBlank() && workflowFile.exists() && workflowFile.canRead()) {
+                workflowExists = true
                 val json = JSONObject(workflowFile.readText())
-                activeTask = json.optString("active_task", "Sovereign Cockpit Ready")
-                taskStatus = json.optString("status", "idle")
+                activeTask = json.optString("active_task", "").ifBlank { null }
+                taskStatus = json.optString("status", "").ifBlank { null }
             }
         } catch (_: Exception) {}
 
+        var dbExists = false
+        var dbSizeKb = 0L
+        var daemonAlive = cachedAstAlive
         try {
             val dbFile = File(nodeosDbPath)
             if (nodeosDbPath.isNotBlank() && dbFile.exists()) {
+                dbExists = true
+                dbSizeKb = dbFile.length() / 1024
                 daemonAlive = true
                 scheduleAstRefreshIfStale()
-                if (cachedAstNodes > 0) {
-                    astNodes = cachedAstNodes
-                } else {
-                    val sizeKb = dbFile.length() / 1024
-                    astNodes = if (sizeKb > 0) (sizeKb / 3).toInt().coerceAtLeast(1) else 0
-                }
             }
         } catch (_: Exception) {}
 
+        val resolved = resolveLegacyStatus(
+            LegacyStatusInput(
+                workflowExists = workflowExists,
+                activeTask = activeTask,
+                taskStatus = taskStatus,
+                dbExists = dbExists,
+                cachedNodes = cachedAstNodes,
+                dbSizeKb = dbSizeKb
+            )
+        )
+
         return IntentStatus(
-            activeTaskTitle = activeTask,
-            taskStatus = taskStatus,
+            activeTaskTitle = resolved.title,
+            taskStatus = resolved.taskStatus,
             workspacePath = "~/Projects",
-            gitBranch = gitBranch,
-            astNodeCount = astNodes,
+            astNodeCount = resolved.astCount,
             isDaemonAlive = daemonAlive,
-            identityMode = getIdentityMode()
+            identityMode = getIdentityMode(),
+            astProvenance = resolved.provenance.name.lowercase(),
+            workflowPresent = resolved.workflowPresent
         )
     }
 
