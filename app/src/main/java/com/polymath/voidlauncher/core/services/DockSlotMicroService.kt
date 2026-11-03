@@ -113,7 +113,6 @@ class DockSlotMicroService(private val activity: Activity) {
             "✏️ Rename Slot Label…" to 2,
             "🔄 Reset Slot to Default" to 3
         )
-        )
         if (current != null) options.add("↔️ Move to Slot…" to 4)
         if (current?.action == "run_void_command") options.add("⌨️ Edit Command…" to 5)
         MaterialAlertDialogBuilder(activity)

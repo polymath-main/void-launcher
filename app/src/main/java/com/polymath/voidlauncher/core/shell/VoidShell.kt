@@ -52,10 +52,11 @@ fun interface ProcessRunner {
 
 /**
  * A started OS process with its stream drainers, owned by
- * [DefaultProcessRunner.start]. [destroy] kills the process AND its
- * descendants (children of `sh -c` would otherwise survive a plain
- * destroy() and keep running) — descendants of this process only,
- * never a name/pattern match, so unrelated processes are untouched.
+ * [DefaultProcessRunner.start]. [destroy] kills the process itself
+ * (plain destroy(), then destroyForcibly() after a 500 ms grace).
+ * Children of `sh -c` are NOT tree-killed: Android's java.lang.Process
+ * has no descendants() API, so they may outlive destroy(). No
+ * name/pattern kill is ever used, so unrelated processes are untouched.
  * [await] waits up to the runner timeout and returns the final result.
  */
 class StartedProcess internal constructor(
@@ -65,29 +66,14 @@ class StartedProcess internal constructor(
     private val timeoutSeconds: Long
 ) {
     fun destroy() {
-        try {
-            val descendants = process.descendants()
-            try {
-                descendants.forEach { handle ->
-                    try { handle.destroy() } catch (_: Exception) { }
-                }
-            } finally {
-                descendants.close()
-            }
-        } catch (_: Exception) { }
+        // NOTE: Android's java.lang.Process has no descendants()/pid()
+        // API (Java 9 only), so no tree-kill is possible here. destroy()
+        // kills the shell process itself; children of `sh -c` may
+        // outlive it, as they did before area 01. Never kill by
+        // name/pattern — unrelated processes must stay untouched.
         try { process.destroy() } catch (_: Exception) { }
         try {
             if (!process.waitFor(500, TimeUnit.MILLISECONDS)) {
-                try {
-                    val descendants = process.descendants()
-                    try {
-                        descendants.forEach { handle ->
-                            try { handle.destroyForcibly() } catch (_: Exception) { }
-                        }
-                    } finally {
-                        descendants.close()
-                    }
-                } catch (_: Exception) { }
                 process.destroyForcibly()
             }
         } catch (_: Exception) { }

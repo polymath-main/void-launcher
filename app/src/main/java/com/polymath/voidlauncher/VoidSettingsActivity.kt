@@ -47,20 +47,6 @@ class VoidSettingsActivity : AppCompatActivity() {
     // Settings loaded it (mtime + length, no schema change).
     private var loadedStoreSnapshot: com.polymath.voidlauncher.core.ConfigSnapshot? = null
 
-    private fun storeFile(): java.io.File {
-        val external = java.io.File(VoidPaths.CONFIG)
-        return if (external.isFile) external else java.io.File(filesDir, "config.json")
-    }
-
-    private fun storeChangedExternally(): Boolean =
-        ConfigGeneration.changed(loadedStoreSnapshot, storeFile())
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        binding = ActivityVoidSettingsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        configManager = ConfigManager(this)
         // Area 07 step 4: SAF pickers. CreateDocument/OpenDocument
     // are the missing UI from plan gap G-04; the stream work is
     // ConfigSyncService's existing importConfig/exportConfig.
@@ -103,6 +89,21 @@ class VoidSettingsActivity : AppCompatActivity() {
         }
     }
 
+
+    private fun storeFile(): java.io.File {
+        val external = java.io.File(VoidPaths.CONFIG)
+        return if (external.isFile) external else java.io.File(filesDir, "config.json")
+    }
+
+    private fun storeChangedExternally(): Boolean =
+        ConfigGeneration.changed(loadedStoreSnapshot, storeFile())
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityVoidSettingsBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        configManager = ConfigManager(this)
     // Area 07 step 4: SAF import/export/restore are driven
         // through the existing stream primitives. The observer is
         // NOT registered here — the main Activity owns the

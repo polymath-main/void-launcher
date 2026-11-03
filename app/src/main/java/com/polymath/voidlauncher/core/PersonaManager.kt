@@ -80,7 +80,7 @@ class PersonaManager(private val context: Context) {
     // accidental registration order (builtins -> external -> config).
     private val builtinProfiles = mutableListOf<PersonaProfile>()
     private val configProfiles = mutableListOf<PersonaProfile>()
-    private val externalProfiles = mutableListOf<PersonaProfile>()()
+    private val externalProfiles = mutableListOf<PersonaProfile>()
 
     init {
         registerProfile(DEFAULT_VOID)

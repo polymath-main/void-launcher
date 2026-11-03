@@ -105,7 +105,7 @@ class AgentOrchestrator(
         // exitCode are REAL (taskOutcomeFromShellResult); only the
         // no-result fallback keeps synthesised 0/1, as before.
         io.execute {
-            val outcome: TaskOutcome? = try {
+            val outcome: TaskOutcome = try {
                 val tracked = shellPort.dispatchTracked(command, inBackground = true)
                 if (tracked != null) {
                     processManager.attachHandle(voidTask.id) { tracked.cancel() }

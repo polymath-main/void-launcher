@@ -1114,7 +1114,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                         // commands. First tap per (widget, action) asks;
                         // plain app launches run straight through.
                         if (widgetRegistry.needsActionApproval(w)) {
-                            MaterialAlertDialogBuilder(this)
+                            MaterialAlertDialogBuilder(context)
                                 .setTitle("Run widget action?")
                                 .setMessage("Widget \"${w.title}\" wants to run:\n${w.actionOnClick}\n\nThis action runs with the same trust as typing it yourself.")
                                 .setPositiveButton("Run") { _, _ ->
