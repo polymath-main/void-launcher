@@ -19,6 +19,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.polymath.voidlauncher.core.BuiltInThemes
 import com.polymath.voidlauncher.core.ConfigManager
 import com.polymath.voidlauncher.core.ThemeEngine
+import com.polymath.voidlauncher.core.WallpaperState
+import com.polymath.voidlauncher.core.shell.VoidRoots
 import com.polymath.voidlauncher.model.DockStyle
 import com.polymath.voidlauncher.model.LauncherConfig
 import com.polymath.voidlauncher.model.OverlayShaderType
@@ -53,6 +55,20 @@ class WallpaperMicroService(private val context: Context) {
         set(value) {
             legacyPrefs.edit().putInt("dim_scrim_alpha", value.coerceIn(0, 220)).apply()
         }
+
+    /** Absolute path of the owned copy written by the last successful set,
+     * or null if no set has happened in this process. Config wiring (step 4)
+     * copies this into LauncherConfig.customWallpaperPath. */
+    var lastOwnedCopyPath: String? = null
+        private set
+
+    /** Resolves a wallpaper path argument: absolute paths as given,
+     * relative paths against the Void files home (filesDir/void) —
+     * never against the process working directory. */
+    fun resolveWallpaperArg(path: String): File {
+        val f = File(path)
+        return if (f.isAbsolute) f else File(VoidRoots.filesHome(context.filesDir), path)
+    }
 
     /**
      * Applies wallpaper state to both the Activity Window (DecorView) and root view.
@@ -102,11 +118,23 @@ class WallpaperMicroService(private val context: Context) {
         imagePath: String,
         alsoSetSystemWallpaper: Boolean = true
     ): Boolean {
-        val file = File(imagePath)
+        // impl-03 step 3: own the image. The source is copied into Void
+        // home (custom_wallpaper.jpg) at set time; the stored path is the
+        // COPY, so deleting/moving the source can no longer silently drop
+        // the wallpaper. Bounds decode validates the file first.
+        val file = resolveWallpaperArg(imagePath)
         if (!file.exists() || !file.canRead()) return false
         return try {
             val bitmap = decodeSampledBitmap(file, 1440, 3200) ?: return false
-            customImagePath = file.absolutePath
+            val tmp = File(VoidPaths.HOME, "${WallpaperState.OWNED_COPY_NAME}.tmp")
+            file.copyTo(tmp, overwrite = true)
+            val owned = customWallpaperFile
+            if (!tmp.renameTo(owned)) {
+                file.copyTo(owned, overwrite = true)
+                try { tmp.delete() } catch (_: Exception) {}
+            }
+            lastOwnedCopyPath = owned.absolutePath
+            customImagePath = owned.absolutePath
             if (alsoSetSystemWallpaper) {
                 try {
                     WallpaperManager.getInstance(context).setBitmap(bitmap)
@@ -122,6 +150,7 @@ class WallpaperMicroService(private val context: Context) {
     }
 
     fun clearCustomWallpaper() {
+        lastOwnedCopyPath = null
         customImagePath = ""
         if (customWallpaperFile.exists()) {
             try { customWallpaperFile.delete() } catch (_: Exception) {}
@@ -439,15 +468,21 @@ class WallpaperMicroService(private val context: Context) {
             lower.endsWith(".png") || lower.endsWith(".webp")
     }
 
-    private fun resolveActiveCustomImage(): File? {
-        if (customImagePath.isNotBlank()) {
-            val f = File(customImagePath)
-            if (f.exists() && f.canRead()) return f
-        }
-        if (customWallpaperFile.exists() && customWallpaperFile.canRead()) {
-            return customWallpaperFile
-        }
-        return null
+    /** Resolution order (WallpaperState): config path, owned copy,
+     * legacy prefs path (one migration cycle). Config path is passed in
+     * by step 4; until then callers pass null and the owned copy wins. */
+    fun resolveActiveCustomImage(configPath: String? = null): File? {
+        val configFile = if (!configPath.isNullOrBlank()) File(configPath) else null
+        val resolved = WallpaperState.resolveCustomImageExists(
+            configPath = configPath,
+            configExists = configFile?.exists() == true && configFile.canRead(),
+            ownedCopyExists = customWallpaperFile.exists() && customWallpaperFile.canRead(),
+            ownedCopyPath = customWallpaperFile.absolutePath,
+            legacyPath = customImagePath,
+            legacyExists = customImagePath.isNotBlank() &&
+                File(customImagePath).exists() && File(customImagePath).canRead()
+        )
+        return resolved?.let { File(it) }
     }
 
     private fun loadScrimmedWallpaperDrawable(file: File): LayerDrawable? {
