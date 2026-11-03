@@ -6,6 +6,8 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.polymath.voidlauncher.core.DockSlotData
+import com.polymath.voidlauncher.core.DockSlotOps
 import com.polymath.voidlauncher.model.AppEntry
 import com.polymath.voidlauncher.model.DockSlot
 import com.polymath.voidlauncher.model.LauncherConfig
@@ -62,16 +64,21 @@ class DockSlotMicroService(private val activity: Activity) {
     ) {
         val current = config.dockSlots.firstOrNull { it.index == slotIndex }
         val currentSummary = current?.let { "${it.label} (${it.action})" } ?: "Empty"
-        val options = arrayOf(
-            "📱 Assign Installed App…",
-            "⚡ Assign Quick Action…",
-            "✏️ Rename Slot Label…",
-            "🔄 Reset Slot to Default"
+        // impl-02 step 7: (label, code) pairs — Move and Edit-command
+        // appear only when they make sense, without shifting the
+        // indices of the base options.
+        val options = mutableListOf(
+            "📱 Assign Installed App…" to 0,
+            "⚡ Assign Quick Action…" to 1,
+            "✏️ Rename Slot Label…" to 2,
+            "🔄 Reset Slot to Default" to 3
         )
+        if (current != null) options.add("↔️ Move to Slot…" to 4)
+        if (current?.action == "run_void_command") options.add("⌨️ Edit Command…" to 5)
         MaterialAlertDialogBuilder(activity)
             .setTitle("Customize Dock Slot [$slotIndex] — $currentSummary")
-            .setItems(options) { _, which ->
-                when (which) {
+            .setItems(options.map { it.first }.toTypedArray()) { _, which ->
+                when (options[which].second) {
                     0 -> showAssignAppToSlotDialog(slotIndex, config, appsProvider, onCommit)
                     1 -> showAssignActionToSlotDialog(slotIndex, config, appsProvider, onCommit)
                     2 -> showRenameSlotDialog(slotIndex, config, onCommit)
@@ -86,9 +93,83 @@ class DockSlotMicroService(private val activity: Activity) {
                             Toast.makeText(activity, "Slot [$slotIndex] cleared", Toast.LENGTH_SHORT).show()
                         }
                     }
+                    4 -> showMoveSlotDialog(slotIndex, config, onCommit)
+                    5 -> showCommandSlotDialog(slotIndex, config, onCommit, existing = current)
                 }
             }
             .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    // impl-02 step 7: move/swap via the slot picker UI (no drag in v1).
+    // An empty target moves the slot; an occupied target swaps the two.
+    // The commit goes through the caller's onCommit, so home rebuilds
+    // router + dock + favourites + keypad together, as always.
+    fun showMoveSlotDialog(
+        slotIndex: Int,
+        config: LauncherConfig,
+        onCommit: (LauncherConfig) -> Unit
+    ) {
+        val targets = (1..7).filter { it != slotIndex }
+        val labels = targets.map { idx ->
+            val occupant = config.dockSlots.firstOrNull { it.index == idx }
+            "Slot $idx — ${occupant?.label ?: "Empty"}"
+        }.toTypedArray()
+        MaterialAlertDialogBuilder(activity)
+            .setTitle("Move Slot [$slotIndex] to…")
+            .setItems(labels) { _, which ->
+                val target = targets[which]
+                val occupied = config.dockSlots.any { it.index == target }
+                val data = config.dockSlots.map {
+                    DockSlotData(it.index, it.label, it.subtitle, it.packageName, it.action)
+                }
+                val moved = DockSlotOps.moveOrSwap(data, slotIndex, target)
+                val newSlots = moved.map {
+                    DockSlot(it.index, it.label, it.subtitle, it.packageName, it.action)
+                }
+                onCommit(config.copy(dockSlots = newSlots))
+                val verb = if (occupied) "swapped with" else "moved to"
+                Toast.makeText(activity, "Slot [$slotIndex] $verb slot [$target]", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Back") { _, _ ->
+                showEditDockSlotDialog(slotIndex, config, { emptyList() }, onCommit)
+            }
+            .show()
+    }
+
+    // impl-02 step 7: create/edit a run_void_command slot. The command
+    // is stored in packageName, exactly as BareIntegerRouter reads it;
+    // a blank command is refused (never committed), like an empty rename.
+    fun showCommandSlotDialog(
+        slotIndex: Int,
+        config: LauncherConfig,
+        onCommit: (LauncherConfig) -> Unit,
+        existing: DockSlot? = null
+    ) {
+        val input = EditText(activity).apply {
+            setText(existing?.packageName.orEmpty())
+            setSelection(text.length)
+            hint = "VoidShell command (e.g. ls ~/Projects)"
+        }
+        AlertDialog.Builder(activity)
+            .setTitle(if (existing == null) "Run Command in Slot [$slotIndex]" else "Edit Command in Slot [$slotIndex]")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val commandSlot = DockSlotOps.makeCommandSlot(slotIndex, input.text.toString())
+                if (commandSlot == null) {
+                    Toast.makeText(activity, "Command cannot be empty", Toast.LENGTH_SHORT).show()
+                } else {
+                    val slot = DockSlot(
+                        commandSlot.index, commandSlot.label, commandSlot.subtitle,
+                        commandSlot.packageName, commandSlot.action
+                    )
+                    onCommit(upsertSlot(config, slot))
+                    Toast.makeText(activity, "Command slot [$slotIndex] saved", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Back") { _, _ ->
+                showEditDockSlotDialog(slotIndex, config, { emptyList() }, onCommit)
+            }
             .show()
     }
 
@@ -161,10 +242,18 @@ class DockSlotMicroService(private val activity: Activity) {
         appsProvider: () -> List<AppEntry>,
         onCommit: (LauncherConfig) -> Unit
     ) {
-        val labels = builtInActions.map { "${it.first} — ${it.second}" }.toTypedArray()
+        // impl-02 step 7: the 7th item is not a built-in action — it
+        // opens the command-text dialog (run_void_command slots cannot
+        // be created from a fixed action list, they need typed input).
+        val labels = (builtInActions.map { "${it.first} — ${it.second}" } +
+            "⚡ Run Void Command… — Shell command in this slot").toTypedArray()
         MaterialAlertDialogBuilder(activity)
             .setTitle("Assign Action to Slot [$slotIndex]")
             .setItems(labels) { _, which ->
+                if (which >= builtInActions.size) {
+                    showCommandSlotDialog(slotIndex, config, onCommit)
+                    return@setItems
+                }
                 val chosen = builtInActions[which]
                 val newSlot = DockSlot(
                     index = slotIndex,
