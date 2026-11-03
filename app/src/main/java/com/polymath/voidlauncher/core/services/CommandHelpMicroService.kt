@@ -46,18 +46,13 @@ class CommandHelpMicroService(
         }?.commandText?.trim()
     }
 
-    fun formatQuickGuide(): String {
-        return "=== VOID LAUNCHER QUICK GUIDE ===\n\n" +
-            "• APPS       Type app name to search, or tap ‹ on right edge for App Drawer\n" +
-            "• DOCK       Tap [1]..[5] to open slot; LONG-PRESS any slot to customize\n" +
-            "• PERSONA    Tap [VOID] badge to cycle; LONG-PRESS to pick mode/persona\n" +
-            "• WALLPAPER  :wallpaper (Studio) | :wallpaper on | :wallpaper off | :wallpaper pick\n" +
-            "• MODES      :still | :cockpit | :minimal | :files\n" +
-            "• THEMES     :themes | :theme list | :theme apply <id> | :theme save <name> | :theme export | :theme import <uri|path>\n" +
-            "• DECK & CC  :deck (Widgets) | :cmd (Command Center) | :settings\n" +
-            "• TOOLS      :eval <math> | :tasks | :task <name> <cmd> | :power | :hud\n" +
-            "• SNIPPETS   :snippet <alias> <cmd> | :snippets | <cmd> ## <alias>"
-    }
+    /**
+     * impl-04 step 0: generated from the CommandGuide table, not a
+     * hard-coded string — the old text said dock 1–5 (dock is 1–7)
+     * and omitted commands. Adding a command means adding a row to
+     * CommandGuide, not hand-editing this string again.
+     */
+    fun formatQuickGuide(): String = com.polymath.voidlauncher.core.CommandGuide.formatQuickGuide()
 
     /**
      * Handles `:wallpaper` and `:wp` commands.
