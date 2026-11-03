@@ -61,6 +61,8 @@ class GlyphChoreographer(private val context: Context) {
     }
 
     private val patternRegistry = mutableMapOf<String, GlyphPattern>()
+    private val playbackPolicy = GlyphPlaybackPolicy()
+    private val pendingCallbacks = mutableListOf<Runnable>()
 
     init {
         detectHardware()
@@ -68,13 +70,17 @@ class GlyphChoreographer(private val context: Context) {
     }
 
     private fun detectHardware() {
-        val model = Build.MODEL
-        val manufacturer = Build.MANUFACTURER
-        isNothingPhone = manufacturer.equals("Nothing", ignoreCase = true) || model.contains("A142", ignoreCase = true)
-        Log.d(TAG, "Hardware status: isNothingPhone=$isNothingPhone (model=$model)")
+        // impl-05 step 5: detection lives in NothingHardware now (was
+        // duplicated in NothingGlyphManager). This answers "Nothing phone",
+        // not "GDK present" — see NothingHardware docs.
+        isNothingPhone = NothingHardware.isNothingPhone()
+        Log.d(TAG, "Hardware status: isNothingPhone=$isNothingPhone (model=${Build.MODEL})")
     }
 
     private fun registerBuiltInPatterns() {
+        for (name in listOf("THERMAL_WARNING", "TASK_SUCCESS", "TASK_FAIL", "FOCUS_MODE_ON", "AGENT_RUNNING")) {
+            playbackPolicy.register(name)
+        }
         patternRegistry["THERMAL_WARNING"] = PATTERN_THERMAL
         patternRegistry["TASK_SUCCESS"] = PATTERN_SUCCESS
         patternRegistry["TASK_FAIL"] = PATTERN_FAIL
@@ -98,6 +104,7 @@ class GlyphChoreographer(private val context: Context) {
                 } else {
                     channels.add(1)
                 }
+                playbackPolicy.register(name)
                 patternRegistry[name.uppercase()] = GlyphPattern(
                     name = name,
                     channels = channels,
@@ -115,9 +122,35 @@ class GlyphChoreographer(private val context: Context) {
     /**
      * Plays the named pattern on Nothing Glyph LEDs (or falls back to haptics).
      */
+    /**
+     * impl-05 step 5: unknown pattern names are a logged no-op — the old
+     * silent fallback to TASK_SUCCESS meant a caller typo produced a
+     * success signal. Duplicate plays while a pattern is already playing
+     * are dropped (no interleaved on/off schedules). Use stop() to cancel
+     * a playing pattern; note the policy tracks the decision, and the
+     * Handler callbacks are tracked in pendingCallbacks for stop().
+     */
     fun play(patternName: String) {
-        val pattern = patternRegistry[patternName.uppercase()] ?: PATTERN_SUCCESS
+        when (playbackPolicy.request(patternName)) {
+            PlayDecision.IGNORE_UNKNOWN -> {
+                Log.w(TAG, "Unknown glyph pattern '$patternName' — ignoring (never falls back to TASK_SUCCESS)")
+                return
+            }
+            PlayDecision.DROP_DUPLICATE -> {
+                Log.d(TAG, "Glyph pattern '$patternName' already playing — dropping duplicate")
+                return
+            }
+            PlayDecision.PLAY -> { /* fall through */ }
+        }
+        val pattern = patternRegistry[patternName.uppercase()] ?: return
         playPattern(pattern)
+    }
+
+    /** Cancels any pending GDK on/off callbacks and clears playback state. */
+    fun stop() {
+        for (cb in pendingCallbacks) handler.removeCallbacks(cb)
+        pendingCallbacks.clear()
+        playbackPolicy.stop()
     }
 
     fun playPattern(pattern: GlyphPattern) {
@@ -167,13 +200,18 @@ class GlyphChoreographer(private val context: Context) {
 
             for (c in 0 until cycles) {
                 val startAt = c * period * 2
-                handler.postDelayed({ invokeQuietly(turnOn, instance, codes) }, startAt)
-                handler.postDelayed({
+                val onCb = Runnable { invokeQuietly(turnOn, instance, codes) }
+                val offCb = Runnable {
                     invokeQuietly(turnOff, instance, codes)
                     if (c == cycles - 1) {
                         if (closeSession != null) invokeQuietly(closeSession, instance, emptyList())
                     }
-                }, startAt + period)
+                    playbackPolicy.finish(pattern.name)
+                }
+                pendingCallbacks.add(onCb)
+                pendingCallbacks.add(offCb)
+                handler.postDelayed(onCb, startAt)
+                handler.postDelayed(offCb, startAt + period)
             }
 
             isGdkActive = true
@@ -247,16 +285,13 @@ class GlyphChoreographer(private val context: Context) {
 
     private fun fallbackHapticPulse(pattern: GlyphPattern) {
         if (vibrator == null || !vibrator!!.hasVibrator()) return
-
-        val timings = when (pattern.curve) {
-            "STROBE" -> longArrayOf(0, 80, 80, 80, 80, 80)
-            "PULSE"  -> longArrayOf(0, 150, 100, 150)
-            else     -> longArrayOf(0, 120, 150, 120)
-        }
-
+        // impl-05 step 5: cycles + brightness now honoured on the haptic
+        // path (previously one fixed waveform per curve). Period remains a
+        // GDK-path parameter — see GlyphHapticWaveform docs.
+        val (timings, amplitudes) = GlyphHapticWaveform.build(pattern)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator?.vibrate(VibrationEffect.createWaveform(timings, -1))
+                vibrator?.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
             } else {
                 @Suppress("DEPRECATION")
                 vibrator?.vibrate(timings, -1)

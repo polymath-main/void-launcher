@@ -12,7 +12,6 @@ import android.util.Log
 class NothingGlyphManager(private val context: Context) {
 
     private var isNothingPhone = false
-    private var isGlyphSupported = false
 
     /** Choreographer wired in by the launcher; without it, pulses are logged only. */
     var choreographer: GlyphChoreographer? = null
@@ -22,10 +21,10 @@ class NothingGlyphManager(private val context: Context) {
     }
 
     private fun detectHardware() {
-        val model = android.os.Build.MODEL
-        val manufacturer = android.os.Build.MANUFACTURER
-        isNothingPhone = manufacturer.equals("Nothing", ignoreCase = true) || model.contains("A142", ignoreCase = true)
-        Log.d(TAG, "Hardware detection: isNothingPhone=$isNothingPhone (model=$model)")
+        // impl-05 step 5: single detection owner (NothingHardware); the
+        // dead supported-flag field deleted (never assigned/read).
+        isNothingPhone = NothingHardware.isNothingPhone()
+        Log.d(TAG, "Hardware detection: isNothingPhone=$isNothingPhone (model=${android.os.Build.MODEL})")
     }
 
     /**
