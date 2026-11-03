@@ -215,6 +215,10 @@ data class LauncherConfig(
     // ── Macro Recorder (F-15) ────────────────────────────────
     val macrosEnabled: Boolean = true,
     val macrosDirectory: String = VoidPaths.MACROS,
+    /** impl-04 step 6: false = a macro with shell steps prompts
+     * before its first shell step runs (pre-scan prompt in the
+     * Activity :play path); true = play without prompting. */
+    val macroShellAutoAllow: Boolean = false,
 
     // ── Shell observability (impl-01 step 2) ──────────────────
     // Clamped at wiring time: 5–300 s, 1 KiB–256 KiB (VoidShell clamps).

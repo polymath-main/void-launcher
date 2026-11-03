@@ -1753,9 +1753,11 @@ class VoidLauncherActivity : AppCompatActivity() {
         val query = commandHelpService.extractInlineSnippet(rawInput)
         if (query.isEmpty()) return
 
-        // Record history & macro step (F-09, F-15)
+        // Record history & macro step (F-09, F-15). impl-04
+        // step 6: :stop is not recorded as a step (it used to be,
+        // so every saved macro ended with a nested :stop).
         recordCommandHistory(query)
-        if (macroRecorder.isRecording) {
+        if (macroRecorder.isRecording && query != ":stop") {
             macroRecorder.recordStep(query)
         }
 
@@ -1895,7 +1897,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                     showTerminalOutput("[MACRO GATE] Disabled (macros_enabled=false)")
                 } else {
                     val name = command.removePrefix("record ").trim()
-                    if (macroRecorder.startRecording(name)) {
+                    if (macroRecorder.startRecording(name, config.macrosDirectory)) {
                         showTerminalOutput("[MACRO RECORDING STARTED]: $name\nType :stop to finish")
                     } else {
                         showTerminalOutput("[MACRO ERROR]: cannot start recording '${name}': ${macroRecorder.lastError ?: "already recording"}")
@@ -1918,11 +1920,34 @@ class VoidLauncherActivity : AppCompatActivity() {
                     showTerminalOutput("[MACRO GATE] Disabled (macros_enabled=false)")
                 } else {
                     val name = command.removePrefix("play ").trim()
-                    val ok = macroRecorder.playMacro(name, config.macrosDirectory) { step -> handleOmniSubmit(step) }
-                    showTerminalOutput(
-                        if (ok) "[MACRO EXECUTED]: $name"
-                        else macroRecorder.lastError?.let { "[MACRO ERROR]: $it" } ?: "[ERROR]: Macro $name not found"
-                    )
+                    // impl-04 step 6 (plan gate: approval before a
+                    // macro runs shell): playback is synchronous, so
+                    // a mid-play dialog cannot pause it — instead the
+                    // steps are pre-scanned and, unless auto-allow is
+                    // on, the user approves before ANY step runs.
+                    // "Allow macro" plays everything; "Abort" plays
+                    // nothing. The classifier is pure and JVM-tested.
+                    val steps = macroRecorder.loadMacro(name, config.macrosDirectory)
+                    val shellSteps = com.polymath.voidlauncher.core.MacroStepClassifier.shellSteps(steps)
+                    if (steps.isEmpty()) {
+                        showTerminalOutput("[ERROR]: Macro $name not found")
+                    } else if (shellSteps.isNotEmpty() && !config.macroShellAutoAllow) {
+                        androidx.appcompat.app.AlertDialog.Builder(this)
+                            .setTitle("Macro wants to run shell")
+                            .setMessage("Macro '$name' contains ${shellSteps.size} shell step(s), first: ${shellSteps.first()}\n\nAllow the whole macro, or abort (nothing runs)?")
+                            .setPositiveButton("Allow macro") { _, _ ->
+                                val ok = macroRecorder.playMacro(name, config.macrosDirectory) { step -> handleOmniSubmit(step) }
+                                showTerminalOutput(if (ok) "[MACRO EXECUTED]: $name" else "[MACRO ERROR]: ${macroRecorder.lastError ?: "playback failed"}")
+                            }
+                            .setNegativeButton("Abort", null)
+                            .show()
+                    } else {
+                        val ok = macroRecorder.playMacro(name, config.macrosDirectory) { step -> handleOmniSubmit(step) }
+                        showTerminalOutput(
+                            if (ok) "[MACRO EXECUTED]: $name"
+                            else macroRecorder.lastError?.let { "[MACRO ERROR]: $it" } ?: "[ERROR]: Macro $name not found"
+                        )
+                    }
                 }
             }
             // F-09 History & Snippets

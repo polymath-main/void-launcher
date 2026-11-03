@@ -5,6 +5,7 @@ import com.polymath.voidlauncher.core.CommandGuide
 import com.polymath.voidlauncher.core.CommandPaletteMigration
 import com.polymath.voidlauncher.core.MacroName
 import com.polymath.voidlauncher.core.MacroRecorder
+import com.polymath.voidlauncher.core.MacroStepClassifier
 import com.polymath.voidlauncher.core.SearchPattern
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -84,6 +85,32 @@ class OmniSafetyTest {
         assertFalse(recorder.deleteMacro("../../x", dir.absolutePath))
         assertTrue(recorder.deleteMacro("alpha", dir.absolutePath))
         assertTrue(recorder.listMacros(dir.absolutePath).isEmpty())
+    }
+
+    @Test
+    fun macroStepCapAndPartialRecovery() {
+        val dir = createTempDir("macrocap")
+        val recorder = MacroRecorder(Context())
+        assertTrue(recorder.startRecording("big", dir.absolutePath))
+        repeat(500) { recorder.recordStep(":power") }
+        assertFalse(recorder.recordStep(":power"))
+        // A partial file exists mid-record and is recoverable.
+        assertEquals(500, recorder.loadPartial("big", dir.absolutePath).size)
+        val saved = recorder.stopRecording(dir.absolutePath)
+        assertTrue(saved != null)
+        // A successful save removes the partial.
+        assertTrue(recorder.loadPartial("big", dir.absolutePath).isEmpty())
+    }
+
+    @Test
+    fun macroStepClassifier() {
+        assertTrue(MacroStepClassifier.isShellStep(":run echo hi"))
+        assertTrue(MacroStepClassifier.isShellStep(":sh ls"))
+        assertTrue(MacroStepClassifier.isShellStep(":! pwd"))
+        assertTrue(MacroStepClassifier.isShellStep(":term ls"))
+        assertFalse(MacroStepClassifier.isShellStep(":power"))
+        assertFalse(MacroStepClassifier.isShellStep(":unknowncmd"))
+        assertFalse(MacroStepClassifier.isShellStep("chrome"))
     }
 
     @Test
