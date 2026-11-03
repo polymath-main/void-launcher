@@ -914,14 +914,34 @@ class VoidLauncherActivity : AppCompatActivity() {
     private fun handleCommandCenterChip(cmd: String) {
         haptic(binding.root)
         binding.etCommandCenterInput.setText(cmd)
-        handleCommandCenterSubmit(cmd)
+        // Chips submit programmatically: their submissions are NOT
+        // recorded into macros (recording a chip press would replay
+        // :still etc. into macros the user did not type — step 3).
+        handleCommandCenterSubmit(cmd, fromChip = true)
     }
 
     private fun handleCommandCenterTextChange(text: String) {
-        if (text.isEmpty() || text.startsWith(":")) {
+        if (text.startsWith(":")) {
+            // impl-04 step 3: same command suggestions as omni.
+            binding.rvCommandCenterApps.visibility = View.GONE
+            val typed = text.substring(1).trim().split(" ").firstOrNull().orEmpty()
+            val suggestions = if (typed.isEmpty()) {
+                com.polymath.voidlauncher.core.CommandGuide.ALL_NAMES.distinct().take(10)
+            } else {
+                com.polymath.voidlauncher.core.CommandGuide.suggest(typed, limit = 10)
+            }
+            if (suggestions.isNotEmpty()) {
+                binding.tvCommandCenterOutput.text = suggestions.joinToString("  ") { ":$it" }
+                binding.scrollCommandCenterOutput.visibility = View.VISIBLE
+            } else {
+                binding.scrollCommandCenterOutput.visibility = View.GONE
+            }
+            return
+        }
+        if (text.isEmpty()) {
             binding.rvCommandCenterApps.visibility = View.GONE
             // UI v2: output only when present — do not show an empty
-            // output pane for blank or ":" input.
+            // output pane for blank input.
             binding.scrollCommandCenterOutput.visibility =
                 if (binding.tvCommandCenterOutput.text.isNullOrEmpty()) View.GONE else View.VISIBLE
             return
@@ -937,10 +957,18 @@ class VoidLauncherActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleCommandCenterSubmit(query: String) {
-        val q = query.trim()
+    private fun handleCommandCenterSubmit(query: String, fromChip: Boolean = false) {
+        // impl-04 step 3: parity with omni — inline ## alias
+        // extraction (was missing) and macro recording for typed
+        // input only (chips excluded, see handleCommandCenterChip).
+        // :stop is excluded here already; step 6 applies the same
+        // exclusion to the omni path and adds persistence/caps.
+        val q = commandHelpService.extractInlineSnippet(query)
         if (q.isEmpty()) return
         recordCommandHistory(q)
+        if (macroRecorder.isRecording && !fromChip && q != ":stop") {
+            macroRecorder.recordStep(q)
+        }
         if (q.startsWith(":")) {
             handleCommandMode(q.substring(1).trim())
             binding.tvCommandCenterOutput.text = binding.tvTerminalOutput.text
@@ -1682,8 +1710,26 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     private fun handleOmniTextChange(text: String) {
         if (text.startsWith(":")) {
+            // impl-04 step 3: ":" input suggests commands instead of
+            // hiding results (plan: typing :th suggests :theme etc.).
+            // Tap-to-insert is NOT implemented: suggestions are shown
+            // as text in the terminal output area; typing the full
+            // command still works. The app-result adapter takes
+            // AppEntry items, not command strings, so a tap-insert
+            // would need an adapter change — recorded as a follow-up.
             binding.rvAppFilter.visibility = View.GONE
-            binding.tvTerminalOutput.visibility = View.GONE
+            val typed = text.substring(1).trim().split(" ").firstOrNull().orEmpty()
+            val suggestions = if (typed.isEmpty()) {
+                com.polymath.voidlauncher.core.CommandGuide.ALL_NAMES.distinct().take(10)
+            } else {
+                com.polymath.voidlauncher.core.CommandGuide.suggest(typed, limit = 10)
+            }
+            if (suggestions.isNotEmpty()) {
+                binding.tvTerminalOutput.text = suggestions.joinToString("  ") { ":$it" }
+                binding.tvTerminalOutput.visibility = View.VISIBLE
+            } else {
+                binding.tvTerminalOutput.visibility = View.GONE
+            }
             return
         }
 
@@ -1880,6 +1926,48 @@ class VoidLauncherActivity : AppCompatActivity() {
                 }
             }
             // F-09 History & Snippets
+            // impl-04 step 3: macro management.
+            command == "macros" -> {
+                if (!config.macrosEnabled) {
+                    showTerminalOutput("[MACRO GATE] Disabled (macros_enabled=false)")
+                } else {
+                    val names = macroRecorder.listMacros(config.macrosDirectory)
+                    if (names.isEmpty()) {
+                        showTerminalOutput("=== Macros ===\n\n(none recorded yet — :record <name>, then :stop)")
+                    } else {
+                        val sb = StringBuilder("=== Macros (${names.size}) ===\n\n")
+                        for (n in names) {
+                            val steps = macroRecorder.loadMacro(n, config.macrosDirectory).size
+                            sb.appendLine("• $n ($steps steps)")
+                        }
+                        sb.append("\n:play <name> to run · :macros delete <name> to remove")
+                        showTerminalOutput(sb.toString().trimEnd())
+                    }
+                }
+            }
+            command.startsWith("macros delete ") -> {
+                if (!config.macrosEnabled) {
+                    showTerminalOutput("[MACRO GATE] Disabled (macros_enabled=false)")
+                } else {
+                    val name = command.removePrefix("macros delete ").trim()
+                    val ok = macroRecorder.deleteMacro(name, config.macrosDirectory)
+                    showTerminalOutput(if (ok) "[MACRO DELETED]: $name" else "[MACRO ERROR]: cannot delete '$name' (not found or unsafe name)")
+                }
+            }
+            command.startsWith("history delete ") -> {
+                if (!config.commandHistoryEnabled) {
+                    showTerminalOutput("[HISTORY GATE] Disabled (command_history_enabled=false)")
+                } else {
+                    val id = command.removePrefix("history delete ").trim().toLongOrNull()
+                    val ok = id != null && commandPalette.delete(id)
+                    showTerminalOutput(if (ok) "[HISTORY DELETED]: $id" else "[HISTORY ERROR]: no history entry with that id")
+                }
+            }
+            command.startsWith("snippet delete ") -> {
+                val alias = command.removePrefix("snippet delete ").trim()
+                val ok = commandPalette.deleteSnippet(alias)
+                showTerminalOutput(if (ok) "[SNIPPET DELETED]: $alias" else "[SNIPPET ERROR]: no snippet named '$alias'")
+            }
             command == "history" || command == "hist" -> {
                 if (!config.commandHistoryEnabled) {
                     showTerminalOutput("[HISTORY GATE] Disabled (command_history_enabled=false)")

@@ -73,6 +73,19 @@ class OmniSafetyTest {
     }
 
     @Test
+    fun macroListAndDelete() {
+        val dir = createTempDir("macrolist")
+        val recorder = MacroRecorder(Context())
+        assertTrue(recorder.startRecording("alpha"))
+        recorder.recordStep(":power")
+        recorder.stopRecording(dir.absolutePath)
+        assertEquals(listOf("alpha"), recorder.listMacros(dir.absolutePath))
+        assertFalse(recorder.deleteMacro("../../x", dir.absolutePath))
+        assertTrue(recorder.deleteMacro("alpha", dir.absolutePath))
+        assertTrue(recorder.listMacros(dir.absolutePath).isEmpty())
+    }
+
+    @Test
     fun likePatternEscapesWildcards() {
         assertEquals("%100\\%%", SearchPattern.escapeLikePattern("100%"))
         assertEquals("%a\\_b%", SearchPattern.escapeLikePattern("a_b"))
