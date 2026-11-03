@@ -87,15 +87,16 @@ class CommandHelpMicroService(
             }
             arg.equals("clear", ignoreCase = true) -> {
                 wallpaperService.clearCustomWallpaper()
-                onUpdateConfig(config)
+                onUpdateConfig(config.copy(customWallpaperPath = ""))
                 onShowOutput("[WALLPAPER]: Custom image override cleared")
             }
             arg.startsWith("set ") -> {
                 val path = arg.removePrefix("set ").trim()
                 val ok = wallpaperService.setWallpaperFromFile(path, alsoSetSystemWallpaper = true)
                 if (ok) {
-                    onUpdateConfig(config.copy(useSystemWallpaper = true))
-                    onShowOutput("[WALLPAPER APPLIED]: $path")
+                    val owned = wallpaperService.lastOwnedCopyPath ?: path
+                    onUpdateConfig(config.copy(useSystemWallpaper = true, customWallpaperPath = owned))
+                    onShowOutput("[WALLPAPER APPLIED]: $owned (source: $path)")
                 } else {
                     onShowOutput("[WALLPAPER ERROR]: Cannot load image at $path")
                 }
@@ -167,7 +168,7 @@ class CommandHelpMicroService(
                     author = "User",
                     isBuiltIn = false,
                     showSystemWallpaper = config.useSystemWallpaper,
-                    customWallpaperPath = wallpaperService.customImagePath
+                    customWallpaperPath = config.customWallpaperPath
                 ).normalized()
 
                 val savedFile = ThemeEngine.saveCustomTheme(custom)

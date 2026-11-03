@@ -102,6 +102,11 @@ data class LauncherConfig(
     val showDigitKeypad: Boolean = true,
     val showDock: Boolean = true,
     val useSystemWallpaper: Boolean = false,     // Render over system Android wallpaper
+    // impl-03: scrim + custom image + fit live in config (not SharedPreferences),
+    // so export/import/reset carry them. Single scrim default: 115 (SCRIM_45).
+    val wallpaperDimScrimAlpha: Int = 115,
+    val customWallpaperPath: String = "",
+    val wallpaperFit: String = "CENTER_CROP",
     val cockpitCardRadiusDp: Float = 14f,        // Corner radius of HUD cards
     val showStatusBarTime: Boolean = true,
     val showStatusBarBattery: Boolean = true,

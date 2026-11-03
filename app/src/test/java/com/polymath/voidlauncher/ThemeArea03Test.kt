@@ -88,5 +88,18 @@ class ThemeArea03Test {
         assertTrue(hudSets >= 1)
     }
 
+    @Test fun configCarriesScrimPathAndFit() {
+        val root = repoRoot() ?: return
+        val cfg = File(root, "app/src/main/java/com/polymath/voidlauncher/model/LauncherConfig.kt").readText()
+        assertTrue(cfg.contains("wallpaperDimScrimAlpha"))
+        assertTrue(cfg.contains("customWallpaperPath"))
+        assertTrue(cfg.contains("wallpaperFit"))
+        val mgr = File(root, "app/src/main/java/com/polymath/voidlauncher/core/ConfigManager.kt").readText()
+        assertTrue(mgr.contains("wallpaper_dim_scrim_alpha"))
+        assertTrue(mgr.contains("custom_wallpaper_path"))
+        assertTrue(mgr.contains("wallpaper_fit"))
+        assertTrue(mgr.contains("void_wallpaper_prefs"))
+    }
+
     // noElevation test is added in step 6, with the elevation removal itself.
 }

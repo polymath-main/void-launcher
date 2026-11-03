@@ -53,6 +53,30 @@ class ConfigManager(private val context: Context) {
             LauncherConfig()
         }
 
+        // impl-03: one-time prefs -> config migration for scrim + custom path.
+        // Copy-first: write the migrated config, verify the write, and only
+        // then clear the prefs keys. Later loads have the keys, so this runs once.
+        if (json != null && (!json.has("wallpaper_dim_scrim_alpha") || !json.has("custom_wallpaper_path"))) {
+            try {
+                val prefs = context.getSharedPreferences("void_wallpaper_prefs", Context.MODE_PRIVATE)
+                val prefsScrim = if (prefs.contains("dim_scrim_alpha")) prefs.getInt("dim_scrim_alpha", 115) else null
+                val prefsPath = if (prefs.contains("custom_image_path")) prefs.getString("custom_image_path", "") else null
+                if (prefsScrim != null || !prefsPath.isNullOrBlank()) {
+                    val (scrim, path, _) = WallpaperState.migrateFromPrefs(
+                        configScrim = if (json.has("wallpaper_dim_scrim_alpha")) cachedConfig.wallpaperDimScrimAlpha else null,
+                        configPath = if (json.has("custom_wallpaper_path")) cachedConfig.customWallpaperPath else null,
+                        prefsScrim = prefsScrim,
+                        prefsPath = prefsPath
+                    )
+                    val migrated = cachedConfig.copy(wallpaperDimScrimAlpha = scrim, customWallpaperPath = path)
+                    saveConfig(migrated)
+                    prefs.edit().remove("dim_scrim_alpha").remove("custom_image_path").apply()
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Wallpaper prefs migration skipped: ${e.message}")
+            }
+        }
+
         return cachedConfig
     }
 
@@ -214,6 +238,9 @@ class ConfigManager(private val context: Context) {
             nodeosDbPath = json.optString("nodeos_db_path", VoidPaths.NODEOS_DB),
             nodeOsLegacyImportEnabled = json.optBoolean("nodeos_legacy_import_enabled", false),
             useSystemWallpaper = json.optBoolean("use_system_wallpaper", false),
+            wallpaperDimScrimAlpha = json.optInt("wallpaper_dim_scrim_alpha", 115).coerceIn(0, 220),
+            customWallpaperPath = json.optString("custom_wallpaper_path", ""),
+            wallpaperFit = json.optString("wallpaper_fit", "CENTER_CROP"),
             cockpitCardRadiusDp = json.optDouble("cockpit_card_radius_dp", 14.0).toFloat(),
             showStatusBarTime = json.optBoolean("show_status_bar_time", true),
             showStatusBarBattery = json.optBoolean("show_status_bar_battery", true),
@@ -384,6 +411,9 @@ class ConfigManager(private val context: Context) {
         json.put("show_digit_keypad", config.showDigitKeypad)
         json.put("show_dock", config.showDock)
         json.put("use_system_wallpaper", config.useSystemWallpaper)
+        json.put("wallpaper_dim_scrim_alpha", config.wallpaperDimScrimAlpha)
+        json.put("custom_wallpaper_path", config.customWallpaperPath)
+        json.put("wallpaper_fit", config.wallpaperFit)
         json.put("cockpit_card_radius_dp", config.cockpitCardRadiusDp.toDouble())
         json.put("show_status_bar_time", config.showStatusBarTime)
         json.put("show_status_bar_battery", config.showStatusBarBattery)

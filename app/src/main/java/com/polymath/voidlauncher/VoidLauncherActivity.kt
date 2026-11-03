@@ -1464,7 +1464,10 @@ class VoidLauncherActivity : AppCompatActivity() {
             onApplyWallpaperFromFile = { path ->
                 val ok = wallpaperService.setWallpaperFromFile(path, alsoSetSystemWallpaper = true)
                 if (ok) {
-                    config = config.copy(useSystemWallpaper = true)
+                    config = config.copy(
+                        useSystemWallpaper = true,
+                        customWallpaperPath = wallpaperService.lastOwnedCopyPath ?: config.customWallpaperPath
+                    )
                     configManager.saveConfig(config)
                     applyConfig()
                     Toast.makeText(this, "Wallpaper set: ${item.name}", Toast.LENGTH_SHORT).show()

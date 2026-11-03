@@ -157,17 +157,15 @@ object ThemeEngine {
         val norm = manifest.normalized()
         _themeState.value = norm
 
-        // Sync scrim level to wallpaper service if present
-        wallpaperService?.dimScrimAlpha = norm.scrimLevel.alpha255
-        if (norm.customWallpaperPath.isNotBlank()) {
-            wallpaperService?.customImagePath = norm.customWallpaperPath
-        }
-
+        // impl-03: scrim + custom path live in config (not service prefs).
+        // A theme with no custom path must NOT clear the user's wallpaper.
         // Build new config
         val updatedConfig = currentConfig.copy(
             themeId = norm.id,
             colors = norm.toColorPalette(),
             useSystemWallpaper = norm.showSystemWallpaper,
+            wallpaperDimScrimAlpha = norm.scrimLevel.alpha255,
+            customWallpaperPath = if (norm.customWallpaperPath.isNotBlank()) norm.customWallpaperPath else currentConfig.customWallpaperPath,
             fontFamily = norm.monoFont.ifBlank { currentConfig.fontFamily },
             cockpitCardRadiusDp = norm.cornerRadiusDp.toFloat(),
             activePersona = norm.defaultPersona.personaId

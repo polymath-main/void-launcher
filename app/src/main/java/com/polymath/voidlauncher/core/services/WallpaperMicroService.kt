@@ -82,7 +82,8 @@ class WallpaperMicroService(private val context: Context) {
         config: LauncherConfig
     ) {
         val window = activity.window
-        val customFile = resolveActiveCustomImage()
+        val customFile = resolveActiveCustomImage(config.customWallpaperPath)
+        val scrimAlpha = config.wallpaperDimScrimAlpha.coerceIn(0, WallpaperState.MAX_SCRIM_ALPHA)
 
         if (config.useSystemWallpaper) {
             window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
@@ -91,15 +92,15 @@ class WallpaperMicroService(private val context: Context) {
             window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
 
             if (customFile != null) {
-                val layered = loadScrimmedWallpaperDrawable(customFile)
+                val layered = loadScrimmedWallpaperDrawable(customFile, scrimAlpha, WallpaperState.Fit.fromString(config.wallpaperFit))
                 if (layered != null) {
                     rootView.background = layered
                 } else {
-                    rootView.setBackgroundColor(Color.argb(dimScrimAlpha, 0, 0, 0))
+                    rootView.setBackgroundColor(Color.argb(scrimAlpha, 0, 0, 0))
                 }
             } else {
                 // Translucent OLED scrim keeps monospace HUD & dock legible over bright wallpapers
-                rootView.setBackgroundColor(Color.argb(dimScrimAlpha, 0, 0, 0))
+                rootView.setBackgroundColor(Color.argb(scrimAlpha, 0, 0, 0))
             }
             stillContainer?.setBackgroundColor(Color.TRANSPARENT)
         } else {
@@ -176,7 +177,7 @@ class WallpaperMicroService(private val context: Context) {
         onUpdateConfig: (LauncherConfig) -> Unit
     ) {
         val status = if (currentConfig.useSystemWallpaper) "ENABLED" else "OFF (Pure OLED)"
-        val scrimPct = (dimScrimAlpha * 100 / 255)
+        val scrimPct = (currentConfig.wallpaperDimScrimAlpha.coerceIn(0, WallpaperState.MAX_SCRIM_ALPHA) * 100 / 255)
         val activeThemeName = ThemeEngine.currentTheme.name
 
         val options = arrayOf(
@@ -215,18 +216,15 @@ class WallpaperMicroService(private val context: Context) {
                         openSystemWallpaperPicker(activity)
                     }
                     4 -> {
-                        dimScrimAlpha = ScrimLevel.SCRIM_25.alpha255
-                        onUpdateConfig(currentConfig.copy(useSystemWallpaper = true))
+                        onUpdateConfig(currentConfig.copy(useSystemWallpaper = true, wallpaperDimScrimAlpha = ScrimLevel.SCRIM_25.alpha255))
                         Toast.makeText(activity, "Scrim set to 25% (Light)", Toast.LENGTH_SHORT).show()
                     }
                     5 -> {
-                        dimScrimAlpha = ScrimLevel.SCRIM_45.alpha255
-                        onUpdateConfig(currentConfig.copy(useSystemWallpaper = true))
+                        onUpdateConfig(currentConfig.copy(useSystemWallpaper = true, wallpaperDimScrimAlpha = ScrimLevel.SCRIM_45.alpha255))
                         Toast.makeText(activity, "Scrim set to 45% (Balanced)", Toast.LENGTH_SHORT).show()
                     }
                     6 -> {
-                        dimScrimAlpha = ScrimLevel.SCRIM_70.alpha255
-                        onUpdateConfig(currentConfig.copy(useSystemWallpaper = true))
+                        onUpdateConfig(currentConfig.copy(useSystemWallpaper = true, wallpaperDimScrimAlpha = ScrimLevel.SCRIM_70.alpha255))
                         Toast.makeText(activity, "Scrim set to 70% (Deep OLED)", Toast.LENGTH_SHORT).show()
                     }
                     7 -> showSaveCustomThemeDialog(activity, currentConfig, onUpdateConfig)
@@ -329,7 +327,6 @@ class WallpaperMicroService(private val context: Context) {
             .setTitle("OLED Scrim Dimming")
             .setItems(names) { _, which ->
                 val chosen = levels[which]
-                dimScrimAlpha = chosen.alpha255
                 val current = ThemeEngine.currentTheme
                 val updatedTheme = current.copy(scrimLevel = chosen, isBuiltIn = false)
                 val configManager = ConfigManager(context)
@@ -435,7 +432,7 @@ class WallpaperMicroService(private val context: Context) {
                         author = "User",
                         isBuiltIn = false,
                         showSystemWallpaper = currentConfig.useSystemWallpaper,
-                        customWallpaperPath = customImagePath
+                        customWallpaperPath = currentConfig.customWallpaperPath
                     ).normalized()
 
                     val savedFile = ThemeEngine.saveCustomTheme(customManifest)
@@ -485,13 +482,42 @@ class WallpaperMicroService(private val context: Context) {
         return resolved?.let { File(it) }
     }
 
-    private fun loadScrimmedWallpaperDrawable(file: File): LayerDrawable? {
-        val bmp = decodeSampledBitmap(file, 1080, 2400) ?: return null
+    private fun loadScrimmedWallpaperDrawable(file: File, scrimAlpha: Int, fit: WallpaperState.Fit): LayerDrawable? {
+        val decoded = decodeSampledBitmap(file, 1080, 2400) ?: return null
+        // Fit control (impl-03 step 5): FIT_CENTER letterboxes the whole
+        // image; CENTER_CROP fills the layer and crops the centre.
+        val fitResult = WallpaperState.fitSize(decoded.width, decoded.height, 1080, 2400, fit)
+        val fitted = if (fitResult.scaledWidth != decoded.width || fitResult.scaledHeight != decoded.height) {
+            Bitmap.createScaledBitmap(decoded, fitResult.scaledWidth, fitResult.scaledHeight, true)
+        } else decoded
+        val bmp = if (fit == WallpaperState.Fit.CENTER_CROP &&
+            (fitResult.scaledWidth > 1080 || fitResult.scaledHeight > 2400)) {
+            val cropped = Bitmap.createBitmap(
+                fitted,
+                fitResult.cropLeft.coerceIn(0, (fitResult.scaledWidth - 1080).coerceAtLeast(0)),
+                fitResult.cropTop.coerceIn(0, (fitResult.scaledHeight - 2400).coerceAtLeast(0)),
+                minOf(1080, fitResult.scaledWidth), minOf(2400, fitResult.scaledHeight)
+            )
+            if (cropped !== fitted) fitted.recycle()
+            cropped
+        } else fitted
+        if (bmp !== decoded) decoded.recycle()
         val bmpDrawable = BitmapDrawable(context.resources, bmp).apply {
             gravity = android.view.Gravity.CENTER
         }
-        val scrimDrawable = ColorDrawable(Color.argb(dimScrimAlpha, 0, 0, 0))
+        val scrimDrawable = ColorDrawable(Color.argb(scrimAlpha, 0, 0, 0))
         return LayerDrawable(arrayOf(bmpDrawable, scrimDrawable))
+    }
+
+    /** Status report for `:wallpaper status` and Settings readout. */
+    fun wallpaperStatus(config: LauncherConfig): String {
+        val active = resolveActiveCustomImage(config.customWallpaperPath)
+        return WallpaperState.formatStatus(
+            useSystemWallpaper = config.useSystemWallpaper,
+            customImageName = active?.name,
+            scrimAlpha = config.wallpaperDimScrimAlpha,
+            fit = WallpaperState.Fit.fromString(config.wallpaperFit)
+        )
     }
 
     private fun decodeSampledBitmap(file: File, reqWidth: Int, reqHeight: Int): Bitmap? {
