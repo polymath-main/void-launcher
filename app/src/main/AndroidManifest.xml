@@ -60,6 +60,20 @@
             </intent-filter>
         </service>
 
+        <!-- impl-02 step 3: FileProvider for "Open with…" only. Read-only
+             content URIs for Void-home files and shared storage; the
+             authority follows the runtime package name, so the debug
+             applicationId suffix is handled automatically. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 
 </manifest>

@@ -25,33 +25,29 @@ class FileOperationsMicroService(
         onShowPreview: (String) -> Unit,
         onCopyPath: (String) -> Unit,
         onApplyWallpaperFromFile: (String) -> Unit,
-        onRefreshDirectory: () -> Unit
+        onRefreshDirectory: () -> Unit,
+        // impl-02 step 3: default no-op keeps older call sites compiling;
+        // the Activity wires it to an ACTION_VIEW chooser.
+        onOpenWith: (FileItem) -> Unit = {}
     ) {
         val isImage = !item.isDirectory && wallpaperService.isImageFile(item.path)
-        val options = if (isImage) {
-            arrayOf(
-                "🖼 Set as Wallpaper",
-                "⚡ Open in VoidTerm (run here)",
-                "📄 Read Text Preview",
-                "📋 Copy Full Path",
-                "✏️ Rename",
-                "🗑 Delete"
-            )
-        } else {
-            arrayOf(
-                "⚡ Open in VoidTerm (${if (item.isDirectory) "cd here" else "run here"})",
-                "📄 Read Text Preview",
-                "📋 Copy Full Path",
-                "✏️ Rename",
-                "🗑 Delete"
-            )
-        }
+        // (label, action code) pairs — codes stay stable when an entry is
+        // added for one file type only, unlike the old index-offset trick.
+        val options = mutableListOf<Pair<String, Int>>()
+        if (isImage) options.add("🖼 Set as Wallpaper" to 0)
+        options.add("⚡ Open in VoidTerm (${if (item.isDirectory) "cd here" else "run here"})" to 1)
+        options.add("📄 Read Text Preview" to 2)
+        options.add("📋 Copy Full Path" to 3)
+        options.add("✏️ Rename" to 4)
+        options.add("🗑 Delete" to 5)
+        // impl-02 step 3: "Open with…" only for non-image, non-directory
+        // files (images already open this dialog; directories navigate).
+        if (!isImage && !item.isDirectory) options.add("🔗 Open with…" to 6)
 
         MaterialAlertDialogBuilder(activity)
             .setTitle(item.name)
-            .setItems(options) { _, which ->
-                val adjusted = if (isImage) which else which + 1
-                when (adjusted) {
+            .setItems(options.map { it.first }.toTypedArray()) { _, which ->
+                when (options[which].second) {
                     0 -> onApplyWallpaperFromFile(item.path)
                     1 -> onOpenInVoidTerm(item)
                     2 -> {
@@ -61,6 +57,7 @@ class FileOperationsMicroService(
                     3 -> onCopyPath(item.path)
                     4 -> showRenameDialog(item, onRefreshDirectory)
                     5 -> showDeleteConfirmDialog(item, onRefreshDirectory)
+                    6 -> onOpenWith(item)
                 }
             }
             .show()
@@ -101,6 +98,31 @@ class FileOperationsMicroService(
                     onRefreshDirectory()
                 } else {
                     Toast.makeText(activity, "Delete failed", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    // impl-02 step 3: wires the previously dead FileManager.createFile()
+    // behind a +FILE affordance, mirroring the +DIR dialog exactly.
+    fun showCreateFileDialog(currentPath: String, onRefreshDirectory: () -> Unit) {
+        val input = EditText(activity).apply {
+            hint = "File name"
+        }
+        AlertDialog.Builder(activity)
+            .setTitle("Create New File")
+            .setView(input)
+            .setPositiveButton("Create") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isNotEmpty()) {
+                    val ok = fileManager.createFile(currentPath, name)
+                    if (ok) {
+                        Toast.makeText(activity, "Created $name", Toast.LENGTH_SHORT).show()
+                        onRefreshDirectory()
+                    } else {
+                        Toast.makeText(activity, "Failed to create file", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
             .setNegativeButton("Cancel", null)

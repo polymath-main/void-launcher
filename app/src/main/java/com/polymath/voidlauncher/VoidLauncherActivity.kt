@@ -2,6 +2,7 @@ package com.polymath.voidlauncher
 
 import android.app.role.RoleManager
 import android.content.Context
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ShortcutInfo
@@ -34,6 +35,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -1175,6 +1177,12 @@ class VoidLauncherActivity : AppCompatActivity() {
             showCreateDirectoryDialog()
         }
 
+        // impl-02 step 3: +FILE wires the previously dead createFile().
+        binding.btnFilesNewFile.setOnClickListener {
+            haptic(it)
+            showCreateFileDialog()
+        }
+
         binding.btnFilesClose.setOnClickListener {
             showFilesBrowser(false)
         }
@@ -1367,8 +1375,34 @@ class VoidLauncherActivity : AppCompatActivity() {
                     Toast.makeText(this, "Failed to decode image", Toast.LENGTH_SHORT).show()
                 }
             },
-            onRefreshDirectory = { loadFilesDirectory(currentFilesPath) }
+            onRefreshDirectory = { loadFilesDirectory(currentFilesPath) },
+            // impl-02 step 3: "Open with…" via a read-only FileProvider
+            // URI (file:// URIs are rejected for other apps since API 24).
+            // Tap behaviour is unchanged: tap still shows the text preview.
+            onOpenWith = { fileItem ->
+                try {
+                    val mime = fileManager.getMimeType(fileItem.path)
+                    val uri = FileProvider.getUriForFile(
+                        this, "$packageName.fileprovider", File(fileItem.path)
+                    )
+                    val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, mime)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    startActivity(Intent.createChooser(viewIntent, "Open with…"))
+                } catch (_: ActivityNotFoundException) {
+                    Toast.makeText(this, "No app can open this file", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Cannot open this file: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
         )
+    }
+
+    private fun showCreateFileDialog() {
+        fileOperationsService.showCreateFileDialog(currentFilesPath) {
+            loadFilesDirectory(currentFilesPath)
+        }
     }
 
     private fun showCreateDirectoryDialog() {

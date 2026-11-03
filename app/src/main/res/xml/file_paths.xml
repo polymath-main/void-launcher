@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- impl-02 step 3: paths exposed read-only via FileProvider for "Open with…".
+     Void home (app files/void) and shared storage roots the files browser
+     already lists. No other app's private directory is ever exposed. -->
+<paths>
+    <files-path name="void" path="void/" />
+    <external-path name="shared" path="." />
+</paths>
