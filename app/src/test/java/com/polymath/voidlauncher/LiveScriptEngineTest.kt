@@ -48,11 +48,25 @@ class LiveScriptEngineTest {
     }
 
     @Test
-    fun testLegacyLeftAssocPowerDocumented() {
-        // Step-0 semantics: ^ is left-associative, so 2^3^2 = 64.
-        // Step 5 changes this to 512 (right-associative) and updates
-        // this test; do not "fix" it before step 5 lands.
-        assertEquals("64", engine.evaluate("2^3^2").output)
+    fun testStrictRightAssocPower() {
+        // Step 5: ^ is right-associative, so 2^3^2 = 512.
+        assertEquals("512", engine.evaluate("2^3^2").output)
+    }
+
+    @Test
+    fun testStrictUnaryMinus() {
+        assertEquals("-5", engine.evaluate("-5").output)
+        assertEquals("-6", engine.evaluate("2*-3").output)
+        assertEquals("-5", engine.evaluate("-(2+3)").output)
+    }
+
+    @Test
+    fun testStrictRejectsLettersAndUnbalancedParens() {
+        val letters = engine.evaluate("2+abc")
+        assertFalse(letters.success)
+        assertTrue(letters.output.contains("unsupported character"))
+        assertFalse(engine.evaluate("(2+3").success)
+        assertFalse(engine.evaluate("2+3)").success)
     }
 
     @Test

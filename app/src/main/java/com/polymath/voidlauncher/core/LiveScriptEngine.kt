@@ -57,11 +57,11 @@ class LiveScriptEngine(private val context: Context) {
 
     /**
      * Delegates to the pure [EvalMath] evaluator (impl-04 step 0).
-     * The evaluator used to live here and the old test copied it, so a
-     * production regression was invisible; the test now drives this
-     * class (and EvalMath) directly. `strict` is off here in step 0
-     * and is switched on in step 5, in this one place.
+     * Step 5 switches it to strict: unknown characters are errors
+     * (no more silent letter-dropping, so `2+abc` no longer
+     * evaluates as 2), unary minus works, `^` is right-associative,
+     * and unbalanced parentheses are errors.
      */
     private fun evaluateMath(expr: String): Double =
-        EvalMath.evaluateMath(expr, strict = false)
+        EvalMath.evaluateMath(expr, strict = true)
 }
