@@ -12,5 +12,8 @@ data class FocusBlock(
     val durationMinutes: Int,
     val daysOfWeek: List<Int> = listOf(1, 2, 3, 4, 5, 6, 7), // 1=Sunday..7=Saturday (Calendar.DAY_OF_WEEK)
     val glyphPatternName: String = "FOCUS_MODE_ON",
-    val isEnabled: Boolean = true
+    val isEnabled: Boolean = true,
+    // impl-06 step 5: overlap priority, default 0. Highest wins;
+    // ties keep file order. Only consulted when blocks overlap.
+    val priority: Int = 0
 )

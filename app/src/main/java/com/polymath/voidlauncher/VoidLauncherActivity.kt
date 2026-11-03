@@ -2303,7 +2303,33 @@ class VoidLauncherActivity : AppCompatActivity() {
             }
             command == "focus" -> {
                 val activeBlock = focusScheduler.checkAndApplySchedule()
-                showTerminalOutput(if (activeBlock != null) "[FOCUS ACTIVE]: ${activeBlock.label} (${activeBlock.personaId})" else "[FOCUS]: No active scheduled focus block")
+                // impl-06 step 5: next-block preview + skipped-block
+                // diagnostics, so :focus shows the schedule, not just
+                // the current block (or silence when there is none).
+                val sb = StringBuilder()
+                if (activeBlock != null) {
+                    sb.appendLine("[FOCUS ACTIVE]: ${activeBlock.label} (${activeBlock.personaId})")
+                } else {
+                    sb.appendLine("[FOCUS]: No active scheduled focus block")
+                }
+                val next = focusScheduler.getNextBlock()
+                if (next != null) {
+                    val whenText = when (next.dayOffset) {
+                        0 -> "today"
+                        1 -> "tomorrow"
+                        else -> java.text.SimpleDateFormat("EEEE", java.util.Locale.US)
+                            .format(java.util.Calendar.getInstance().apply {
+                                add(java.util.Calendar.DAY_OF_YEAR, next.dayOffset)
+                            }.time)
+                    }
+                    sb.appendLine("[FOCUS NEXT]: ${next.block.label} (${next.block.personaId}) $whenText at ${com.polymath.voidlauncher.core.FocusRules.formatStart(next.block)}")
+                } else if (focusScheduler.getBlocks().isEmpty() && focusScheduler.getSkippedBlocks().isEmpty()) {
+                    sb.appendLine("[FOCUS]: No scheduled focus blocks")
+                }
+                for ((skipped, reason) in focusScheduler.getSkippedBlocks()) {
+                    sb.appendLine("[FOCUS SKIPPED]: ${skipped.label} — $reason")
+                }
+                showTerminalOutput(sb.toString().trimEnd())
             }
             // Appearance Studio: theme engine suite (:theme list, apply, save, export, import)
             command == "themes" || command == "theme" -> {
