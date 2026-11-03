@@ -20,9 +20,19 @@ class PowerProfileAdaptor {
     var currentLevel: PowerLevel = PowerLevel.BALANCED
         private set
 
+    /**
+     * impl-05 step 3: battery-unknown fall-through fixed. A missing battery
+     * (percent < 0) is UNKNOWN, not BALANCED/PERFORMANCE — it classifies as
+     * ECO (conservative: slower polling) even when charging. A 0% battery is
+     * CRITICAL, not BALANCED. Order matters: unknown is checked first so
+     * charging cannot promote an unknown battery to PERFORMANCE.
+     */
     fun evaluate(snapshot: TelemetrySnapshot, thermalLimitC: Float = 39.0f): PowerLevel {
         val level = when {
-            snapshot.batteryTemperatureC >= thermalLimitC || (snapshot.batteryPercent in 1..14) -> {
+            snapshot.batteryPercent < 0 -> {
+                PowerLevel.ECO
+            }
+            snapshot.batteryTemperatureC >= thermalLimitC || (snapshot.batteryPercent in 0..14) -> {
                 PowerLevel.CRITICAL
             }
             snapshot.batteryPercent in 15..30 -> {
@@ -48,6 +58,13 @@ class PowerProfileAdaptor {
         }
     }
 
+    /**
+     * impl-05 step 3: this gate is now actually called — see
+     * VoidLauncherActivity.refreshWidgetDeckContent(), which skips SCRIPT
+     * widget live refresh at CRITICAL (static descriptor content is still
+     * shown; vitals and task lists are never gated). It must never gate
+     * thermal evaluation or the telemetry flow itself.
+     */
     fun shouldRenderNonEssentialWidgets(level: PowerLevel = currentLevel): Boolean {
         return level != PowerLevel.CRITICAL
     }

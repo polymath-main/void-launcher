@@ -822,7 +822,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         val s = snap ?: telemetryMonitor.captureSnapshot(config.thermalLimitCelsius)
         val audioMode = getAudioModeString()
         val audioPart = if (audioMode.isNotEmpty()) " · $audioMode" else ""
-        binding.tvStillStatus.text = "▲ ${s.batteryPercent}% [${s.batteryTemperatureC}°C]$audioPart"
+        binding.tvStillStatus.text = "▲ ${if (s.batteryPercent < 0) "?" else s.batteryPercent.toString()}% [${s.batteryTemperatureC}°C]$audioPart"
     }
 
     private fun openWidgetDeck(open: Boolean) {
@@ -899,7 +899,14 @@ class VoidLauncherActivity : AppCompatActivity() {
                 }
                 addView(title)
                 addView(content)
-                widgetRegistry.refreshWidget(w) { live -> content.text = live }
+                // impl-05 step 3: CRITICAL suppresses SCRIPT live refresh
+                // (shouldRenderNonEssentialWidgets gate). Static descriptor
+                // content, vitals and task lists are never gated.
+                if (powerProfileAdaptor.shouldRenderNonEssentialWidgets(
+                        powerProfileAdaptor.evaluate(snap, config.thermalLimitCelsius)
+                    )) {
+                    widgetRegistry.refreshWidget(w) { live -> content.text = live }
+                }
                 if (w.actionOnClick.isNotEmpty()) {
                     setOnClickListener {
                         haptic(it)
@@ -1595,7 +1602,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                 val powerLevel = powerProfileAdaptor.evaluate(snap, config.thermalLimitCelsius)
 
                 binding.tvClock.text = cockpitTimeFormat.format(java.util.Date()) + config.clockSuffix
-                binding.tvBatteryTemp.text = "▲ ${snap.batteryPercent}% [${snap.batteryTemperatureC}°C]"
+                binding.tvBatteryTemp.text = "▲ ${if (snap.batteryPercent < 0) "?" else snap.batteryPercent.toString()}% [${snap.batteryTemperatureC}°C]"
                 val usedGb = String.format(java.util.Locale.US, "%.1f", snap.ramUsedMb / 1024.0)
                 binding.tvMemory.text = "RAM: ${usedGb}G ${powerLevel.label}"
 
