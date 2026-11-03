@@ -1,5 +1,25 @@
 # Blueprint 04 — Omni-Bar, Command Center, LiveScript & Macro Engine
 
+## impl-04 status (read this before the older text below)
+
+- **VoidShim decision (plan step 2) — SUPERSEDED by impl-01 step 6:**
+  VoidShim was deleted, not wired in. There is no `pmc` / `nodeos` /
+  `void` command surface and no `VoidShim.tryHandle` interception.
+  `:nodeos` / `:ping` report Void daemon task status only. Do not
+  reintroduce the shim; the plan's step-2 wiring option is closed.
+- **Unknown `:command` (impl-04 step 1, plan gate S2):** an unknown
+  colon command no longer falls through to VoidShell. It prints an
+  unknown-command message with suggestions. Explicit shell is
+  `:run`, `:sh`, or `:! <cmd>`.
+- **`:help` (impl-04 step 0):** generated from the `CommandGuide`
+  table in code, not from the hard-coded text this blueprint used
+  to quote. The table is authoritative; this document's command
+  lists are historical and may omit newer commands (`:macros`,
+  `:void-js`, `:audit`, `:!`).
+- **Command-center pipeline (until impl-04 step 3):** command center
+  still has no `## alias` extraction and never records macro steps,
+  unlike omni. Its search cap is 10, omni's is 5.
+
 ## 1. Domain Scope
 Provides keyboard-driven command execution, math/expression evaluation, persistent SQLite command history, inline snippet creation (`## <alias>`), and multi-step macro recording/playback.
 
