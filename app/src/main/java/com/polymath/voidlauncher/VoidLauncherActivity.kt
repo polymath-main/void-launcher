@@ -134,6 +134,9 @@ class VoidLauncherActivity : AppCompatActivity() {
     private lateinit var voidTermPanel: VoidTermPanel
     private lateinit var macroRecorder: MacroRecorder
 
+    /** Command audit log (impl-04 step 8); failures never break dispatch. */
+    private lateinit var commandAudit: com.polymath.voidlauncher.core.CommandAudit
+
     /** JS macro runner (impl-04 step 7b); engine may report unavailable. */
     private lateinit var jsMacroRunner: com.polymath.voidlauncher.core.js.JsMacroRunner
 
@@ -355,6 +358,9 @@ class VoidLauncherActivity : AppCompatActivity() {
             terminalRunner = VoidShellRunner(voidShell)
         }
         macroRecorder = MacroRecorder(this)
+        commandAudit = com.polymath.voidlauncher.core.CommandAudit(
+            java.io.File(com.polymath.voidlauncher.model.VoidPaths.AUDIT)
+        )
         jsMacroRunner = com.polymath.voidlauncher.core.js.JsMacroRunner(
             com.polymath.voidlauncher.core.js.QuickJsEngine()
         ) { _, name ->
@@ -1835,6 +1841,7 @@ class VoidLauncherActivity : AppCompatActivity() {
             command.startsWith("eval ") -> {
                 val expr = command.removePrefix("eval ").trim()
                 val result = liveScriptEngine.evaluate(expr)
+                commandAudit.record("OMNI", ":eval $expr", if (result.success) "OK" else "FAILED", result.executionTimeMs)
                 showTerminalOutput("[EVAL: $expr] (${result.executionTimeMs}ms)\n\n= ${result.output}")
             }
             // F-08 Agent Task Orchestrator
@@ -1952,12 +1959,14 @@ class VoidLauncherActivity : AppCompatActivity() {
                             .setMessage("Macro '$name' contains ${shellSteps.size} shell step(s), first: ${shellSteps.first()}\n\nAllow the whole macro, or abort (nothing runs)?")
                             .setPositiveButton("Allow macro") { _, _ ->
                                 val ok = macroRecorder.playMacro(name, config.macrosDirectory) { step -> handleOmniSubmit(step) }
+                                commandAudit.record("MACRO", ":play $name", if (ok) "OK" else "FAILED")
                                 showTerminalOutput(if (ok) "[MACRO EXECUTED]: $name" else "[MACRO ERROR]: ${macroRecorder.lastError ?: "playback failed"}")
                             }
                             .setNegativeButton("Abort", null)
                             .show()
                     } else {
                         val ok = macroRecorder.playMacro(name, config.macrosDirectory) { step -> handleOmniSubmit(step) }
+                        commandAudit.record("MACRO", ":play $name", if (ok) "OK" else "FAILED")
                         showTerminalOutput(
                             if (ok) "[MACRO EXECUTED]: $name"
                             else macroRecorder.lastError?.let { "[MACRO ERROR]: $it" } ?: "[ERROR]: Macro $name not found"
@@ -2106,6 +2115,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                     lifecycleScope.launch(Dispatchers.IO) {
                         val result = voidShell.run(runCmd)
                         withContext(Dispatchers.Main) {
+                            auditShellResult(":run $runCmd", result)
                             when (result) {
                                 is ShellResult.Success -> showTerminalOutput(
                                     "[RUN OK]:\n" + result.output.ifBlank { "(no output)" } +
@@ -2128,6 +2138,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                     lifecycleScope.launch(Dispatchers.IO) {
                         val result = voidShell.run(shellCmd)
                         withContext(Dispatchers.Main) {
+                            auditShellResult(":sh $shellCmd", result)
                             when (result) {
                                 is ShellResult.Success -> showTerminalOutput(
                                     "[SH OK]:\n" + result.output.ifBlank { "(no output)" } +
@@ -2205,6 +2216,19 @@ class VoidLauncherActivity : AppCompatActivity() {
                 config = configManager.loadConfig()
                 applyConfig()
                 showTerminalOutput("[CONFIG RELOADED]")
+            }
+            command == "audit" -> {
+                val entries = commandAudit.recent(20)
+                if (entries.isEmpty()) {
+                    showTerminalOutput("=== Command Audit ===\n\n(no audited commands yet — shell, :eval, macro play, and JS runs are audited)")
+                } else {
+                    val sb = StringBuilder("=== Command Audit (newest first) ===\n\n")
+                    for (e in entries) {
+                        val exit = e.exitCode?.let { " exit=$it" } ?: ""
+                        sb.appendLine("[${e.surface}] ${e.input} -> ${e.outcome} (${e.durationMs}ms$exit)")
+                    }
+                    showTerminalOutput(sb.toString().trimEnd())
+                }
             }
             // impl-04 step 7b: QuickJS macro surface. Runs on an
             // IO coroutine (the runner joins the engine thread for
@@ -2312,6 +2336,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                     lifecycleScope.launch(Dispatchers.IO) {
                         val result = voidShell.run(shellCmd)
                         withContext(Dispatchers.Main) {
+                            auditShellResult(":! $shellCmd", result)
                             when (result) {
                                 is ShellResult.Success -> showTerminalOutput(
                                     "[CMD OK]:\n" + result.output.ifBlank { "(no output)" } +
@@ -2354,6 +2379,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                 if (command.isBlank()) {
                     showTerminalOutput("[CMD]: empty command (type :help for commands)")
                 } else {
+                    commandAudit.record("OMNI", ":$command", "UNKNOWN")
                     val firstWord = command.split(" ", limit = 2).first()
                     val suggestions = com.polymath.voidlauncher.core.CommandGuide.suggest(firstWord)
                     val hint = if (suggestions.isNotEmpty()) "\nDid you mean: " + suggestions.joinToString(", ") { ":$it" } else ""
@@ -2380,6 +2406,17 @@ class VoidLauncherActivity : AppCompatActivity() {
             showTerminalOutput("[JS MACRO RUNNING]: $name (trigger: $trigger)")
             lifecycleScope.launch(Dispatchers.IO) {
                 val outcome = jsMacroRunner.run(name, dir, trigger)
+                commandAudit.record(
+                    "JS_MACRO", ":void-js run $name",
+                    when (outcome.result) {
+                        is com.polymath.voidlauncher.core.js.JsResult.Success -> "OK"
+                        is com.polymath.voidlauncher.core.js.JsResult.PermissionDenied -> "DENIED"
+                        is com.polymath.voidlauncher.core.js.JsResult.Timeout -> "TIMEOUT"
+                        is com.polymath.voidlauncher.core.js.JsResult.Unavailable -> "UNAVAILABLE"
+                        is com.polymath.voidlauncher.core.js.JsResult.Failure -> "FAILED"
+                    },
+                    outcome.durationMs
+                )
                 withContext(Dispatchers.Main) {
                     val text = when (val r = outcome.result) {
                         is com.polymath.voidlauncher.core.js.JsResult.Success -> "[JS MACRO OK]: ${outcome.name} (${outcome.durationMs}ms)\n${r.output}"
@@ -2451,6 +2488,14 @@ class VoidLauncherActivity : AppCompatActivity() {
         haptic(view)
         bareIntegerRouter.routeInteger(digit)
         resetOmniInput()
+    }
+
+    /** Audits one shell result (impl-04 step 8): outcome + exit code only, never output text. */
+    private fun auditShellResult(input: String, result: ShellResult) {
+        when (result) {
+            is ShellResult.Success -> commandAudit.record("SHELL", input, "OK", 0, result.exitCode)
+            is ShellResult.Failed -> commandAudit.record("SHELL", input, "FAILED", 0, null)
+        }
     }
 
     /** Records command history honoring `command_history_enabled` / `command_history_limit`. */

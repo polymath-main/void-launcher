@@ -45,6 +45,8 @@ object VoidPaths {
     val CONFIG: String get() = "$HOME/config.json"
     val THEMES: String get() = "$HOME/themes"
     val MACROS: String get() = "$HOME/macros"
+    /** Command audit log file (impl-04 step 8). */
+    val AUDIT: String get() = "$HOME/command_audit.jsonl"
     /** JS macros live separately from string macros (impl-04 step 7b). */
     val JS_MACROS: String get() = "$HOME/macros-js"
     val WIDGETS: String get() = "$HOME/widgets"
