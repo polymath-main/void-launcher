@@ -546,6 +546,117 @@
                         android:checked="true" />
                 </LinearLayout>
 
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="Notification Rules (comma-separated packages / keywords):" />
+
+                <EditText
+                    android:id="@+id/etNotifWhitelist"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="monospace"
+                    android:hint="Whitelist packages (+5 score)"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_muted"
+                    android:textSize="11sp" />
+
+                <EditText
+                    android:id="@+id/etNotifBlacklist"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="monospace"
+                    android:hint="Blacklist packages (dropped)"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_muted"
+                    android:textSize="11sp" />
+
+                <EditText
+                    android:id="@+id/etNotifKeywords"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="monospace"
+                    android:hint="Priority keywords (+3 each)"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_muted"
+                    android:textSize="11sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Max Notifications Shown (1-20)" />
+                    <EditText
+                        android:id="@+id/etNotifMaxCount"
+                        android:layout_width="80dp"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:inputType="number"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:text="5" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Enable Widgets Deck" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchWidgetsEnabled"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="false" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvWidgetsDirectory"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="Widgets directory (read-only):" />
+
+                <TextView
+                    android:id="@+id/btnOpenWidgetsFolder"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/cyan_accent"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:text="OPEN WIDGETS FOLDER ➔" />
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -1070,6 +1181,125 @@
                 </LinearLayout>
             </LinearLayout>
 
+
+            <!-- SECTION: AGENT, AST & FOCUS (impl-06 step 6, area 06 only) -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="05. AGENT, AST &amp; FOCUS" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/bg_cockpit_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Agent Orchestrator (:task, :tasks, :kill)" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchAgentOrchestrator"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="AST Graph (:graph)" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchAstGraph"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="false" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="AST Graph Node Cap" />
+                    <EditText
+                        android:id="@+id/etAstNodeCap"
+                        android:layout_width="80dp"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:inputType="number"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:text="80" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Focus Scheduler" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchFocusScheduler"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvFocusSchedulePath"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="Focus schedule path (read-only; editor in step 8):" />
+            </LinearLayout>
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -1138,6 +1368,72 @@
                         android:layout_height="wrap_content"
                         android:checked="true" />
                 </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="Legacy NodeOS import (opt-in, read-only): Reads a workflow.json and agy_nodeos.db you provide. VoidLauncher does not install NodeOS and never runs a NodeOS daemon. Turning this on writes nothing to those files." />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Enable Legacy NodeOS Import" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchNodeOsLegacyImport"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="false" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="workflow.json path:" />
+
+                <EditText
+                    android:id="@+id/etWorkflowJsonPath"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="11sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="agy_nodeos.db path:" />
+
+                <EditText
+                    android:id="@+id/etNodeosDbPath"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="11sp" />
             </LinearLayout>
 
             <!-- Reset & Export Buttons -->

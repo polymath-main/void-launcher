@@ -324,12 +324,22 @@ class VoidLauncherActivity : AppCompatActivity() {
 
         configSyncService.register()
         handleThemeIntent(intent)
+        handleOpenFilesIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleThemeIntent(intent)
+        handleOpenFilesIntent(intent)
+    }
+
+    // impl-06 step 6: Settings "OPEN WIDGETS FOLDER" route. The main
+    // Activity opens its own files browser at the given path.
+    private fun handleOpenFilesIntent(intent: Intent?) {
+        val path = intent?.getStringExtra("void_open_files_path") ?: return
+        currentFilesPath = fileManager.resolveAccessiblePath(path)
+        showFilesBrowser(true)
     }
 
     private fun handleThemeIntent(intent: Intent?) {

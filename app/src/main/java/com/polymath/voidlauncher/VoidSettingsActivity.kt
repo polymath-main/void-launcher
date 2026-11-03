@@ -274,8 +274,30 @@ class VoidSettingsActivity : AppCompatActivity() {
         binding.switchGlyphPulse.isChecked = cfg.enableGlyphPulse
         binding.switchHaptics.isChecked = cfg.enableHaptics
 
+        // impl-06 step 6 (area 06 subset only — broader Settings
+        // redesign stays area 07): notification rules, widgets, agent,
+        // AST, focus, legacy import. Lists are comma-separated text;
+        // paths below are read-only displays, not editors.
+        binding.etNotifWhitelist.setText(cfg.notifWhitelistPackages.joinToString(", "))
+        binding.etNotifBlacklist.setText(cfg.notifBlacklistPackages.joinToString(", "))
+        binding.etNotifKeywords.setText(cfg.notifPriorityKeywords.joinToString(", "))
+        binding.etNotifMaxCount.setText(cfg.notificationsMaxCount.toString())
+        binding.switchWidgetsEnabled.isChecked = cfg.widgetsEnabled
+        binding.tvWidgetsDirectory.text = "Widgets directory (read-only):\n${cfg.widgetsDirectory}"
+        binding.switchAgentOrchestrator.isChecked = cfg.agentOrchestratorEnabled
+        binding.switchAstGraph.isChecked = cfg.astGraphEnabled
+        binding.etAstNodeCap.setText(cfg.astGraphNodeCap.toString())
+        binding.switchFocusScheduler.isChecked = cfg.focusSchedulerEnabled
+        binding.tvFocusSchedulePath.text = "Focus schedule path (read-only; editor in step 8):\n${cfg.focusSchedulePath}"
+        binding.switchNodeOsLegacyImport.isChecked = cfg.nodeOsLegacyImportEnabled
+        binding.etWorkflowJsonPath.setText(cfg.workflowJsonPath)
+        binding.etNodeosDbPath.setText(cfg.nodeosDbPath)
+
         refreshSystemStatus()
     }
+
+    private fun parseCsvList(text: String): List<String> =
+        text.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
     private fun setupListeners() {
         binding.btnSettingsBack.setOnClickListener { finish() }
@@ -333,6 +355,18 @@ class VoidSettingsActivity : AppCompatActivity() {
 
         binding.btnSettingsSave.setOnClickListener {
             saveAndApply()
+        }
+
+        // impl-06 step 6: open the widgets directory in the launcher's
+        // own files browser. Leaving Settings auto-persists (onPause),
+        // so the toggle state above is saved before the main Activity
+        // reloads config on resume.
+        binding.btnOpenWidgetsFolder.setOnClickListener {
+            val intent = Intent(this, com.polymath.voidlauncher.VoidLauncherActivity::class.java).apply {
+                putExtra("void_open_files_path", currentConfig.widgetsDirectory)
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
         }
 
         binding.btnCustomizeDockSlots.setOnClickListener {
@@ -425,7 +459,28 @@ class VoidSettingsActivity : AppCompatActivity() {
             filesShowHidden = binding.switchFilesShowHidden.isChecked,
             thermalLimitCelsius = thermal,
             enableGlyphPulse = binding.switchGlyphPulse.isChecked,
-            enableHaptics = binding.switchHaptics.isChecked
+            enableHaptics = binding.switchHaptics.isChecked,
+            // impl-06 step 6: area 06 subset. Max count clamps to the
+            // plan's 1–20; node cap keeps any positive value.
+            notifWhitelistPackages = parseCsvList(binding.etNotifWhitelist.text.toString()),
+            notifBlacklistPackages = parseCsvList(binding.etNotifBlacklist.text.toString()),
+            notifPriorityKeywords = parseCsvList(binding.etNotifKeywords.text.toString()),
+            notificationsMaxCount = (binding.etNotifMaxCount.text.toString().toIntOrNull()
+                ?: currentConfig.notificationsMaxCount).coerceIn(1, 20),
+            widgetsEnabled = binding.switchWidgetsEnabled.isChecked,
+            agentOrchestratorEnabled = binding.switchAgentOrchestrator.isChecked,
+            astGraphEnabled = binding.switchAstGraph.isChecked,
+            astGraphNodeCap = (binding.etAstNodeCap.text.toString().toIntOrNull()
+                ?: currentConfig.astGraphNodeCap).coerceAtLeast(1),
+            focusSchedulerEnabled = binding.switchFocusScheduler.isChecked,
+            // Legacy import switch + paths: enabling writes NOTHING to
+            // those files — the Activity only reads them when the flag
+            // is on (copy-only import itself is step 9's SAF picker).
+            nodeOsLegacyImportEnabled = binding.switchNodeOsLegacyImport.isChecked,
+            workflowJsonPath = binding.etWorkflowJsonPath.text.toString().trim()
+                .ifEmpty { currentConfig.workflowJsonPath },
+            nodeosDbPath = binding.etNodeosDbPath.text.toString().trim()
+                .ifEmpty { currentConfig.nodeosDbPath }
         )
     }
 
