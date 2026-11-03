@@ -40,7 +40,14 @@ class TelemetryMonitor(private val context: Context) {
         }
     }
 
-    fun captureSnapshot(): TelemetrySnapshot {
+    /**
+     * One-shot snapshot. [thermalLimitC] is the configured thermal limit
+     * (default 39.0 °C); safety is computed with [TelemetrySnapshot.isSafeAt],
+     * so an unknown battery (percent -1) is reported unsafe, never safe.
+     * The temperature is BATTERY temperature from the sticky battery intent —
+     * a proxy for device heat, not a SoC / thermal-zone reading.
+     */
+    fun captureSnapshot(thermalLimitC: Float = 39.0f): TelemetrySnapshot {
         val batteryIntent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         
         var batteryPct = -1
@@ -71,7 +78,9 @@ class TelemetryMonitor(private val context: Context) {
         val usedMb = totalMb - availMb
 
         val nowFormatted = timeFormat.format(Date())
-        val isThermalSafe = tempC <= 39.0f
+        // Unknown battery (batteryPct stays -1 when the intent is null) is
+        // unsafe by construction in isSafeAt — never "perfectly safe".
+        val isThermalSafe = batteryPct >= 0 && tempC <= thermalLimitC
 
         return TelemetrySnapshot(
             timestampFormatted = nowFormatted,

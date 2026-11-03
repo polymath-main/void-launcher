@@ -819,7 +819,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         binding.tvStillClock.text = stillTimeFormat.format(now)
         binding.tvStillDate.text = stillDateFormat.format(now).uppercase(java.util.Locale.US)
 
-        val s = snap ?: telemetryMonitor.captureSnapshot()
+        val s = snap ?: telemetryMonitor.captureSnapshot(config.thermalLimitCelsius)
         val audioMode = getAudioModeString()
         val audioPart = if (audioMode.isNotEmpty()) " · $audioMode" else ""
         binding.tvStillStatus.text = "▲ ${s.batteryPercent}% [${s.batteryTemperatureC}°C]$audioPart"
@@ -843,7 +843,7 @@ class VoidLauncherActivity : AppCompatActivity() {
     }
 
     private fun refreshWidgetDeckContent() {
-        val snap = telemetryMonitor.captureSnapshot()
+        val snap = telemetryMonitor.captureSnapshot(config.thermalLimitCelsius)
         val audioMode = getAudioModeString()
         val audioPart = if (audioMode.isNotEmpty()) " · $audioMode" else ""
         val usedGb = String.format(java.util.Locale.US, "%.1f", snap.ramUsedMb / 1024.0)
@@ -2060,9 +2060,9 @@ class VoidLauncherActivity : AppCompatActivity() {
                 }
             }
             command == "power" -> {
-                val snap = telemetryMonitor.captureSnapshot()
+                val snap = telemetryMonitor.captureSnapshot(config.thermalLimitCelsius)
                 val lvl = powerProfileAdaptor.evaluate(snap, config.thermalLimitCelsius)
-                showTerminalOutput("[POWER PROFILE]: ${lvl.label}\nBattery: ${snap.batteryPercent}% (${snap.batteryTemperatureC}°C)\nPoll Cadence: ${powerProfileAdaptor.getRecommendedPollIntervalMs()}ms")
+                showTerminalOutput("[POWER PROFILE]: ${lvl.label}\nBattery: ${snap.batteryPercent}% (battery temp ${snap.batteryTemperatureC}°C — battery sensor, not SoC temp)\nPoll Cadence: ${powerProfileAdaptor.getRecommendedPollIntervalMs()}ms")
             }
             command == "focus" -> {
                 val activeBlock = focusScheduler.checkAndApplySchedule()
