@@ -37,6 +37,7 @@
   "show_nodeos_card": false,
   "show_intent_card": true,
   "show_notifications_card": true,
+  "notifications_count_line_only": false,
   "notifications_max_count": 5,
   "filter_ongoing_notifications": true,
   "show_dock": true,

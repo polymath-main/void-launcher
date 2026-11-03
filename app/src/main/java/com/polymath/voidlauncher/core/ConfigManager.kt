@@ -207,6 +207,7 @@ class ConfigManager(private val context: Context) {
             showNodeOsCard = json.optBoolean("show_nodeos_card", false),
             showIntentCard = json.optBoolean("show_intent_card", true),
             showNotificationsCard = json.optBoolean("show_notifications_card", true),
+            notificationsCountLineOnly = json.optBoolean("notifications_count_line_only", false),
             notificationsMaxCount = json.optInt("notifications_max_count", 5),
             filterOngoingNotifications = json.optBoolean("filter_ongoing_notifications", true),
             showDigitKeypad = json.optBoolean("show_digit_keypad", true),
@@ -408,6 +409,7 @@ class ConfigManager(private val context: Context) {
         json.put("show_nodeos_card", config.showNodeOsCard)
         json.put("show_intent_card", config.showIntentCard)
         json.put("show_notifications_card", config.showNotificationsCard)
+        json.put("notifications_count_line_only", config.notificationsCountLineOnly)
         json.put("notifications_max_count", config.notificationsMaxCount)
         json.put("filter_ongoing_notifications", config.filterOngoingNotifications)
         json.put("show_digit_keypad", config.showDigitKeypad)

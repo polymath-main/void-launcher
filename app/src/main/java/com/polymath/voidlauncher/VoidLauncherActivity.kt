@@ -126,6 +126,10 @@ class VoidLauncherActivity : AppCompatActivity() {
     private lateinit var powerProfileAdaptor: PowerProfileAdaptor
     // impl-05 step 6c: display/history only — never a guard input.
     private val telemetryHistory = TelemetryHistory()
+    // impl-05 step 7: in count-line mode the header tap toggles the list.
+    // Default expanded = false in count-line mode (count line only until
+    // tapped); inline mode always shows the list when non-empty.
+    private var notificationsListExpanded = false
     private lateinit var notifIntelligence: NotifIntelligence
     private lateinit var personaManager: PersonaManager
     private lateinit var glyphChoreographer: GlyphChoreographer
@@ -1665,6 +1669,18 @@ class VoidLauncherActivity : AppCompatActivity() {
                 )
 
                 binding.tvNotifHeader.text = "● NOTIFICATIONS (${filtered.size})"
+                // impl-05 step 7: count-line mode — the header is the count
+                // line; tapping it expands the list in place, tapping again
+                // collapses back to the count line. Scoring, filtering,
+                // permission prompt and showNotificationsCard are untouched.
+                // Thermal evaluation never depends on this visibility.
+                binding.tvNotifHeader.setOnClickListener {
+                    if (config.notificationsCountLineOnly && filtered.isNotEmpty()) {
+                        notificationsListExpanded = !notificationsListExpanded
+                        binding.rvNotifications.visibility =
+                            if (notificationsListExpanded) View.VISIBLE else View.GONE
+                    }
+                }
 
                 if (filtered.isEmpty()) {
                     binding.tvNotifEmpty.visibility = View.VISIBLE
@@ -1672,7 +1688,8 @@ class VoidLauncherActivity : AppCompatActivity() {
                     notificationAdapter.submitList(emptyList())
                 } else {
                     binding.tvNotifEmpty.visibility = View.GONE
-                    binding.rvNotifications.visibility = View.VISIBLE
+                    binding.rvNotifications.visibility =
+                        if (config.notificationsCountLineOnly && !notificationsListExpanded) View.GONE else View.VISIBLE
                     notificationAdapter.submitList(filtered)
                 }
             }

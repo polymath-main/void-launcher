@@ -101,6 +101,11 @@ data class LauncherConfig(
     val showNodeOsCard: Boolean = false,
     val showIntentCard: Boolean = true,
     val showNotificationsCard: Boolean = true,
+    // impl-05 step 7: when true, home shows only the count line; tapping
+    // it expands the list in place, tapping again collapses to the count
+    // line. Default false preserves the shipped inline-list behaviour.
+    // Settings UI for this key is area 07 follow-up.
+    val notificationsCountLineOnly: Boolean = false,
     val notificationsMaxCount: Int = 5,
     val filterOngoingNotifications: Boolean = true,
     val showDigitKeypad: Boolean = true,
