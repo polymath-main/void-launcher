@@ -281,6 +281,7 @@ class ConfigManager(private val context: Context) {
             voidTermCols = json.optInt("voidterm_cols", 48),
             macrosEnabled = json.optBoolean("macros_enabled", true),
             macrosDirectory = json.optString("macros_directory", VoidPaths.MACROS),
+            jsMacrosDirectory = json.optString("js_macros_directory", VoidPaths.JS_MACROS),
             macroShellAutoAllow = json.optBoolean("macro_shell_auto_allow", false),
             shellTimeoutSeconds = json.optLong("shell_timeout_seconds", 30L),
             shellMaxOutputChars = json.optInt("shell_max_output_chars", 16384),
@@ -528,6 +529,7 @@ class ConfigManager(private val context: Context) {
         json.put("voidterm_cols", config.voidTermCols)
         json.put("macros_enabled", config.macrosEnabled)
         json.put("macros_directory", config.macrosDirectory)
+        json.put("js_macros_directory", config.jsMacrosDirectory)
         json.put("macro_shell_auto_allow", config.macroShellAutoAllow)
         json.put("shell_timeout_seconds", config.shellTimeoutSeconds)
         json.put("shell_max_output_chars", config.shellMaxOutputChars)

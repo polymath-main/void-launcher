@@ -45,6 +45,8 @@ object VoidPaths {
     val CONFIG: String get() = "$HOME/config.json"
     val THEMES: String get() = "$HOME/themes"
     val MACROS: String get() = "$HOME/macros"
+    /** JS macros live separately from string macros (impl-04 step 7b). */
+    val JS_MACROS: String get() = "$HOME/macros-js"
     val WIDGETS: String get() = "$HOME/widgets"
     val PERSONAS: String get() = "$HOME/personas"
     val GLYPH_PATTERNS: String get() = "$HOME/glyph_patterns.json"
@@ -215,6 +217,7 @@ data class LauncherConfig(
     // ── Macro Recorder (F-15) ────────────────────────────────
     val macrosEnabled: Boolean = true,
     val macrosDirectory: String = VoidPaths.MACROS,
+    val jsMacrosDirectory: String = VoidPaths.JS_MACROS,
     /** impl-04 step 6: false = a macro with shell steps prompts
      * before its first shell step runs (pre-scan prompt in the
      * Activity :play path); true = play without prompting. */

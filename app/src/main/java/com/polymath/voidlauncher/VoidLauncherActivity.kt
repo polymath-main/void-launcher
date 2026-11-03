@@ -134,6 +134,9 @@ class VoidLauncherActivity : AppCompatActivity() {
     private lateinit var voidTermPanel: VoidTermPanel
     private lateinit var macroRecorder: MacroRecorder
 
+    /** JS macro runner (impl-04 step 7b); engine may report unavailable. */
+    private lateinit var jsMacroRunner: com.polymath.voidlauncher.core.js.JsMacroRunner
+
     /** Depth of nested snippet-alias re-entry (impl-04 step 1). */
     private var snippetChainDepth: Int = 0
 
@@ -352,6 +355,18 @@ class VoidLauncherActivity : AppCompatActivity() {
             terminalRunner = VoidShellRunner(voidShell)
         }
         macroRecorder = MacroRecorder(this)
+        jsMacroRunner = com.polymath.voidlauncher.core.js.JsMacroRunner(
+            com.polymath.voidlauncher.core.js.QuickJsEngine()
+        ) { _, name ->
+            com.polymath.voidlauncher.core.js.AndroidJsAdapters(
+                activity = this,
+                voidShell = voidShell,
+                filesHome = fileManager.voidHomePath(),
+                jsMacrosDir = config.jsMacrosDirectory,
+                macroName = name,
+                onMode = { mode -> setHomeMode(mode) }
+            )
+        }
 
         // Initialize Modular Micro-Services
         wallpaperService = WallpaperMicroService(this)
@@ -2190,6 +2205,82 @@ class VoidLauncherActivity : AppCompatActivity() {
                 config = configManager.loadConfig()
                 applyConfig()
                 showTerminalOutput("[CONFIG RELOADED]")
+            }
+            // impl-04 step 7b: QuickJS macro surface. Runs on an
+            // IO coroutine (the runner joins the engine thread for
+            // the manifest timeout); output returns to the UI thread.
+            // If the native library is absent the runner reports
+            // Unavailable — that message is shown, not hidden.
+            command == "void-js" || command.startsWith("void-js ") -> {
+                val sub = command.removePrefix("void-js").trim()
+                val dir = config.jsMacrosDirectory
+                when {
+                    sub.isEmpty() || sub == "list" -> {
+                        val names = jsMacroRunner.listMacros(dir)
+                        if (names.isEmpty()) {
+                            showTerminalOutput("=== JS Macros ===\n\n(none in $dir — .js files with a void-macro manifest comment)")
+                        } else {
+                            val sb = StringBuilder("=== JS Macros (${names.size}) ===\n\n")
+                            for (n in names) {
+                                val mark = if (jsMacroRunner.isRunning(n)) "● running" else "○"
+                                sb.appendLine("$mark $n")
+                            }
+                            sb.append("\n:void-js run <name> [--trigger <event>] · :void-js stop <name>")
+                            showTerminalOutput(sb.toString().trimEnd())
+                        }
+                    }
+                    sub.startsWith("run ") -> {
+                        val args = sub.removePrefix("run ").trim().split(Regex("\\s+"))
+                        val name = args.getOrNull(0).orEmpty()
+                        val triggerIdx = args.indexOf("--trigger")
+                        val trigger = if (triggerIdx >= 0) args.getOrNull(triggerIdx + 1) ?: "manual" else "manual"
+                        if (name.isEmpty()) {
+                            showTerminalOutput("Usage: :void-js run <name> [--trigger <event>]")
+                        } else {
+                            // Shell prompt (step 6 pattern): if the
+                            // manifest grants shell and auto-allow is
+                            // off, approve before ANY code runs.
+                            val manifest = jsMacroRunner.parseManifest(name, dir)
+                            val needsShellApproval = manifest != null &&
+                                com.polymath.voidlauncher.core.js.JsMacroManifest.Permission.SHELL in manifest.permissions &&
+                                !config.macroShellAutoAllow
+                            val runIt = {
+                                showTerminalOutput("[JS MACRO RUNNING]: $name (trigger: $trigger)")
+                                lifecycleScope.launch(Dispatchers.IO) {
+                                    val outcome = jsMacroRunner.run(name, dir, trigger)
+                                    withContext(Dispatchers.Main) {
+                                        val text = when (val r = outcome.result) {
+                                            is com.polymath.voidlauncher.core.js.JsResult.Success -> "[JS MACRO OK]: ${outcome.name} (${outcome.durationMs}ms)\n${r.output}"
+                                            is com.polymath.voidlauncher.core.js.JsResult.PermissionDenied -> "[JS MACRO DENIED]: permission '${r.permission}' is not in this macro's manifest"
+                                            is com.polymath.voidlauncher.core.js.JsResult.Timeout -> "[JS MACRO TIMEOUT]: ${outcome.name} after ${r.timeoutMs}ms"
+                                            is com.polymath.voidlauncher.core.js.JsResult.Unavailable -> "[JS MACRO UNAVAILABLE]: ${r.reason}"
+                                            is com.polymath.voidlauncher.core.js.JsResult.Failure -> "[JS MACRO FAILED]: ${r.reason}"
+                                        }
+                                        showTerminalOutput(text)
+                                    }
+                                }
+                            }
+                            if (needsShellApproval) {
+                                androidx.appcompat.app.AlertDialog.Builder(this)
+                                    .setTitle("JS macro wants shell access")
+                                    .setMessage("Macro '$name' has the shell permission. Allow it to run, or abort (nothing runs)?")
+                                    .setPositiveButton("Allow") { _, _ -> runIt() }
+                                    .setNegativeButton("Abort", null)
+                                    .show()
+                            } else {
+                                runIt()
+                            }
+                        }
+                    }
+                    sub.startsWith("stop ") -> {
+                        val name = sub.removePrefix("stop ").trim()
+                        val stopped = jsMacroRunner.stop(name)
+                        showTerminalOutput(if (stopped) "[JS MACRO STOPPED]: $name" else "[JS MACRO]: $name is not running")
+                    }
+                    else -> {
+                        showTerminalOutput("Usage: :void-js list | :void-js run <name> [--trigger <event>] | :void-js stop <name>")
+                    }
+                }
             }
             // impl-04 step 1 (plan gate S2): the ONLY shell escape
             // hatch for typed input. Unknown :commands no longer fall

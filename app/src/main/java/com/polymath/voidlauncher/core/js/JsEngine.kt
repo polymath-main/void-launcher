@@ -61,6 +61,8 @@ interface JsAdapters {
     fun filesList(path: String): List<String>
     fun filesRead(path: String): String
     fun filesWrite(path: String, content: String)
+    /** Prototype allowlist shell (JsSandbox); permission SHELL. Added in 7b. */
+    fun shellRun(command: String): String
     fun storageGet(key: String): String?
     fun storageSet(key: String, value: String)
     fun sleep(ms: Long)
@@ -131,6 +133,11 @@ class PermissionCheckingAdapters(
     override fun filesWrite(path: String, content: String) {
         require(JsMacroManifest.Permission.FILES)
         delegate.filesWrite(path, content)
+    }
+
+    override fun shellRun(command: String): String {
+        require(JsMacroManifest.Permission.SHELL)
+        return delegate.shellRun(command)
     }
 
     override fun storageGet(key: String): String? {

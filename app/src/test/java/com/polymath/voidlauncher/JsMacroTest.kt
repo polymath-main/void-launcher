@@ -67,6 +67,7 @@ class JsMacroTest {
         override fun filesList(path: String): List<String> = emptyList()
         override fun filesRead(path: String): String { calls.add("files.read"); return "data" }
         override fun filesWrite(path: String, content: String) { calls.add("files.write") }
+        override fun shellRun(command: String): String { calls.add("shell"); return "shell-ok" }
         override fun storageGet(key: String): String? = storage[key]
         override fun storageSet(key: String, value: String) { storage[key] = value; calls.add("storage") }
         override fun sleep(ms: Long) { calls.add("sleep") }
@@ -104,7 +105,7 @@ class JsMacroTest {
     fun permissionWrapperDeniesFilesWithoutPermission() {
         val dir = createTempDir("jsperm")
         val adapters = RecordingAdapters()
-        val runner = JsMacroRunner(FakeEngine(), { adapters })
+        val runner = JsMacroRunner(FakeEngine(), { _, _ -> adapters })
         writeJsMacro(dir, "reader", null, "CALL:files.read")
         val outcome = runner.run("reader", dir.absolutePath)
         assertTrue(outcome.result is JsResult.PermissionDenied)
@@ -115,7 +116,7 @@ class JsMacroTest {
     fun permissionWrapperAllowsGrantedPermission() {
         val dir = createTempDir("jsallow")
         val adapters = RecordingAdapters()
-        val runner = JsMacroRunner(FakeEngine(), { adapters })
+        val runner = JsMacroRunner(FakeEngine(), { _, _ -> adapters })
         writeJsMacro(
             dir, "writer",
             "/* void-macro {\"name\":\"writer\",\"permissions\":[\"files\",\"notify\"],\"timeout_ms\":5000} */",
@@ -141,7 +142,7 @@ class JsMacroTest {
     @Test
     fun runnerTimeoutIsEnforced() {
         val dir = createTempDir("jstimeout")
-        val runner = JsMacroRunner(FakeEngine(), { RecordingAdapters() })
+        val runner = JsMacroRunner(FakeEngine(), { _, _ -> RecordingAdapters() })
         writeJsMacro(
             dir, "slow",
             "/* void-macro {\"name\":\"slow\",\"permissions\":[],\"timeout_ms\":1000} */",
@@ -171,7 +172,7 @@ class JsMacroTest {
     @Test
     fun jsMacrosLiveOutsideStringMacroDir() {
         val dir = createTempDir("jsdir")
-        val runner = JsMacroRunner(FakeEngine(), { RecordingAdapters() })
+        val runner = JsMacroRunner(FakeEngine(), { _, _ -> RecordingAdapters() })
         writeJsMacro(dir, "morning", null, "Void.log(1);")
         assertEquals(listOf("morning"), runner.listMacros(dir.absolutePath))
         assertTrue(runner.deleteMacro("morning", dir.absolutePath))

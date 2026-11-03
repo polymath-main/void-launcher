@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicReference
  */
 class JsMacroRunner(
     private val engine: JsEngine,
-    private val adaptersFactory: (JsMacroManifest) -> JsAdapters
+    private val adaptersFactory: (JsMacroManifest, String) -> JsAdapters
 ) {
 
     /** Threads currently running a JS macro, by macro name, for `:void-js stop`. */
@@ -76,7 +76,7 @@ class JsMacroRunner(
                 0
             )
         }
-        val adapters = PermissionCheckingAdapters(adaptersFactory(manifest), manifest)
+        val adapters = PermissionCheckingAdapters(adaptersFactory(manifest, trimmed), manifest)
         val started = System.currentTimeMillis()
         val resultRef = AtomicReference<JsResult>()
         val thread = Thread {
