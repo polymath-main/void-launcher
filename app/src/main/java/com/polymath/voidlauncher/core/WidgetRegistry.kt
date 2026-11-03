@@ -39,6 +39,25 @@ class WidgetRegistry(
     private val io = Executors.newFixedThreadPool(2)
     private val main = Handler(Looper.getMainLooper())
 
+    // impl-06 step 4: tap approvals, persisted per (widget id, action
+    // hash). Plain app launches never consult this store (see
+    // WidgetPolicy.needsApproval); a stored approval is never blanket.
+    private val approvalPrefs =
+        context.getSharedPreferences("void_widget_approvals", Context.MODE_PRIVATE)
+
+    fun needsActionApproval(descriptor: WidgetDescriptor): Boolean {
+        if (!WidgetPolicy.needsApproval(descriptor.actionOnClick)) return false
+        val key = WidgetPolicy.approvalKey(descriptor.id, descriptor.actionOnClick)
+        return !approvalPrefs.getStringSet("approved", emptySet()).orEmpty().contains(key)
+    }
+
+    fun approveAction(descriptor: WidgetDescriptor) {
+        val key = WidgetPolicy.approvalKey(descriptor.id, descriptor.actionOnClick)
+        val set = approvalPrefs.getStringSet("approved", emptySet()).orEmpty().toMutableSet()
+        set.add(key)
+        approvalPrefs.edit().putStringSet("approved", set).apply()
+    }
+
     fun loadWidgets(directoryPath: String): List<WidgetDescriptor> {
         widgets.clear()
         try {
@@ -55,10 +74,15 @@ class WidgetRegistry(
                         title = json.optString("title", id),
                         type = json.optString("type", "SCRIPT"),
                         source = json.optString("source", ""),
-                        refreshIntervalMs = json.optLong("refresh_ms", 5000L),
-                        heightDp = json.optInt("height_dp", 48),
+                        // impl-06 step 4: clamp at load, so a widget JSON
+                        // cannot ask for a 100 ms refresh or 1000 dp card.
+                        refreshIntervalMs = WidgetPolicy.clampRefreshIntervalMs(
+                            json.optLong("refresh_ms", 5000L)
+                        ),
+                        heightDp = WidgetPolicy.clampHeightDp(json.optInt("height_dp", 48)),
                         actionOnClick = json.optString("action_on_click", ""),
-                        isEnabled = json.optBoolean("enabled", true)
+                        isEnabled = json.optBoolean("enabled", true),
+                        allowInsecureHttp = json.optBoolean("allow_insecure_http", false)
                     )
                     if (descriptor.isEnabled) {
                         widgets.add(descriptor)
@@ -81,7 +105,7 @@ class WidgetRegistry(
     fun refreshWidget(descriptor: WidgetDescriptor, callback: (String) -> Unit) {
         when (descriptor.type.uppercase()) {
             "SCRIPT" -> runScript(descriptor.source, callback)
-            "HTTP" -> fetchHttp(descriptor.source, callback)
+            "HTTP" -> fetchHttpChecked(descriptor.source, descriptor.allowInsecureHttp, callback)
             else -> deliver(callback, descriptor.source)
         }
     }
@@ -100,21 +124,41 @@ class WidgetRegistry(
             deliver(callback, "(empty script)")
             return
         }
-        io.execute {
-            val out = when (val res = voidShell.run(command)) {
+        // impl-06 step 4: 10 s deck-side timeout (VoidShell's own
+        // timeout is 30 s — the deck must not wait that long). The
+        // timeout unblocks the DECK; it does not kill the worker
+        // thread, which finishes when VoidShell's own timeout fires.
+        // Rendering "(timed out)" instead of hanging the pool is the
+        // contract; a true kill would need a shell-area change.
+        val future = io.submit<String> {
+            when (val res = voidShell.run(command)) {
                 is ShellResult.Success -> {
                     val combined = if (res.error.isNotBlank()) "${res.output}\n${res.error}".trim() else res.output.trim()
                     combined.take(MAX_BODY_CHARS).ifBlank { "(no output)" }
                 }
                 is ShellResult.Failed -> res.reason.take(MAX_BODY_CHARS)
             }
+        }
+        io.execute {
+            val out = try {
+                future.get(WidgetPolicy.SCRIPT_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+            } catch (_: Exception) {
+                "(timed out)"
+            }
             deliver(callback, out)
         }
     }
 
-    private fun fetchHttp(url: String, callback: (String) -> Unit) {
+    private fun fetchHttpChecked(url: String, allowInsecureHttp: Boolean, callback: (String) -> Unit) {
         if (url.isBlank()) {
             deliver(callback, "(empty url)")
+            return
+        }
+        if (!WidgetPolicy.httpAllowed(url, allowInsecureHttp)) {
+            // impl-06 step 4: blocked URLs are LOGGED, never toasted —
+            // a widget deck must not spam toasts for untrusted JSON.
+            Log.w(TAG, "Blocked widget HTTP fetch (allowlist): $url")
+            deliver(callback, "(blocked URL)")
             return
         }
         io.execute {

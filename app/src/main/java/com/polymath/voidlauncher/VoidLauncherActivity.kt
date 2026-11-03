@@ -219,6 +219,67 @@ class VoidLauncherActivity : AppCompatActivity() {
     private var isKeypadVisible: Boolean = false
     private var isMinimalMode: Boolean = false
     private var isWidgetDeckOpen: Boolean = false
+    // impl-06 step 4: deck-visible periodic refresh. One main-thread
+    // ticker (5 s, the minimum clamp) re-runs only widgets whose
+    // clamped interval has elapsed; it runs ONLY while the deck is
+    // open and stops on deck close / onDestroy. The old code re-ran
+    // every widget on every manual refresh and never on a schedule.
+    private val deckRefreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private data class DeckWidgetView(
+        val descriptor: com.polymath.voidlauncher.model.WidgetDescriptor,
+        val content: TextView,
+        val status: TextView,
+        var lastRefreshMs: Long
+    )
+    private val deckWidgetViews = mutableListOf<DeckWidgetView>()
+    private val deckRefreshRunnable = object : Runnable {
+        override fun run() {
+            if (!isWidgetDeckOpen) return
+            val now = System.currentTimeMillis()
+            for (entry in deckWidgetViews.toList()) {
+                val interval = com.polymath.voidlauncher.core.WidgetPolicy
+                    .clampRefreshIntervalMs(entry.descriptor.refreshIntervalMs)
+                if (now - entry.lastRefreshMs >= interval) {
+                    refreshDeckWidget(entry)
+                }
+            }
+            deckRefreshHandler.postDelayed(this, 5_000L)
+        }
+    }
+
+    /** Single-widget refresh used by the scheduler and by retry taps. */
+    private fun refreshDeckWidget(entry: DeckWidgetView) {
+        val snap = telemetryMonitor.captureSnapshot(config.thermalLimitCelsius)
+        val w = entry.descriptor
+        entry.status.text = "Loading…"
+        // impl-05 step 3 gate, UNCHANGED: the deck-refresh path
+        // suppresses live refresh at CRITICAL for every widget type
+        // (the old code gated the whole refreshWidget call, not just
+        // SCRIPT). WidgetRegistry itself still has no power gate.
+        if (!powerProfileAdaptor.shouldRenderNonEssentialWidgets(
+                powerProfileAdaptor.evaluate(snap, config.thermalLimitCelsius)
+            )) {
+            val interval = com.polymath.voidlauncher.core.WidgetPolicy
+                .clampRefreshIntervalMs(w.refreshIntervalMs)
+            entry.status.text = if (System.currentTimeMillis() - entry.lastRefreshMs > interval * 2) {
+                "Stale · paused (thermal)"
+            } else {
+                "Paused (thermal)"
+            }
+            return
+        }
+        widgetRegistry.refreshWidget(w) { live ->
+            entry.content.text = live
+            entry.lastRefreshMs = System.currentTimeMillis()
+            val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+                .format(java.util.Date(entry.lastRefreshMs))
+            entry.status.text = if (com.polymath.voidlauncher.core.WidgetPolicy.isErrorContent(live, w.type)) {
+                "Error · tap to retry — updated $time"
+            } else {
+                "Updated $time"
+            }
+        }
+    }
     private var isCommandCenterOpen: Boolean = false
 
     // STILL Design System Formatters & Audio State
@@ -292,6 +353,7 @@ class VoidLauncherActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         configSyncService.unregister()
+        deckRefreshHandler.removeCallbacks(deckRefreshRunnable)
         widgetRegistry.shutdown()
     }
 
@@ -893,6 +955,8 @@ class VoidLauncherActivity : AppCompatActivity() {
             if (isCommandCenterOpen) openCommandCenter(false)
             refreshWidgetDeckContent()
         } else {
+            // impl-06 step 4: scheduler stops the moment the deck closes.
+            deckRefreshHandler.removeCallbacks(deckRefreshRunnable)
             binding.stillWidgetDeckLayout.visibility = View.GONE
             if (config.defaultHomeMode.uppercase() == "STILL") {
                 binding.stillHomeLayout.visibility = View.VISIBLE
@@ -924,6 +988,8 @@ class VoidLauncherActivity : AppCompatActivity() {
         binding.tvDeckWidgetCount.text = "${widgets.size} WIDGETS"
         val container = binding.layoutDeckWidgets
         container.removeAllViews()
+        deckWidgetViews.clear()
+        deckRefreshHandler.removeCallbacks(deckRefreshRunnable)
         val c = config.colors
         for (w in widgets) {
             val card = LinearLayout(this).apply {
@@ -931,6 +997,13 @@ class VoidLauncherActivity : AppCompatActivity() {
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply { bottomMargin = dpToPx(8) }
+                // impl-06 step 4: heightDp is honoured as a FLOOR
+                // (minimumHeight), not a clip: a short card still
+                // occupies its declared height, long content grows
+                // rather than being cut off.
+                minimumHeight = dpToPx(
+                    com.polymath.voidlauncher.core.WidgetPolicy.clampHeightDp(w.heightDp)
+                )
                 orientation = LinearLayout.VERTICAL
                 setPadding(dpToPx(12), dpToPx(10), dpToPx(12), dpToPx(10))
                 background = GradientDrawable().apply {
@@ -955,24 +1028,57 @@ class VoidLauncherActivity : AppCompatActivity() {
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                     typeface = Typeface.MONOSPACE
                 }
+                // impl-06 step 4: per-widget status line — last-refresh
+                // time, loading, error, stale. Tapping it retries ONLY
+                // this widget (never the whole deck).
+                val status = TextView(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { topMargin = dpToPx(4) }
+                    text = "Loading…"
+                    setTextColor(c.textMutedInt)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+                    typeface = Typeface.MONOSPACE
+                }
                 addView(title)
                 addView(content)
-                // impl-05 step 3: CRITICAL suppresses SCRIPT live refresh
-                // (shouldRenderNonEssentialWidgets gate). Static descriptor
-                // content, vitals and task lists are never gated.
-                if (powerProfileAdaptor.shouldRenderNonEssentialWidgets(
-                        powerProfileAdaptor.evaluate(snap, config.thermalLimitCelsius)
-                    )) {
-                    widgetRegistry.refreshWidget(w) { live -> content.text = live }
-                }
+                addView(status)
+                val entry = DeckWidgetView(w, content, status, System.currentTimeMillis())
+                deckWidgetViews.add(entry)
+                status.setOnClickListener { refreshDeckWidget(entry) }
+                // impl-05 step 3 gate lives inside refreshDeckWidget
+                // (all types suppressed at CRITICAL in this path only).
+                // WidgetRegistry itself has NO power gate, as area 05 found.
+                refreshDeckWidget(entry)
                 if (w.actionOnClick.isNotEmpty()) {
                     setOnClickListener {
                         haptic(it)
-                        handleOmniSubmit(w.actionOnClick)
+                        // impl-06 step 4: no silent tap-to-execute for
+                        // commands. First tap per (widget, action) asks;
+                        // plain app launches run straight through.
+                        if (widgetRegistry.needsActionApproval(w)) {
+                            MaterialAlertDialogBuilder(this)
+                                .setTitle("Run widget action?")
+                                .setMessage("Widget \"${w.title}\" wants to run:\n${w.actionOnClick}\n\nThis action runs with the same trust as typing it yourself.")
+                                .setPositiveButton("Run") { _, _ ->
+                                    widgetRegistry.approveAction(w)
+                                    handleOmniSubmit(w.actionOnClick)
+                                }
+                                .setNegativeButton("Cancel", null)
+                                .show()
+                        } else {
+                            handleOmniSubmit(w.actionOnClick)
+                        }
                     }
                 }
             }
             container.addView(card)
+        }
+        // impl-06 step 4: deck-visible scheduler starts here and is
+        // removed on deck close / onDestroy (see openWidgetDeck).
+        if (isWidgetDeckOpen) {
+            deckRefreshHandler.postDelayed(deckRefreshRunnable, 5_000L)
         }
     }
 

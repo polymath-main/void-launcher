@@ -11,5 +11,8 @@ data class WidgetDescriptor(
     val refreshIntervalMs: Long = 5000L,       // Refresh cadence
     val heightDp: Int = 48,                    // Height on homescreen
     val actionOnClick: String = "",            // Optional command or package to launch
-    val isEnabled: Boolean = true
+    val isEnabled: Boolean = true,
+    // impl-06 step 4: per-widget opt-in for plain-HTTP fetches, LAN
+    // hosts only (see WidgetPolicy.httpAllowed). Default: HTTPS only.
+    val allowInsecureHttp: Boolean = false
 )
