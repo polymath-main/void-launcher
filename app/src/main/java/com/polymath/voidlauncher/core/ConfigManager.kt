@@ -40,6 +40,21 @@ class ConfigManager(private val context: Context) {
 
     private var cachedConfig: LauncherConfig = LauncherConfig()
 
+    /** Area 07 step 2: warnings from the last load (empty = clean).
+     *  Computed by the pure validator, never a load gate. */
+    var lastValidationWarnings: List<ConfigValidationWarning> = emptyList()
+        private set
+
+    /** Area 07 step 2: true when the last save fell back to the
+     *  internal store because the external write failed. Previously
+     *  this divergence was silent; Settings now surfaces it. */
+    var lastSaveWasFallback: Boolean = false
+        private set
+
+    /** Area 07 step 2: human-readable reason for the last fallback, if any. */
+    var lastSaveError: String? = null
+        private set
+
     /**
      * Loads config from the resolution chain. Call on every onResume for hot-reload.
      */
@@ -47,6 +62,13 @@ class ConfigManager(private val context: Context) {
         val json = readExternalConfig()
             ?: readInternalConfig()
             ?: readBundledConfig()
+
+        // Area 07 step 2: validation is computed on every load and
+        // kept for Settings/import UI to surface — it never rejects.
+        lastValidationWarnings = if (json != null) ConfigValidator.validate(json) else emptyList()
+        if (lastValidationWarnings.isNotEmpty()) {
+            Log.w(TAG, "Config validation warnings: ${lastValidationWarnings.joinToString { "${it.key}: ${it.message}" }}")
+        }
 
         cachedConfig = if (json != null) {
             try {
@@ -104,16 +126,43 @@ class ConfigManager(private val context: Context) {
 
             val json = serializeConfig(config)
             writeAtomically(File(EXTERNAL_CONFIG_FILE), json.toString(2))
+            lastSaveWasFallback = false
+            lastSaveError = null
             Log.i(TAG, "Config saved to $EXTERNAL_CONFIG_FILE")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save external config: ${e.message}")
-            // Fallback: save internally, atomically as well.
+            // Fallback: save internally, atomically as well. Area 07
+            // step 2 makes this VISIBLE (lastSaveWasFallback) instead
+            // of silently diverging the two stores; the fallback
+            // itself is kept, per the plan — it is not deleted here.
+            lastSaveWasFallback = true
+            lastSaveError = e.message
             try {
                 val json = serializeConfig(config)
                 writeAtomically(File(context.filesDir, INTERNAL_CONFIG_FILE), json.toString(2))
             } catch (e2: Exception) {
                 Log.e(TAG, "Failed to save internal config: ${e2.message}")
+                lastSaveError = e2.message
             }
+        }
+    }
+
+    /**
+     * Area 07 step 2: writes a one-generation backup of the current
+     * store to `config.json.bak` next to it (same file
+     * ConfigSyncService.restoreBackup() restores). Used before a
+     * Reset-apply and by Settings' "Restore last backup" row.
+     * Returns false when no store file exists; never throws.
+     */
+    fun backupCurrentStore(): Boolean {
+        return try {
+            val store = File(EXTERNAL_CONFIG_FILE)
+            if (!store.isFile) return false
+            store.copyTo(File(store.parentFile, "config.json.bak"), overwrite = true)
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Config backup failed: ${e.message}")
+            false
         }
     }
 
