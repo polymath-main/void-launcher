@@ -13,11 +13,16 @@ import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.polymath.voidlauncher.core.ThemeEngine
 import com.polymath.voidlauncher.model.AppEntry
+import com.polymath.voidlauncher.model.DockStyle
+import java.util.Locale
 
 /**
  * Micro-service encapsulating application lifecycle actions:
- * Launch, App Info, Uninstall, Pin Home Shortcut, and Long-Press Context Menu.
+ * Launch, App Info, Uninstall, Pin Home Shortcut, and the theme-styled
+ * 5-action long-press context menu across the 5 dock styles:
+ * [NUMERIC_BRACKET], [ASCII_TTY], [EDITORIAL_SERIF], [CHAMFERED_HUD], [CAD_WIREFRAME].
  */
 class AppActionsMicroService(private val activity: Activity) {
 
@@ -26,15 +31,57 @@ class AppActionsMicroService(private val activity: Activity) {
         onLaunch: (AppEntry) -> Unit,
         onAddToDock: (AppEntry) -> Unit
     ) {
-        val options = arrayOf(
-            "Open",
-            "App info",
-            "Uninstall",
-            "Add to dock…",
-            "Pin shortcut"
-        )
+        val theme = ThemeEngine.currentTheme
+        val style = theme.dockStyle
+
+        val options = when (style) {
+            DockStyle.ASCII_TTY -> arrayOf(
+                "├── 01 EXECUTE (run)",
+                "├── 02 INSPECT (app info)",
+                "├── 03 PURGE (uninstall)",
+                "├── 04 BIND_DOCK (add to dock)",
+                "└── 05 PIN_NODE (pin shortcut)"
+            )
+            DockStyle.EDITORIAL_SERIF -> arrayOf(
+                "I. Launch Application",
+                "II. Application Details",
+                "III. Remove from Device",
+                "IV. Place on Home Dock",
+                "V. Create Home Shortcut"
+            )
+            DockStyle.CHAMFERED_HUD -> arrayOf(
+                "// 01.SYS // EXECUTE",
+                "// 02.INF // APP_DETAILS",
+                "// 03.DEL // UNINSTALL",
+                "// 04.DCK // ADD_TO_DOCK",
+                "// 05.PIN // PIN_SHORTCUT"
+            )
+            DockStyle.CAD_WIREFRAME -> arrayOf(
+                "[01] EXEC_NODE",
+                "[02] SPEC_INFO",
+                "[03] DROP_PKG",
+                "[04] ROUTE_DOCK",
+                "[05] PIN_ROUTE"
+            )
+            DockStyle.NUMERIC_BRACKET -> arrayOf(
+                "[1] Open",
+                "[2] App Info",
+                "[3] Uninstall",
+                "[4] Add to Dock…",
+                "[5] Pin Shortcut"
+            )
+        }
+
+        val title = when (style) {
+            DockStyle.ASCII_TTY -> "root@void:~# inspect ${entry.packageName}"
+            DockStyle.EDITORIAL_SERIF -> entry.label
+            DockStyle.CHAMFERED_HUD -> "[HUD] :: ${entry.label.uppercase(Locale.US)}"
+            DockStyle.CAD_WIREFRAME -> "NODE_ID [${entry.label.uppercase(Locale.US)}]"
+            DockStyle.NUMERIC_BRACKET -> entry.label
+        }
+
         MaterialAlertDialogBuilder(activity)
-            .setTitle(entry.label)
+            .setTitle(title)
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> onLaunch(entry)
@@ -44,6 +91,7 @@ class AppActionsMicroService(private val activity: Activity) {
                     4 -> pinShortcut(entry)
                 }
             }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 

@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- impl-02 step 3: paths exposed read-only via FileProvider for "Open with…".
+<!-- Merge: impl-02 step 3 paths (Open with...) + origin theme paths (share/export).
      Void home (app files/void) and shared storage roots the files browser
      already lists. No other app's private directory is ever exposed. -->
-<paths>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
     <files-path name="void" path="void/" />
     <external-path name="shared" path="." />
+    <cache-path name="cache" path="." />
+    <external-files-path name="external_files" path="." />
+    <files-path name="internal_files" path="." />
 </paths>

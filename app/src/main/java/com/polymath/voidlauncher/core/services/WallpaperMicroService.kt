@@ -12,16 +12,26 @@ import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.LayerDrawable
 import android.view.View
 import android.view.WindowManager
+import android.widget.EditText
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.polymath.voidlauncher.core.BuiltInThemes
+import com.polymath.voidlauncher.core.ConfigManager
+import com.polymath.voidlauncher.core.ThemeEngine
+import com.polymath.voidlauncher.model.DockStyle
 import com.polymath.voidlauncher.model.LauncherConfig
+import com.polymath.voidlauncher.model.OverlayShaderType
+import com.polymath.voidlauncher.model.ScrimLevel
 import com.polymath.voidlauncher.model.VoidPaths
+import com.polymath.voidlauncher.model.VoidThemeManifest
 import java.io.File
 
 /**
  * Micro-service responsible for Android System Wallpaper integration,
  * Window DecorView transparency, custom image wallpaper rendering with
- * OLED readability scrim, and system wallpaper assignment.
+ * OLED readability scrim (25% / 45% / 70%), system wallpaper assignment,
+ * and the expanded Appearance & Wallpaper Studio.
  */
 class WallpaperMicroService(private val context: Context) {
 
@@ -39,7 +49,7 @@ class WallpaperMicroService(private val context: Context) {
         }
 
     var dimScrimAlpha: Int
-        get() = legacyPrefs.getInt("dim_scrim_alpha", 110).coerceIn(0, 220)
+        get() = legacyPrefs.getInt("dim_scrim_alpha", ScrimLevel.SCRIM_45.alpha255).coerceIn(0, 220)
         set(value) {
             legacyPrefs.edit().putInt("dim_scrim_alpha", value.coerceIn(0, 220)).apply()
         }
@@ -127,6 +137,10 @@ class WallpaperMicroService(private val context: Context) {
         }
     }
 
+    /**
+     * Main Wallpaper Studio dialog: Theme Preset Switcher, Scrim Levels,
+     * System Wallpaper picker, Token Customizer, Save & Share actions.
+     */
     fun showWallpaperStudioDialog(
         activity: Activity,
         currentConfig: LauncherConfig,
@@ -134,47 +148,61 @@ class WallpaperMicroService(private val context: Context) {
     ) {
         val status = if (currentConfig.useSystemWallpaper) "ENABLED" else "OFF (Pure OLED)"
         val scrimPct = (dimScrimAlpha * 100 / 255)
+        val activeThemeName = ThemeEngine.currentTheme.name
+
         val options = arrayOf(
             if (currentConfig.useSystemWallpaper) "🌑 Disable Wallpaper (Pure OLED Black)" else "🖼 Enable Wallpaper Mode",
-            "🎨 Pick System / Live Wallpaper…",
+            "🎨 Theme Preset Switcher [Active: $activeThemeName] ➔",
+            "🛠️ Token Customizer (Colors, Scrim, Shader, Dock) ➔",
+            "🖼 Pick System / Live Wallpaper…",
             "🌓 Scrim Dimming: Light (25%)",
             "🌘 Scrim Dimming: Balanced (45% — Default)",
             "🌑 Scrim Dimming: Deep OLED (70%)",
+            "💾 Save Custom Theme…",
+            "🔗 Share Current Theme…",
             "🗑 Clear Custom Image Override"
         )
 
         MaterialAlertDialogBuilder(activity)
-            .setTitle("Wallpaper Studio [$status · Scrim ${scrimPct}%]")
+            .setTitle("Wallpaper & Appearance Studio [$status · Scrim ${scrimPct}%]")
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> {
                         val next = !currentConfig.useSystemWallpaper
-                        onUpdateConfig(currentConfig.copy(useSystemWallpaper = next))
+                        val updated = currentConfig.copy(useSystemWallpaper = next)
+                        onUpdateConfig(updated)
                         Toast.makeText(
                             activity,
                             if (next) "Wallpaper enabled" else "Pure OLED mode enabled",
                             Toast.LENGTH_SHORT
                         ).show()
                     }
-                    1 -> {
+                    1 -> showThemePresetSwitcher(activity, currentConfig, onUpdateConfig)
+                    2 -> showTokenCustomizer(activity, currentConfig, onUpdateConfig)
+                    3 -> {
                         if (!currentConfig.useSystemWallpaper) {
                             onUpdateConfig(currentConfig.copy(useSystemWallpaper = true))
                         }
                         openSystemWallpaperPicker(activity)
                     }
-                    2 -> {
-                        dimScrimAlpha = 64
-                        onUpdateConfig(currentConfig.copy(useSystemWallpaper = true))
-                    }
-                    3 -> {
-                        dimScrimAlpha = 115
-                        onUpdateConfig(currentConfig.copy(useSystemWallpaper = true))
-                    }
                     4 -> {
-                        dimScrimAlpha = 178
+                        dimScrimAlpha = ScrimLevel.SCRIM_25.alpha255
                         onUpdateConfig(currentConfig.copy(useSystemWallpaper = true))
+                        Toast.makeText(activity, "Scrim set to 25% (Light)", Toast.LENGTH_SHORT).show()
                     }
                     5 -> {
+                        dimScrimAlpha = ScrimLevel.SCRIM_45.alpha255
+                        onUpdateConfig(currentConfig.copy(useSystemWallpaper = true))
+                        Toast.makeText(activity, "Scrim set to 45% (Balanced)", Toast.LENGTH_SHORT).show()
+                    }
+                    6 -> {
+                        dimScrimAlpha = ScrimLevel.SCRIM_70.alpha255
+                        onUpdateConfig(currentConfig.copy(useSystemWallpaper = true))
+                        Toast.makeText(activity, "Scrim set to 70% (Deep OLED)", Toast.LENGTH_SHORT).show()
+                    }
+                    7 -> showSaveCustomThemeDialog(activity, currentConfig, onUpdateConfig)
+                    8 -> showShareThemeDialog(activity, currentConfig)
+                    9 -> {
                         clearCustomWallpaper()
                         onUpdateConfig(currentConfig)
                         Toast.makeText(activity, "Custom image override cleared", Toast.LENGTH_SHORT).show()
@@ -183,6 +211,226 @@ class WallpaperMicroService(private val context: Context) {
             }
             .setNegativeButton("Close", null)
             .show()
+    }
+
+    /**
+     * Theme Preset Switcher dialog: displays the 5 reference themes and custom themes.
+     */
+    fun showThemePresetSwitcher(
+        activity: Activity,
+        currentConfig: LauncherConfig,
+        onUpdateConfig: (LauncherConfig) -> Unit
+    ) {
+        val themes = ThemeEngine.getAllThemes()
+        val currentId = ThemeEngine.currentTheme.id
+        val labels = themes.map { t ->
+            val mark = if (t.id.equals(currentId, ignoreCase = true)) "● " else "○ "
+            val tag = if (t.isBuiltIn) "[PRESET]" else "[USER]"
+            "$mark${t.name} $tag"
+        }.toTypedArray()
+
+        MaterialAlertDialogBuilder(activity)
+            .setTitle("Select Theme Preset")
+            .setItems(labels) { _, which ->
+                val chosen = themes[which]
+                val configManager = ConfigManager(context)
+                val updated = ThemeEngine.applyTheme(chosen, currentConfig, configManager, this, activity)
+                onUpdateConfig(updated)
+                Toast.makeText(activity, "Applied Theme: ${chosen.name}", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Back") { _, _ ->
+                showWallpaperStudioDialog(activity, currentConfig, onUpdateConfig)
+            }
+            .show()
+    }
+
+    /**
+     * Token Customizer: lets user tune scrim, overlay shader, dock style, and accent colors.
+     */
+    fun showTokenCustomizer(
+        activity: Activity,
+        currentConfig: LauncherConfig,
+        onUpdateConfig: (LauncherConfig) -> Unit
+    ) {
+        val current = ThemeEngine.currentTheme
+        val subOptions = arrayOf(
+            "🌓 OLED Scrim Level (${current.scrimLevel.label})",
+            "✨ Surface Overlay Shader (${current.overlayShader.name})",
+            "🎛 Dock Style (${current.dockStyle.name})",
+            "🎨 Primary Accent Color (${current.accentPrimaryHex})",
+            "🌑 Surface Base Color (${current.surfacePrimaryHex})"
+        )
+
+        MaterialAlertDialogBuilder(activity)
+            .setTitle("Theme Token Customizer")
+            .setItems(subOptions) { _, which ->
+                when (which) {
+                    0 -> showScrimLevelPicker(activity, currentConfig, onUpdateConfig)
+                    1 -> showShaderPicker(activity, currentConfig, onUpdateConfig)
+                    2 -> showDockStylePicker(activity, currentConfig, onUpdateConfig)
+                    3 -> showColorEditDialog(activity, "Primary Accent", current.accentPrimaryHex) { newHex ->
+                        val updatedTheme = current.copy(accentPrimaryHex = newHex, isBuiltIn = false)
+                        val configManager = ConfigManager(context)
+                        val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
+                        onUpdateConfig(updated)
+                    }
+                    4 -> showColorEditDialog(activity, "Surface Base", current.surfacePrimaryHex) { newHex ->
+                        val updatedTheme = current.copy(surfacePrimaryHex = newHex, isBuiltIn = false)
+                        val configManager = ConfigManager(context)
+                        val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
+                        onUpdateConfig(updated)
+                    }
+                }
+            }
+            .setNegativeButton("Back") { _, _ ->
+                showWallpaperStudioDialog(activity, currentConfig, onUpdateConfig)
+            }
+            .show()
+    }
+
+    private fun showScrimLevelPicker(
+        activity: Activity,
+        currentConfig: LauncherConfig,
+        onUpdateConfig: (LauncherConfig) -> Unit
+    ) {
+        val levels = ScrimLevel.values()
+        val names = levels.map { it.label }.toTypedArray()
+
+        MaterialAlertDialogBuilder(activity)
+            .setTitle("OLED Scrim Dimming")
+            .setItems(names) { _, which ->
+                val chosen = levels[which]
+                dimScrimAlpha = chosen.alpha255
+                val current = ThemeEngine.currentTheme
+                val updatedTheme = current.copy(scrimLevel = chosen, isBuiltIn = false)
+                val configManager = ConfigManager(context)
+                val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
+                onUpdateConfig(updated)
+            }
+            .show()
+    }
+
+    private fun showShaderPicker(
+        activity: Activity,
+        currentConfig: LauncherConfig,
+        onUpdateConfig: (LauncherConfig) -> Unit
+    ) {
+        val shaders = OverlayShaderType.values()
+        val names = shaders.map { it.name }.toTypedArray()
+
+        MaterialAlertDialogBuilder(activity)
+            .setTitle("Select Overlay Shader")
+            .setItems(names) { _, which ->
+                val chosen = shaders[which]
+                val current = ThemeEngine.currentTheme
+                val updatedTheme = current.copy(overlayShader = chosen, isBuiltIn = false)
+                val configManager = ConfigManager(context)
+                val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
+                onUpdateConfig(updated)
+            }
+            .show()
+    }
+
+    private fun showDockStylePicker(
+        activity: Activity,
+        currentConfig: LauncherConfig,
+        onUpdateConfig: (LauncherConfig) -> Unit
+    ) {
+        val styles = DockStyle.values()
+        val names = styles.map { it.name }.toTypedArray()
+
+        MaterialAlertDialogBuilder(activity)
+            .setTitle("Select Dock Style")
+            .setItems(names) { _, which ->
+                val chosen = styles[which]
+                val current = ThemeEngine.currentTheme
+                val updatedTheme = current.copy(dockStyle = chosen, isBuiltIn = false)
+                val configManager = ConfigManager(context)
+                val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
+                onUpdateConfig(updated)
+            }
+            .show()
+    }
+
+    private fun showColorEditDialog(
+        activity: Activity,
+        title: String,
+        currentHex: String,
+        onSave: (String) -> Unit
+    ) {
+        val input = EditText(activity).apply {
+            setText(currentHex)
+            setSelection(currentHex.length)
+            hint = "#RRGGBB"
+        }
+
+        AlertDialog.Builder(activity)
+            .setTitle("Edit $title Color")
+            .setView(input)
+            .setPositiveButton("Apply") { _, _ ->
+                val hex = input.text.toString().trim()
+                if (VoidThemeManifest.isValidHex(hex)) {
+                    onSave(VoidThemeManifest.normalizeHex(hex, currentHex))
+                } else {
+                    Toast.makeText(activity, "Invalid hex color format", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /**
+     * Save Custom Theme Dialog.
+     */
+    private fun showSaveCustomThemeDialog(
+        activity: Activity,
+        currentConfig: LauncherConfig,
+        onUpdateConfig: (LauncherConfig) -> Unit
+    ) {
+        val input = EditText(activity).apply {
+            hint = "Theme Name (e.g. My Void Slate)"
+        }
+
+        AlertDialog.Builder(activity)
+            .setTitle("Save Custom Theme")
+            .setMessage("Save current tokens and shaders as a reusable .voidtheme file.")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isNotEmpty()) {
+                    val current = ThemeEngine.currentTheme
+                    val id = VoidThemeManifest.sanitizeId(name)
+                    val customManifest = current.copy(
+                        id = id,
+                        name = name,
+                        author = "User",
+                        isBuiltIn = false,
+                        showSystemWallpaper = currentConfig.useSystemWallpaper,
+                        customWallpaperPath = customImagePath
+                    ).normalized()
+
+                    val savedFile = ThemeEngine.saveCustomTheme(customManifest)
+                    val configManager = ConfigManager(context)
+                    val updated = ThemeEngine.applyTheme(customManifest, currentConfig, configManager, this, activity)
+                    onUpdateConfig(updated)
+                    Toast.makeText(activity, "Saved theme to ${savedFile.name}", Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /**
+     * Share Current Theme Dialog.
+     */
+    private fun showShareThemeDialog(activity: Activity, currentConfig: LauncherConfig) {
+        val current = ThemeEngine.currentTheme
+        val shareIntent = ThemeEngine.exportShareIntent(activity, current)
+        try {
+            activity.startActivity(Intent.createChooser(shareIntent, "Share Theme: ${current.name}"))
+        } catch (_: Exception) {
+            Toast.makeText(activity, "No app available to share theme", Toast.LENGTH_SHORT).show()
+        }
     }
 
     fun isImageFile(path: String): Boolean {

@@ -31,7 +31,10 @@ object VoidPaths {
 
     fun init(context: Context) {
         val dir = context.getExternalFilesDir("config") ?: File(context.filesDir, "config")
-        try { dir.mkdirs() } catch (_: Exception) {}
+        try {
+            dir.mkdirs()
+            File(dir, "themes").mkdirs()
+        } catch (_: Exception) {}
         baseDir = dir.absolutePath
         Log.i(TAG, "VOID config home = ${dir.absolutePath}")
     }
@@ -40,6 +43,7 @@ object VoidPaths {
     val HOME: String get() = baseDir ?: fallbackHome
 
     val CONFIG: String get() = "$HOME/config.json"
+    val THEMES: String get() = "$HOME/themes"
     val MACROS: String get() = "$HOME/macros"
     val WIDGETS: String get() = "$HOME/widgets"
     val PERSONAS: String get() = "$HOME/personas"

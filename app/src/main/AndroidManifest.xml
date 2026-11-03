@@ -41,6 +41,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Scheme-Based Theme Library void:// Import Intent Filter -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="void" android:host="theme" android:path="/import" />
+            </intent-filter>
         </activity>
 
         <!-- Built-in Void Config Editor -->
@@ -48,6 +56,19 @@
             android:name=".VoidSettingsActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
+
+        <!-- FileProvider (single, shared): *.voidtheme sharing/VFS export (origin theme)
+             AND impl-02 "Open with…" — duplicate provider removed in merge;
+             same authority/resource, so one entry serves both. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!-- Void Notification Listener Service -->
         <service
@@ -59,20 +80,6 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
-
-        <!-- impl-02 step 3: FileProvider for "Open with…" only. Read-only
-             content URIs for Void-home files and shared storage; the
-             authority follows the runtime package name, so the debug
-             applicationId suffix is handled automatically. -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
 
     </application>
 

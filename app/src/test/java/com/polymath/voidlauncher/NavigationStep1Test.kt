@@ -31,6 +31,9 @@ class NavigationStep1Test {
     private fun activityText() =
         read("app/src/main/java/com/polymath/voidlauncher/VoidLauncherActivity.kt")
 
+    private fun dockServiceText() =
+        read("app/src/main/java/com/polymath/voidlauncher/core/services/DockSlotMicroService.kt")
+
     private fun functionBody(text: String, signature: String): String {
         val start = text.indexOf(signature)
         assertTrue("missing function $signature", start >= 0)
@@ -44,7 +47,15 @@ class NavigationStep1Test {
         assertTrue("dock must bind by slot.index, not list position", body.contains("it.index == (i + 1)"))
         assertTrue("unconfigured slot buttons must be GONE (sparse binding)", body.contains("View.GONE"))
         assertTrue("configured slot buttons must be VISIBLE", body.contains("View.VISIBLE"))
-        assertTrue("dock label must carry the slot number", body.contains("\"[\${slot.index}] \${slot.label}\""))
+        // Merge update (not a deletion): the literal "[i] label" format moved
+        // out of rebuildDockSlots into the theme-aware DockSlotMicroService.
+        // formatSlotDisplay (NUMERIC_BRACKET), which the Activity now calls.
+        // Behaviour is unchanged for the default style; the assertion follows it.
+        assertTrue("dock label must come from the theme-aware formatter", body.contains("formatSlotDisplay"))
+        assertTrue(
+            "dock label must carry the slot number",
+            dockServiceText().contains("\"[\${slot.index}] \${slot.label}\"")
+        )
     }
 
     @Test

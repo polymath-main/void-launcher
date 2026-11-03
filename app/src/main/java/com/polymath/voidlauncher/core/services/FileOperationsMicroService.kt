@@ -1,17 +1,21 @@
 package com.polymath.voidlauncher.core.services
 
 import android.app.Activity
+import android.content.Intent
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.polymath.voidlauncher.core.FileManager
+import com.polymath.voidlauncher.core.ThemeEngine
 import com.polymath.voidlauncher.model.FileItem
+import com.polymath.voidlauncher.model.VoidThemeManifest
+import java.io.File
 
 /**
  * Micro-service encapsulating VFS File Browser operations:
  * VoidTerm context launch, text preview, path copy, image wallpaper assignment,
- * file rename, file delete, and directory creation.
+ * file rename, file delete, directory creation, and `.voidtheme` theme import & share actions.
  */
 class FileOperationsMicroService(
     private val activity: Activity,
@@ -26,23 +30,33 @@ class FileOperationsMicroService(
         onCopyPath: (String) -> Unit,
         onApplyWallpaperFromFile: (String) -> Unit,
         onRefreshDirectory: () -> Unit,
-        // impl-02 step 3: default no-op keeps older call sites compiling;
-        // the Activity wires it to an ACTION_VIEW chooser.
-        onOpenWith: (FileItem) -> Unit = {}
+        // Merge: BOTH callbacks — impl-02 step 3 onOpenWith (default no-op
+        // keeps older call sites compiling; the Activity wires it to an
+        // ACTION_VIEW chooser) AND origin's onApplyThemeFromFile (nullable;
+        // null falls back to in-service import).
+        onOpenWith: (FileItem) -> Unit = {},
+        onApplyThemeFromFile: ((String) -> Unit)? = null
     ) {
         val isImage = !item.isDirectory && wallpaperService.isImageFile(item.path)
-        // (label, action code) pairs — codes stay stable when an entry is
-        // added for one file type only, unlike the old index-offset trick.
+        val isTheme = !item.isDirectory && item.name.lowercase().endsWith(".voidtheme")
+        // Merge: impl-02's (label, code) pairs — codes stay stable when an
+        // entry is added for one file type only — plus origin's theme
+        // entries (codes 10/11). Common entries keep impl-02 codes 0-6.
         val options = mutableListOf<Pair<String, Int>>()
-        if (isImage) options.add("🖼 Set as Wallpaper" to 0)
+        if (isTheme) {
+            options.add("🎨 Apply & Import Theme" to 10)
+            options.add("🔗 Share Theme" to 11)
+        } else if (isImage) {
+            options.add("🖼 Set as Wallpaper" to 0)
+        }
         options.add("⚡ Open in VoidTerm (${if (item.isDirectory) "cd here" else "run here"})" to 1)
         options.add("📄 Read Text Preview" to 2)
         options.add("📋 Copy Full Path" to 3)
         options.add("✏️ Rename" to 4)
         options.add("🗑 Delete" to 5)
-        // impl-02 step 3: "Open with…" only for non-image, non-directory
-        // files (images already open this dialog; directories navigate).
-        if (!isImage && !item.isDirectory) options.add("🔗 Open with…" to 6)
+        // impl-02 step 3: "Open with…" only for non-image, non-directory,
+        // non-theme files (images/theme already open this dialog).
+        if (!isImage && !isTheme && !item.isDirectory) options.add("🔗 Open with…" to 6)
 
         MaterialAlertDialogBuilder(activity)
             .setTitle(item.name)
@@ -52,15 +66,44 @@ class FileOperationsMicroService(
                     1 -> onOpenInVoidTerm(item)
                     2 -> {
                         val preview = fileManager.readTextPreview(item.path, maxLines = 60)
-                        onShowPreview("[PREVIEW: ${item.name}]\n\n$preview")
+                        onShowPreview(if (isTheme) "[THEME PREVIEW: ${item.name}]\n\n$preview" else "[PREVIEW: ${item.name}]\n\n$preview")
                     }
                     3 -> onCopyPath(item.path)
                     4 -> showRenameDialog(item, onRefreshDirectory)
                     5 -> showDeleteConfirmDialog(item, onRefreshDirectory)
                     6 -> onOpenWith(item)
+                    10 -> {
+                        if (onApplyThemeFromFile != null) {
+                            onApplyThemeFromFile(item.path)
+                        } else {
+                            val result = ThemeEngine.importFromUriOrString(item.path)
+                            result.onSuccess { manifest ->
+                                Toast.makeText(activity, "Imported theme: ${manifest.name}", Toast.LENGTH_SHORT).show()
+                            }.onFailure { err ->
+                                Toast.makeText(activity, "Failed to import theme: ${err.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                    11 -> shareThemeFile(item.path)
                 }
             }
+            .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun shareThemeFile(filePath: String) {
+        val file = File(filePath)
+        if (!file.exists() || !file.canRead()) {
+            Toast.makeText(activity, "Cannot read theme file", Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            val manifest = VoidThemeManifest.fromJsonString(file.readText(), trusted = false)
+            val intent = ThemeEngine.exportShareIntent(activity, manifest)
+            activity.startActivity(Intent.createChooser(intent, "Share Theme: ${manifest.name}"))
+        } catch (e: Exception) {
+            Toast.makeText(activity, "Error sharing theme: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     fun showRenameDialog(item: FileItem, onRefreshDirectory: () -> Unit) {

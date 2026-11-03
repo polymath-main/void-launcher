@@ -206,6 +206,31 @@ class VoidLauncherActivity : AppCompatActivity() {
         refreshIndexAsync()
 
         configSyncService.register()
+        handleThemeIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleThemeIntent(intent)
+    }
+
+    private fun handleThemeIntent(intent: Intent?) {
+        val data = intent?.data ?: return
+        if (data.scheme.equals("void", ignoreCase = true) &&
+            data.host.equals("theme", ignoreCase = true)
+        ) {
+            val result = ThemeEngine.importFromUriOrString(data.toString())
+            result.onSuccess { manifest ->
+                config = ThemeEngine.applyTheme(manifest, config, configManager, wallpaperService, this)
+                applyConfig()
+                showTerminalOutput("[THEME IMPORTED & APPLIED]: ${manifest.name} (${manifest.id})")
+                Toast.makeText(this, "Theme imported: ${manifest.name}", Toast.LENGTH_SHORT).show()
+            }.onFailure { err ->
+                showTerminalOutput("[THEME IMPORT ERROR]: ${err.message}")
+                Toast.makeText(this, "Theme import error: ${err.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -351,8 +376,12 @@ class VoidLauncherActivity : AppCompatActivity() {
 
         // Thermal throttle guardian callbacks
         thermalGuardian.onThrottleTriggered = { tempC, summary ->
+            binding.liquidSurface.isThermalThrottled = true
             glyphChoreographer.play("THERMAL_WARNING")
             Toast.makeText(this, "⚠ $summary", Toast.LENGTH_LONG).show()
+        }
+        thermalGuardian.onThrottleCleared = { _ ->
+            binding.liquidSurface.isThermalThrottled = false
         }
 
         // App filter adapter (omni search)
@@ -557,7 +586,14 @@ class VoidLauncherActivity : AppCompatActivity() {
         }
 
         // Liquid touch surface (config: liquid_touch_enabled)
+        ThemeEngine.syncFromConfig(config)
+        val activeTheme = ThemeEngine.currentTheme
+
         binding.liquidSurface.isLiquidEffectEnabled = config.liquidTouchEnabled
+        binding.liquidSurface.shaderType = activeTheme.overlayShader
+        binding.liquidSurface.accentColor = c.accentInt
+        binding.liquidSurface.secondaryColor = c.secondaryInt
+        binding.liquidSurface.isLightSurface = activeTheme.isLightSurface
         binding.liquidSurface.rippleColor = c.accentInt
         binding.liquidSurface.visibility = if (config.liquidTouchEnabled) View.VISIBLE else View.GONE
 
@@ -957,6 +993,7 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     private fun rebuildDockSlots() {
         val c = config.colors
+        val theme = ThemeEngine.currentTheme
         // IMPORTANT: bind by slot.index, not list position. The user can add a
         // high-index slot (e.g. 7) while leaving lower indices empty, so the list
         // is sparse and positional binding would paint the wrong view.
@@ -969,6 +1006,7 @@ class VoidLauncherActivity : AppCompatActivity() {
             val slot = config.dockSlots.firstOrNull { it.index == (i + 1) }
             if (slot != null) {
                 slotView.visibility = View.VISIBLE
+                slotView.minimumHeight = dpToPx(theme.touchTargetMinDp.coerceAtLeast(48))
 
                 // impl-02 step 2: dock rows have a single TextView child (the
                 // label). The old second-child subtitle assignment was dead
@@ -977,9 +1015,14 @@ class VoidLauncherActivity : AppCompatActivity() {
                 // and settings still display it; home just does not.
                 val labelView = (slotView as? LinearLayout)?.getChildAt(0) as? TextView
 
-                labelView?.text = "[${slot.index}] ${slot.label}"
+                val formatted = dockSlotService.formatSlotDisplay(slot, theme.dockStyle)
+                labelView?.text = formatted.first
                 labelView?.setTextColor(c.textPrimaryInt)
                 labelView?.setTextSize(TypedValue.COMPLEX_UNIT_SP, config.dockFontSizeSp)
+                // Merge: origin's second-child subtitle assignment dropped —
+                // impl-02 step 2 deleted it as dead code (dock rows have a
+                // single TextView child; no second-child view exists here).
+                // formatSlotDisplay's theme-aware label (.first) is kept.
             } else {
                 slotView.visibility = View.GONE
             }
@@ -1430,9 +1473,9 @@ class VoidLauncherActivity : AppCompatActivity() {
                 }
             },
             onRefreshDirectory = { loadFilesDirectory(currentFilesPath) },
-            // impl-02 step 3: "Open with…" via a read-only FileProvider
-            // URI (file:// URIs are rejected for other apps since API 24).
-            // Tap behaviour is unchanged: tap still shows the text preview.
+            // Merge: BOTH callbacks — impl-02 step 3 "Open with…" via a
+            // read-only FileProvider URI (file:// rejected since API 24;
+            // tap behaviour unchanged) AND origin's theme import.
             onOpenWith = { fileItem ->
                 try {
                     val mime = fileManager.getMimeType(fileItem.path)
@@ -1449,7 +1492,17 @@ class VoidLauncherActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     Toast.makeText(this, "Cannot open this file: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
-            }
+            },
+            onApplyThemeFromFile = { path ->
+                val result = ThemeEngine.importFromUriOrString(path)
+                result.onSuccess { manifest ->
+                    config = ThemeEngine.applyTheme(manifest, config, configManager, wallpaperService, this)
+                    applyConfig()
+                    Toast.makeText(this, "Theme applied: ${manifest.name}", Toast.LENGTH_SHORT).show()
+                }.onFailure { err ->
+                    Toast.makeText(this, "Failed to apply theme: ${err.message}", Toast.LENGTH_SHORT).show()
+                }
+                }
         )
     }
 
@@ -1502,6 +1555,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                 } else if (snap.batteryTemperatureC > config.thermalLimitCelsius) {
                     glyphManager.triggerThermalWarning()
                 }
+                binding.liquidSurface.isThermalThrottled = thermalGuardian.isThrottled || (snap.batteryTemperatureC >= config.thermalLimitCelsius)
 
                 // Focus mode schedule tick (F-10)
                 if (config.focusSchedulerEnabled) {
@@ -1855,35 +1909,31 @@ class VoidLauncherActivity : AppCompatActivity() {
                 val activeBlock = focusScheduler.checkAndApplySchedule()
                 showTerminalOutput(if (activeBlock != null) "[FOCUS ACTIVE]: ${activeBlock.label} (${activeBlock.personaId})" else "[FOCUS]: No active scheduled focus block")
             }
-            // Appearance Studio: theme engine
+            // Appearance Studio: theme engine suite (:theme list, apply, save, export, import)
             command == "themes" || command == "theme" -> {
-                val sb = StringBuilder("=== Themes ===\n\n")
-                for (t in ThemeEngine.presets) {
-                    val mark = if (t.id.equals(config.themeId, ignoreCase = true)) "●" else "○"
-                    sb.appendLine("$mark ${t.id.padEnd(10)} ${t.name}")
-                }
-                sb.appendLine("○ custom")
-                sb.append("\nType :theme <id> to apply")
-                showTerminalOutput(sb.toString())
+                commandHelpService.handleThemeCommand(
+                    subCommand = "",
+                    config = config,
+                    configManager = configManager,
+                    onUpdateConfig = { updated ->
+                        config = updated
+                        applyConfig()
+                    },
+                    onShowOutput = { showTerminalOutput(it) }
+                )
             }
             command.startsWith("theme ") -> {
-                val id = command.removePrefix("theme ").trim()
-                if (id.equals(ThemeEngine.CUSTOM_ID, ignoreCase = true)) {
-                    config = config.copy(themeId = ThemeEngine.CUSTOM_ID)
-                    configManager.saveConfig(config)
-                    applyConfig()
-                    showTerminalOutput("[THEME]: custom (colors unchanged)")
-                } else {
-                    val preset = ThemeEngine.byId(id)
-                    if (preset != null) {
-                        config = config.copy(colors = preset.palette, themeId = preset.id)
-                        configManager.saveConfig(config)
+                val sub = command.removePrefix("theme ").trim()
+                commandHelpService.handleThemeCommand(
+                    subCommand = sub,
+                    config = config,
+                    configManager = configManager,
+                    onUpdateConfig = { updated ->
+                        config = updated
                         applyConfig()
-                        showTerminalOutput("[THEME APPLIED]: ${preset.name}")
-                    } else {
-                        showTerminalOutput("[ERROR]: Unknown theme '$id'. Type :themes")
-                    }
-                }
+                    },
+                    onShowOutput = { showTerminalOutput(it) }
+                )
             }
             // View mode switching
             command.startsWith("mode ") -> {

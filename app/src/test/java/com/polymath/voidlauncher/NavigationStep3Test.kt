@@ -43,7 +43,11 @@ class NavigationStep3Test {
         val service = serviceText()
         assertTrue(
             "Open with must be gated on non-image, non-directory files",
-            service.contains("if (!isImage && !item.isDirectory) options.add(\"🔗 Open with…\" to 6)")
+            // Merge update (not a deletion): theme files gained their own menu
+            // (apply/share) in the origin theme work, so Open-with is now
+            // additionally excluded for them; non-image, non-directory,
+            // non-theme gating is otherwise unchanged.
+            service.contains("if (!isImage && !isTheme && !item.isDirectory) options.add(\"🔗 Open with…\" to 6)")
         )
         val activity = activityText()
         assertTrue("Open with must use FileManager.getMimeType", activity.contains("fileManager.getMimeType(fileItem.path)"))
