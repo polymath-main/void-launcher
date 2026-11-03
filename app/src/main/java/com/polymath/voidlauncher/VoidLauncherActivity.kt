@@ -2225,7 +2225,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                                 val mark = if (jsMacroRunner.isRunning(n)) "● running" else "○"
                                 sb.appendLine("$mark $n")
                             }
-                            sb.append("\n:void-js run <name> [--trigger <event>] · :void-js stop <name>")
+                            sb.append("\n:void-js run <name> [--trigger <event>] · :void-js stop <name> · :void-js triggers <name> · :void-js trigger attach|detach <name> <trigger> · :void-js fire <name> <trigger>")
                             showTerminalOutput(sb.toString().trimEnd())
                         }
                     }
@@ -2237,39 +2237,57 @@ class VoidLauncherActivity : AppCompatActivity() {
                         if (name.isEmpty()) {
                             showTerminalOutput("Usage: :void-js run <name> [--trigger <event>]")
                         } else {
-                            // Shell prompt (step 6 pattern): if the
-                            // manifest grants shell and auto-allow is
-                            // off, approve before ANY code runs.
-                            val manifest = jsMacroRunner.parseManifest(name, dir)
-                            val needsShellApproval = manifest != null &&
-                                com.polymath.voidlauncher.core.js.JsMacroManifest.Permission.SHELL in manifest.permissions &&
-                                !config.macroShellAutoAllow
-                            val runIt = {
-                                showTerminalOutput("[JS MACRO RUNNING]: $name (trigger: $trigger)")
-                                lifecycleScope.launch(Dispatchers.IO) {
-                                    val outcome = jsMacroRunner.run(name, dir, trigger)
-                                    withContext(Dispatchers.Main) {
-                                        val text = when (val r = outcome.result) {
-                                            is com.polymath.voidlauncher.core.js.JsResult.Success -> "[JS MACRO OK]: ${outcome.name} (${outcome.durationMs}ms)\n${r.output}"
-                                            is com.polymath.voidlauncher.core.js.JsResult.PermissionDenied -> "[JS MACRO DENIED]: permission '${r.permission}' is not in this macro's manifest"
-                                            is com.polymath.voidlauncher.core.js.JsResult.Timeout -> "[JS MACRO TIMEOUT]: ${outcome.name} after ${r.timeoutMs}ms"
-                                            is com.polymath.voidlauncher.core.js.JsResult.Unavailable -> "[JS MACRO UNAVAILABLE]: ${r.reason}"
-                                            is com.polymath.voidlauncher.core.js.JsResult.Failure -> "[JS MACRO FAILED]: ${r.reason}"
-                                        }
-                                        showTerminalOutput(text)
-                                    }
-                                }
-                            }
-                            if (needsShellApproval) {
-                                androidx.appcompat.app.AlertDialog.Builder(this)
-                                    .setTitle("JS macro wants shell access")
-                                    .setMessage("Macro '$name' has the shell permission. Allow it to run, or abort (nothing runs)?")
-                                    .setPositiveButton("Allow") { _, _ -> runIt() }
-                                    .setNegativeButton("Abort", null)
-                                    .show()
-                            } else {
-                                runIt()
-                            }
+                            runJsMacroWithApproval(name, trigger)
+                        }
+                    }
+                    // impl-04 step 7c: fire an ATTACHED trigger only.
+                    // There is no daemon yet, so this is the only
+                    // trigger-firing path: an explicit user command.
+                    // Unattached triggers never fire.
+                    sub.startsWith("fire ") -> {
+                        val args = sub.removePrefix("fire ").trim().split(Regex("\\s+"))
+                        val name = args.getOrNull(0).orEmpty()
+                        val trigger = args.getOrNull(1).orEmpty()
+                        if (name.isEmpty() || trigger.isEmpty()) {
+                            showTerminalOutput("Usage: :void-js fire <name> <trigger>")
+                        } else if (!com.polymath.voidlauncher.core.js.JsTriggerStore.isAttached(config.jsMacrosDirectory, name, trigger)) {
+                            showTerminalOutput("[JS TRIGGER]: trigger '$trigger' is not attached to '$name' — attach it first (:void-js trigger attach $name $trigger)")
+                        } else {
+                            runJsMacroWithApproval(name, trigger)
+                        }
+                    }
+                    sub == "triggers" || sub.startsWith("triggers ") -> {
+                        val name = sub.removePrefix("triggers").trim()
+                        if (name.isEmpty()) {
+                            showTerminalOutput("Usage: :void-js triggers <name>")
+                        } else {
+                            val triggers = com.polymath.voidlauncher.core.js.JsTriggerStore.list(config.jsMacrosDirectory, name)
+                            showTerminalOutput(
+                                if (triggers.isEmpty()) "[JS TRIGGERS]: '$name' has no attached triggers"
+                                else "=== JS Triggers for $name ===\n\n" + triggers.joinToString("\n") { "• $it" }
+                            )
+                        }
+                    }
+                    sub.startsWith("trigger attach ") -> {
+                        val args = sub.removePrefix("trigger attach ").trim().split(Regex("\\s+"))
+                        val name = args.getOrNull(0).orEmpty()
+                        val trigger = args.getOrNull(1).orEmpty()
+                        if (name.isEmpty() || trigger.isEmpty()) {
+                            showTerminalOutput("Usage: :void-js trigger attach <name> <trigger>")
+                        } else {
+                            val ok = com.polymath.voidlauncher.core.js.JsTriggerStore.attach(config.jsMacrosDirectory, name, trigger)
+                            showTerminalOutput(if (ok) "[JS TRIGGER ATTACHED]: $name <- $trigger" else "[JS TRIGGER ERROR]: cannot attach '$trigger' to '$name'")
+                        }
+                    }
+                    sub.startsWith("trigger detach ") -> {
+                        val args = sub.removePrefix("trigger detach ").trim().split(Regex("\\s+"))
+                        val name = args.getOrNull(0).orEmpty()
+                        val trigger = args.getOrNull(1).orEmpty()
+                        if (name.isEmpty() || trigger.isEmpty()) {
+                            showTerminalOutput("Usage: :void-js trigger detach <name> <trigger>")
+                        } else {
+                            val ok = com.polymath.voidlauncher.core.js.JsTriggerStore.detach(config.jsMacrosDirectory, name, trigger)
+                            showTerminalOutput(if (ok) "[JS TRIGGER DETACHED]: $name -/ $trigger" else "[JS TRIGGER ERROR]: '$trigger' was not attached to '$name'")
                         }
                     }
                     sub.startsWith("stop ") -> {
@@ -2278,7 +2296,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                         showTerminalOutput(if (stopped) "[JS MACRO STOPPED]: $name" else "[JS MACRO]: $name is not running")
                     }
                     else -> {
-                        showTerminalOutput("Usage: :void-js list | :void-js run <name> [--trigger <event>] | :void-js stop <name>")
+                        showTerminalOutput("Usage: :void-js list | :void-js run <name> [--trigger <event>] | :void-js stop <name> | :void-js triggers <name> | :void-js trigger attach|detach <name> <trigger> | :void-js fire <name> <trigger>")
                     }
                 }
             }
@@ -2342,6 +2360,47 @@ class VoidLauncherActivity : AppCompatActivity() {
                     showTerminalOutput("[UNKNOWN COMMAND]: :$firstWord$hint\nUse :! <cmd> to run shell explicitly, or :help for commands.")
                 }
             }
+        }
+    }
+
+    /**
+     * impl-04 step 7b/7c: runs a JS macro with the shell-approval
+     * prompt (unless auto-allow) and IO-thread execution, shared by
+     * `:void-js run` and `:void-js fire` so both paths enforce the
+     * same gates. The runner reports Unavailable when the native
+     * library is absent; that message is shown, not hidden.
+     */
+    private fun runJsMacroWithApproval(name: String, trigger: String) {
+        val dir = config.jsMacrosDirectory
+        val manifest = jsMacroRunner.parseManifest(name, dir)
+        val needsShellApproval = manifest != null &&
+            com.polymath.voidlauncher.core.js.JsMacroManifest.Permission.SHELL in manifest.permissions &&
+            !config.macroShellAutoAllow
+        val runIt = {
+            showTerminalOutput("[JS MACRO RUNNING]: $name (trigger: $trigger)")
+            lifecycleScope.launch(Dispatchers.IO) {
+                val outcome = jsMacroRunner.run(name, dir, trigger)
+                withContext(Dispatchers.Main) {
+                    val text = when (val r = outcome.result) {
+                        is com.polymath.voidlauncher.core.js.JsResult.Success -> "[JS MACRO OK]: ${outcome.name} (${outcome.durationMs}ms)\n${r.output}"
+                        is com.polymath.voidlauncher.core.js.JsResult.PermissionDenied -> "[JS MACRO DENIED]: permission '${r.permission}' is not in this macro's manifest"
+                        is com.polymath.voidlauncher.core.js.JsResult.Timeout -> "[JS MACRO TIMEOUT]: ${outcome.name} after ${r.timeoutMs}ms"
+                        is com.polymath.voidlauncher.core.js.JsResult.Unavailable -> "[JS MACRO UNAVAILABLE]: ${r.reason}"
+                        is com.polymath.voidlauncher.core.js.JsResult.Failure -> "[JS MACRO FAILED]: ${r.reason}"
+                    }
+                    showTerminalOutput(text)
+                }
+            }
+        }
+        if (needsShellApproval) {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("JS macro wants shell access")
+                .setMessage("Macro '$name' has the shell permission. Allow it to run, or abort (nothing runs)?")
+                .setPositiveButton("Allow") { _, _ -> runIt() }
+                .setNegativeButton("Abort", null)
+                .show()
+        } else {
+            runIt()
         }
     }
 

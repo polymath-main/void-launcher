@@ -170,6 +170,17 @@ class JsMacroTest {
     }
 
     @Test
+    fun triggerAttachmentsAreExplicitOnly() {
+        val dir = createTempDir("jstrig")
+        assertFalse(com.polymath.voidlauncher.core.js.JsTriggerStore.isAttached(dir.absolutePath, "morning", "scheduled"))
+        assertTrue(com.polymath.voidlauncher.core.js.JsTriggerStore.attach(dir.absolutePath, "morning", "scheduled"))
+        assertTrue(com.polymath.voidlauncher.core.js.JsTriggerStore.isAttached(dir.absolutePath, "morning", "scheduled"))
+        assertFalse(com.polymath.voidlauncher.core.js.JsTriggerStore.isAttached(dir.absolutePath, "morning", "notification:x"))
+        assertTrue(com.polymath.voidlauncher.core.js.JsTriggerStore.detach(dir.absolutePath, "morning", "scheduled"))
+        assertFalse(com.polymath.voidlauncher.core.js.JsTriggerStore.attach(dir.absolutePath, "../../x", "scheduled"))
+    }
+
+    @Test
     fun jsMacrosLiveOutsideStringMacroDir() {
         val dir = createTempDir("jsdir")
         val runner = JsMacroRunner(FakeEngine(), { _, _ -> RecordingAdapters() })
