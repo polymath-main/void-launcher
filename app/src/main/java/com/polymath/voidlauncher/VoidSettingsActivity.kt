@@ -14,7 +14,9 @@ import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.polymath.voidlauncher.core.ConfigGeneration
 import com.polymath.voidlauncher.core.ConfigManager
 import com.polymath.voidlauncher.core.ConfigSyncService
 import com.polymath.voidlauncher.core.FileManager
@@ -41,6 +43,17 @@ class VoidSettingsActivity : AppCompatActivity() {
     // Reset / group-reset preview that must NOT be saved by onPause.
     private var savedConfigAtLoad: LauncherConfig = LauncherConfig()
     private var resetPreviewPending: Boolean = false
+    // Area 07 step 5: generation stamp of the store file when
+    // Settings loaded it (mtime + length, no schema change).
+    private var loadedStoreSnapshot: com.polymath.voidlauncher.core.ConfigSnapshot? = null
+
+    private fun storeFile(): java.io.File {
+        val external = java.io.File(VoidPaths.CONFIG)
+        return if (external.isFile) external else java.io.File(filesDir, "config.json")
+    }
+
+    private fun storeChangedExternally(): Boolean =
+        ConfigGeneration.changed(loadedStoreSnapshot, storeFile())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,6 +89,7 @@ class VoidSettingsActivity : AppCompatActivity() {
             if (ok) {
                 currentConfig = configManager.loadConfig()
                 savedConfigAtLoad = currentConfig
+                loadedStoreSnapshot = ConfigGeneration.snapshot(storeFile())
                 populateUiFromConfig(currentConfig)
                 val warnings = configManager.lastValidationWarnings
                 val warnText = if (warnings.isEmpty()) "" else " Warnings (${warnings.size}): " +
@@ -98,12 +112,14 @@ class VoidSettingsActivity : AppCompatActivity() {
             runOnUiThread {
                 currentConfig = configManager.loadConfig()
                 savedConfigAtLoad = currentConfig
+                loadedStoreSnapshot = ConfigGeneration.snapshot(storeFile())
                 populateUiFromConfig(currentConfig)
             }
         }
         fileManager = FileManager(this)
         currentConfig = configManager.loadConfig()
         savedConfigAtLoad = currentConfig
+        loadedStoreSnapshot = ConfigGeneration.snapshot(storeFile())
 
         setupSpinners()
         populateUiFromConfig(currentConfig)
@@ -493,6 +509,7 @@ class VoidSettingsActivity : AppCompatActivity() {
                     currentConfig = updated
                     savedConfigAtLoad = updated
                     configManager.saveConfig(currentConfig)
+                    loadedStoreSnapshot = ConfigGeneration.snapshot(storeFile())
                 }
             )
         }
@@ -507,6 +524,7 @@ class VoidSettingsActivity : AppCompatActivity() {
                     binding.switchUseWallpaper.isChecked = updated.useSystemWallpaper
                     populateUiFromConfig(updated)
                     configManager.saveConfig(currentConfig)
+                    loadedStoreSnapshot = ConfigGeneration.snapshot(storeFile())
                 }
             )
         }
@@ -568,6 +586,7 @@ class VoidSettingsActivity : AppCompatActivity() {
             if (configSyncService.restoreBackup()) {
                 currentConfig = configManager.loadConfig()
                 savedConfigAtLoad = currentConfig
+                loadedStoreSnapshot = ConfigGeneration.snapshot(storeFile())
                 populateUiFromConfig(currentConfig)
                 Toast.makeText(this, "Restored last backup (config.json.bak).", Toast.LENGTH_LONG).show()
             } else {
@@ -791,6 +810,15 @@ class VoidSettingsActivity : AppCompatActivity() {
         // instant-apply on leave, as before.
         if (resetPreviewPending) return
         val built = buildUpdatedConfig()
-        if (built != savedConfigAtLoad) persist(false)
+        if (built != savedConfigAtLoad) {
+            // Area 07 step 5: on leave, an external change means
+            // do NOT overwrite silently — skip and tell the user
+            // to reopen Settings (where the dialog offers Reload).
+            if (storeChangedExternally()) {
+                Toast.makeText(this, "Config changed externally — not overwritten. Reopen Settings to reload.", Toast.LENGTH_LONG).show()
+                return
+            }
+            persist(false)
+        }
     }
 }

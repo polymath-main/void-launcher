@@ -670,7 +670,15 @@ class VoidLauncherActivity : AppCompatActivity() {
         if (loaded == config) return
         config = loaded
         applyConfig()
-        showTerminalOutput("[CONFIG AUTO-RELOADED VIA VOID CONFIG SYNC]")
+        // Area 07 step 5: reload-failure feedback. A broken JSON
+        // edit previously fell back to defaults with only a log
+        // line; the reload line now names the failure.
+        val error = configManager.lastLoadError
+        if (error != null) {
+            showTerminalOutput("[CONFIG AUTO-RELOADED VIA VOID CONFIG SYNC — WARNING: file failed to parse, defaults applied for bad fields: $error]")
+        } else {
+            showTerminalOutput("[CONFIG AUTO-RELOADED VIA VOID CONFIG SYNC]")
+        }
     }
 
     // ── Visual & Configuration Application ──────────────────

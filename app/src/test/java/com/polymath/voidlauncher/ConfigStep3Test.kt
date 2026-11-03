@@ -52,7 +52,10 @@ class ConfigStep3Test {
         val text = activity()
         assertTrue(text.contains("private var resetPreviewPending: Boolean = false"))
         assertTrue(text.contains("if (resetPreviewPending) return"))
-        assertTrue(text.contains("if (built != savedConfigAtLoad) persist(false)"))
+        // Step 5 nested the persist inside a generation check; the
+        // dirty-check itself (built != saved) must still gate it.
+        assertTrue(text.contains("if (built != savedConfigAtLoad)"))
+        assertTrue(text.contains("persist(false)"))
         assertTrue(text.contains("resetPreviewPending = true"))
     }
 

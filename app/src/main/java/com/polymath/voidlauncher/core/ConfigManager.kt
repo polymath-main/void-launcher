@@ -55,10 +55,20 @@ class ConfigManager(private val context: Context) {
     var lastSaveError: String? = null
         private set
 
+    /** Area 07 step 5: parse error from the last load, if the
+     *  loaded file fell back to defaults. Null = clean load.
+     *  The reload path surfaces this instead of silently
+     *  applying defaults (plan G-07). */
+    var lastLoadError: String? = null
+        private set
+
     /**
      * Loads config from the resolution chain. Call on every onResume for hot-reload.
      */
     fun loadConfig(): LauncherConfig {
+        // Area 07 step 5: reset per load; readers/parse set it
+        // again only on a real failure this load.
+        lastLoadError = null
         val json = readExternalConfig()
             ?: readInternalConfig()
             ?: readBundledConfig()
@@ -72,12 +82,18 @@ class ConfigManager(private val context: Context) {
 
         cachedConfig = if (json != null) {
             try {
+                lastLoadError = null
                 parseConfig(json)
             } catch (e: Exception) {
+                lastLoadError = e.message
                 Log.e(TAG, "Config parse error, falling back to defaults: ${e.message}")
                 LauncherConfig()
             }
         } else {
+            // No JSON found at any tier: lastLoadError keeps
+            // whatever a failed read recorded (e.g. an existing
+            // but unparseable store file), or stays null when no
+            // file exists at all (fresh install → defaults).
             LauncherConfig()
         }
 
@@ -219,6 +235,11 @@ class ConfigManager(private val context: Context) {
         return try {
             if (file.exists() && file.canRead()) JSONObject(file.readText()) else null
         } catch (e: Exception) {
+            // Area 07 step 5: an existing-but-unparseable file is
+            // a load failure, not a silent fallback — recorded for
+            // the reload path. A successful later tier/parse clears
+            // it (see loadConfig's parse branch).
+            lastLoadError = "Cannot parse ${file.absolutePath}: ${e.message}"
             Log.w(TAG, "Cannot read config ${file.absolutePath}: ${e.message}")
             null
         }
