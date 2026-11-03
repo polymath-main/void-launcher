@@ -1,6 +1,5 @@
 package com.polymath.voidlauncher.core
 
-import android.content.Context
 
 /**
  * LiveScript Engine (F-01).
@@ -8,7 +7,7 @@ import android.content.Context
  * Lightweight, zero-dependency mathematical and expression evaluator
  * executing directly from the omni-bar (>_ :eval <expression>).
  */
-class LiveScriptEngine(private val context: Context) {
+class LiveScriptEngine() {
 
     data class EvalResult(
         val success: Boolean,

@@ -1,6 +1,5 @@
 package com.polymath.voidlauncher
 
-import android.content.Context
 import com.polymath.voidlauncher.core.CommandGuide
 import com.polymath.voidlauncher.core.CommandPaletteMigration
 import com.polymath.voidlauncher.core.MacroName
@@ -45,7 +44,7 @@ class OmniSafetyTest {
     @Test
     fun macroSelfPlayDoesNotRecurse() {
         val dir = createTempDir("macroself")
-        val recorder = MacroRecorder(Context())
+        val recorder = MacroRecorder()
         assertTrue(recorder.startRecording("self"))
         recorder.recordStep(":play self")
         val saved = recorder.stopRecording(dir.absolutePath)
@@ -69,7 +68,7 @@ class OmniSafetyTest {
     @Test
     fun macroBadNameWritesNothing() {
         val dir = createTempDir("macrobad")
-        val recorder = MacroRecorder(Context())
+        val recorder = MacroRecorder()
         assertFalse(recorder.startRecording("../../x"))
         assertTrue(dir.listFiles().isNullOrEmpty())
     }
@@ -77,7 +76,7 @@ class OmniSafetyTest {
     @Test
     fun macroListAndDelete() {
         val dir = createTempDir("macrolist")
-        val recorder = MacroRecorder(Context())
+        val recorder = MacroRecorder()
         assertTrue(recorder.startRecording("alpha"))
         recorder.recordStep(":power")
         recorder.stopRecording(dir.absolutePath)
@@ -90,7 +89,7 @@ class OmniSafetyTest {
     @Test
     fun macroStepCapAndPartialRecovery() {
         val dir = createTempDir("macrocap")
-        val recorder = MacroRecorder(Context())
+        val recorder = MacroRecorder()
         assertTrue(recorder.startRecording("big", dir.absolutePath))
         repeat(500) { recorder.recordStep(":power") }
         assertFalse(recorder.recordStep(":power"))

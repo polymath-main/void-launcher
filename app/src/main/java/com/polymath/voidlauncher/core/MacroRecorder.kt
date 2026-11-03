@@ -1,6 +1,5 @@
 package com.polymath.voidlauncher.core
 
-import android.content.Context
 import android.util.Log
 import com.polymath.voidlauncher.model.VoidPaths
 import org.json.JSONArray
@@ -27,7 +26,7 @@ import java.io.File
  * design for a recorder); gate re-checks at play time are the
  * Activity's job (plan gate S8), not this class's.
  */
-class MacroRecorder(private val context: Context) {
+class MacroRecorder() {
 
     companion object {
         private const val TAG = "MacroRecorder"

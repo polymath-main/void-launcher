@@ -1,6 +1,5 @@
 package com.polymath.voidlauncher
 
-import android.content.Context
 import com.polymath.voidlauncher.core.EvalMath
 import com.polymath.voidlauncher.core.LiveScriptEngine
 import org.junit.Assert.assertEquals
@@ -11,14 +10,14 @@ import org.junit.Test
 /**
  * impl-04 step 0: this test used to copy-paste the tokenizer/RPN code
  * into the test class and test its own copy, so a production regression
- * was invisible. It now drives the real LiveScriptEngine (Context is a
- * constructor passenger, never called) and the pure EvalMath directly.
+ * was invisible. It now drives the real LiveScriptEngine and the pure
+ * EvalMath directly.
  * Legacy semantics are asserted here; step 5 flips the engine to
  * strict and updates the strict cases in this file.
  */
 class LiveScriptEngineTest {
 
-    private val engine = LiveScriptEngine(Context())
+    private val engine = LiveScriptEngine()
 
     @Test
     fun testBasicArithmeticViaRealEngine() {

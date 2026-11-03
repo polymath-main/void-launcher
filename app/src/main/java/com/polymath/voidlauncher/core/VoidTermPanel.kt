@@ -1,6 +1,5 @@
 package com.polymath.voidlauncher.core
 
-import android.content.Context
 import com.polymath.voidlauncher.core.shell.ShellPort
 import com.polymath.voidlauncher.core.terminal.TerminalCommandRunner
 import com.polymath.voidlauncher.core.terminal.VoidShellRunner
@@ -23,7 +22,6 @@ import com.polymath.voidlauncher.core.terminal.TerminalSession
  * is set; it is not used by the Activity any more.
  */
 class VoidTermPanel(
-    private val context: Context,
     private val shellPort: ShellPort
 ) {
     companion object {

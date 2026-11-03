@@ -491,7 +491,7 @@ class VoidLauncherActivity : AppCompatActivity() {
         }
         glyphManager.choreographer = glyphChoreographer
         astGraphRenderer = AstGraphRenderer()
-        liveScriptEngine = LiveScriptEngine(this)
+        liveScriptEngine = LiveScriptEngine()
         agentOrchestrator = AgentOrchestrator(this, voidShellPort, voidProcessManager).apply {
             onTaskCompleted = {
                 glyphChoreographer.play("TASK_SUCCESS")
@@ -512,13 +512,13 @@ class VoidLauncherActivity : AppCompatActivity() {
         focusScheduler = FocusScheduler(this, personaManager, glyphChoreographer).apply {
             if (config.focusSchedulerEnabled) loadSchedule(config.focusSchedulePath)
         }
-        voidTermPanel = VoidTermPanel(this, voidShellPort).apply {
+        voidTermPanel = VoidTermPanel(voidShellPort).apply {
             rows = config.voidTermRows
             cols = config.voidTermCols
             // :term runs through VoidShell with real output (Cycle 1).
             terminalRunner = VoidShellRunner(voidShell)
         }
-        macroRecorder = MacroRecorder(this)
+        macroRecorder = MacroRecorder()
         commandAudit = com.polymath.voidlauncher.core.CommandAudit(
             java.io.File(com.polymath.voidlauncher.model.VoidPaths.AUDIT)
         )

@@ -1,6 +1,5 @@
 package com.polymath.voidlauncher
 
-import android.content.Context
 import com.polymath.voidlauncher.core.VoidTermPanel
 import com.polymath.voidlauncher.core.shell.ShellPort
 import com.polymath.voidlauncher.core.terminal.TerminalBuffer
@@ -73,7 +72,7 @@ class TerminalAnsiSessionsTest {
             override fun launchInteractive(workDir: String) {}
             override fun openProject(projectName: String) {}
         }
-        val panel = VoidTermPanel(Context(), port)
+        val panel = VoidTermPanel(port)
         panel.terminalRunner = TerminalCommandRunner { TerminalRunResult("hi\n", "", 0) }
         panel.execute("echo main")
         panel.createSession("second")
