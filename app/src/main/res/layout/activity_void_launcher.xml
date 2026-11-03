@@ -719,6 +719,51 @@
                 android:text="/sdcard" />
         </LinearLayout>
 
+        <!-- impl-02 step 4: files search + sort row (typing-only search,
+             sort button cycles modes; neither launches anything) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="4dp">
+
+            <EditText
+                android:id="@+id/etFilesSearch"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_omni_bar"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_muted"
+                android:textSize="14sp"
+                android:hint="Search files…" />
+
+            <TextView
+                android:id="@+id/btnFilesSort"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginStart="6dp"
+                android:gravity="center_vertical"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:text="⇅ NAME ↑" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvFilesCount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textColor="@color/text_muted"
+            android:textSize="12sp"
+            android:paddingBottom="4dp"
+            android:text="0 items" />
+
         <!-- Storage Permission Notice Card (Shown if ungranted) -->
         <LinearLayout
             android:id="@+id/storagePermissionCard"

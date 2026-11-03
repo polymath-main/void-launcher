@@ -52,7 +52,9 @@ import com.polymath.voidlauncher.core.CommandPalette
 import com.polymath.voidlauncher.core.CompoundGestureEngine
 import com.polymath.voidlauncher.core.ConfigManager
 import com.polymath.voidlauncher.core.ConfigSyncService
+import com.polymath.voidlauncher.core.FileListingOrder
 import com.polymath.voidlauncher.core.FileManager
+import com.polymath.voidlauncher.core.FileSortMode
 import com.polymath.voidlauncher.core.FocusScheduler
 import com.polymath.voidlauncher.core.GlyphChoreographer
 import com.polymath.voidlauncher.core.LiveScriptEngine
@@ -149,6 +151,13 @@ class VoidLauncherActivity : AppCompatActivity() {
     private var notificationJob: Job? = null
     private var config: LauncherConfig = LauncherConfig()
     private var currentFilesPath: String = ""
+    // impl-02 step 4: files search/sort state. The search query survives
+    // directory changes inside one browser session; the last loaded
+    // (unfiltered) listing is kept so search/sort re-apply without I/O.
+    private var filesSearchQuery: String = ""
+    private var filesSortMode: FileSortMode = FileSortMode.NAME_ASC
+    private var lastFilesItems: List<FileItem> = emptyList()
+    private var lastFilesHasStorage: Boolean = true
     private var isDrawerOpen: Boolean = false
     private var gestureSuppressedForTouch: Boolean = false
     private var isKeypadVisible: Boolean = false
@@ -1183,6 +1192,23 @@ class VoidLauncherActivity : AppCompatActivity() {
             showCreateFileDialog()
         }
 
+        // impl-02 step 4: files search (typing-only, like drawer search)
+        // and sort (button cycles modes). Neither launches anything.
+        binding.etFilesSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                filesSearchQuery = s?.toString().orEmpty()
+                applyFilesSearchAndSort()
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+        binding.btnFilesSort.setOnClickListener {
+            haptic(it)
+            filesSortMode = filesSortMode.next()
+            binding.btnFilesSort.text = filesSortMode.label
+            applyFilesSearchAndSort()
+        }
+
         binding.btnFilesClose.setOnClickListener {
             showFilesBrowser(false)
         }
@@ -1329,18 +1355,32 @@ class VoidLauncherActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             val items = fileManager.listDirectory(targetPath, showHidden = config.filesShowHidden)
             withContext(Dispatchers.Main) {
-                fileAdapter.submitList(items)
-                if (items.isEmpty()) {
-                    binding.tvFilesEmptyState.visibility = View.VISIBLE
-                    if (!hasStorage) {
-                        binding.tvFilesEmptyState.text = "All Files Access permission required to list /sdcard contents."
-                    } else {
-                        binding.tvFilesEmptyState.text = "Directory is empty: $targetPath"
-                    }
-                } else {
-                    binding.tvFilesEmptyState.visibility = View.GONE
-                }
+                lastFilesItems = items
+                lastFilesHasStorage = hasStorage
+                applyFilesSearchAndSort()
             }
+        }
+    }
+
+    // impl-02 step 4: search first, then sort (they compose); the
+    // count line reports filtered vs total so a search is never silent.
+    private fun applyFilesSearchAndSort() {
+        val filtered = FileListingOrder.apply(lastFilesItems, filesSearchQuery, filesSortMode)
+        fileAdapter.submitList(filtered)
+        binding.tvFilesCount.text = if (filesSearchQuery.isBlank()) {
+            "${lastFilesItems.size} items"
+        } else {
+            "${filtered.size} of ${lastFilesItems.size} items"
+        }
+        if (filtered.isEmpty()) {
+            binding.tvFilesEmptyState.visibility = View.VISIBLE
+            binding.tvFilesEmptyState.text = when {
+                !lastFilesHasStorage -> "All Files Access permission required to list /sdcard contents."
+                filesSearchQuery.isNotBlank() -> "No files match: $filesSearchQuery"
+                else -> "Directory is empty: $currentFilesPath"
+            }
+        } else {
+            binding.tvFilesEmptyState.visibility = View.GONE
         }
     }
 
