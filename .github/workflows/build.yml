@@ -21,6 +21,13 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      # The QuickJS native module (app/src/main/cpp) needs NDK + CMake.
+      # Installed here so assemble* can build libvoidquickjs.so; the
+      # CMake version must match app/build.gradle's cmake version.
+      - name: Install Android NDK and CMake
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.0.12077973" "cmake;3.22.1"
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 

@@ -1,31 +1,31 @@
 package com.polymath.voidlauncher.core.js
 
 /**
- * QuickJS engine backend (impl-04 step 7a, skeleton + availability gate).
+ * QuickJS engine backend (impl-04 step 7a; native module landed
+ * on feature/quickjs-engine-real).
  *
- * HONEST LIMIT, READ BEFORE CLAIMING JS MACROS RUN ON DEVICE:
- * the native library `voidquickjs` (QuickJS 2024-01-13 C sources
- * built via CMake/NDK, with the `Void.*` host API, manifest
- * permission checks in native code, and the interrupt-handler
- * timeout) is NOT in this repo and NOT in the APK yet. Building
- * it is a CI/device step that this JVM-only loop cannot verify:
- * Gradle on this VM is blocked and there is no device here.
+ * The native library `voidquickjs` lives in app/src/main/cpp
+ * (voidquickjs.c + vendored QuickJS 2024-01-13, built via
+ * CMake/NDK) and implements the `Void.*` host API with manifest
+ * permission checks in native code and the interrupt-handler
+ * timeout. Host calls from JS go back through JNI into the
+ * [JsAdapters] passed to [run] — which is why [nativeRun] takes
+ * the adapters as an argument; the earlier skeleton omitted it,
+ * which made the engine uncallable, and that omission is what
+ * this module fixes.
  *
- * Until that native module lands, [isAvailable] is false and
- * [run] returns [JsResult.Unavailable] — `:void-js run` reports
- * that, it does not fake execution. The runner, manifest,
- * permission, sandbox, trigger, and command-surface code in this
- * package are real and JVM-tested with a fake engine; they do not
- * depend on this class being available. Do not remove this gate
- * or stub a fake success here.
+ * [isAvailable] is false when the APK was built without the
+ * native library (e.g. the JVM unit-test harness, which has no
+ * .so). [run] then returns [JsResult.Unavailable] — `:void-js
+ * run` reports that, it does not fake execution. Do not remove
+ * this gate or stub a fake success here.
  *
- * Native contract for the future module (from the prototype
- * `src/void_macro.c`): `nativeRun(source, manifestJson, timeoutMs)`
- * returns a JSON-ish result string the Kotlin side maps to
- * [JsResult]; host calls from JS go back through JNI into the
- * [JsAdapters] passed to [run]. The native side must enforce the
- * same manifest permissions as [PermissionCheckingAdapters] —
- * defence in depth, not instead of it.
+ * Native contract: `nativeRun(source, manifestJson, timeoutMs,
+ * adapters)` returns a result string the Kotlin side maps to
+ * [JsResult]: OK:<output> | ERR:<reason> | DENIED:<permission> |
+ * TIMEOUT:<ms>. The native side enforces the same manifest
+ * permissions as [PermissionCheckingAdapters] — defence in
+ * depth, not instead of it.
  */
 class QuickJsEngine : JsEngine {
 
@@ -51,7 +51,7 @@ class QuickJsEngine : JsEngine {
         }
         // Reached only when the native library actually loaded.
         return try {
-            val resultJson = nativeRun(source, manifestJson(manifest), manifest.timeoutMs)
+            val resultJson = nativeRun(source, manifestJson(manifest), manifest.timeoutMs, adapters)
             parseNativeResult(resultJson)
         } catch (e: Exception) {
             JsResult.Failure("QuickJS native run failed: ${e.message}")
@@ -65,16 +65,18 @@ class QuickJsEngine : JsEngine {
 
     private fun parseNativeResult(json: String): JsResult {
         // The native side returns one of: OK:<output> | ERR:<reason> |
-        // DENIED:<permission> | TIMEOUT. Keep this tiny and explicit;
+        // DENIED:<permission> | TIMEOUT:<ms>. Keep this tiny and explicit;
         // a malformed native result is a failure, never a success.
         return when {
             json.startsWith("OK:") -> JsResult.Success(json.removePrefix("OK:"))
             json.startsWith("DENIED:") -> JsResult.PermissionDenied(json.removePrefix("DENIED:"))
-            json.startsWith("TIMEOUT") -> JsResult.Timeout(-1)
+            json.startsWith("TIMEOUT") -> JsResult.Timeout(
+                json.removePrefix("TIMEOUT").removePrefix(":").toLongOrNull() ?: -1
+            )
             json.startsWith("ERR:") -> JsResult.Failure(json.removePrefix("ERR:"))
             else -> JsResult.Failure("malformed QuickJS native result")
         }
     }
 
-    private external fun nativeRun(source: String, manifestJson: String, timeoutMs: Long): String
+    private external fun nativeRun(source: String, manifestJson: String, timeoutMs: Long, adapters: JsAdapters): String
 }
