@@ -101,5 +101,18 @@ class ThemeArea03Test {
         assertTrue(mgr.contains("void_wallpaper_prefs"))
     }
 
+    @Test fun statusFitPreviewAndPaletteEditorExist() {
+        val root = repoRoot() ?: return
+        val cmd = File(root, "app/src/main/java/com/polymath/voidlauncher/core/services/CommandHelpMicroService.kt").readText()
+        assertTrue(cmd.contains("wallpaperService.wallpaperStatus(config)"))
+        val svc = File(root, "app/src/main/java/com/polymath/voidlauncher/core/services/WallpaperMicroService.kt").readText()
+        assertTrue(svc.contains("showWallpaperPreviewDialog"))
+        assertTrue(svc.contains("showWallpaperFitPicker"))
+        assertTrue(svc.contains("surfaceElevatedHex = newHex"))
+        assertTrue(svc.contains("textPrimaryHex = newHex"))
+        assertTrue(svc.contains("borderHairlineHex = newHex"))
+        assertTrue(svc.contains("id = ThemeEngine.CUSTOM_ID"))
+    }
+
     // noElevation test is added in step 6, with the elevation removal itself.
 }

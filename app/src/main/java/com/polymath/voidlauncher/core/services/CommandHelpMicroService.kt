@@ -90,6 +90,9 @@ class CommandHelpMicroService(
                 onUpdateConfig(config.copy(customWallpaperPath = ""))
                 onShowOutput("[WALLPAPER]: Custom image override cleared")
             }
+            arg.equals("status", ignoreCase = true) -> {
+                onShowOutput(wallpaperService.wallpaperStatus(config))
+            }
             arg.startsWith("set ") -> {
                 val path = arg.removePrefix("set ").trim()
                 val ok = wallpaperService.setWallpaperFromFile(path, alsoSetSystemWallpaper = true)
@@ -108,7 +111,8 @@ class CommandHelpMicroService(
                     ":wallpaper on       Show system / custom wallpaper\n" +
                     ":wallpaper off      Pure OLED pitch-black mode\n" +
                     ":wallpaper pick     Open system wallpaper picker\n" +
-                    ":wallpaper set <p>  Set image file <p> as wallpaper\n" +
+                    ":wallpaper set <p>  Set image file <p> as wallpaper (relative paths resolve against the Void files home; the image is copied into Void home)\n" +
+                    ":wallpaper status   Show mode, custom image, scrim %, and fit\n" +
                     ":wallpaper clear    Clear custom image override"
                 )
             }

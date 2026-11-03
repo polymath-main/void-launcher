@@ -13,6 +13,9 @@ import android.graphics.drawable.LayerDrawable
 import android.view.View
 import android.view.WindowManager
 import android.widget.EditText
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -190,7 +193,9 @@ class WallpaperMicroService(private val context: Context) {
             "🌑 Scrim Dimming: Deep OLED (70%)",
             "💾 Save Custom Theme…",
             "🔗 Share Current Theme…",
-            "🗑 Clear Custom Image Override"
+            "🗑 Clear Custom Image Override",
+            "👁 Preview Current Wallpaper",
+            "↔ Wallpaper Fit"
         )
 
         MaterialAlertDialogBuilder(activity)
@@ -234,9 +239,59 @@ class WallpaperMicroService(private val context: Context) {
                         onUpdateConfig(currentConfig)
                         Toast.makeText(activity, "Custom image override cleared", Toast.LENGTH_SHORT).show()
                     }
+                    10 -> showWallpaperPreviewDialog(activity, currentConfig)
+                    11 -> showWallpaperFitPicker(activity, currentConfig, onUpdateConfig)
                 }
             }
             .setNegativeButton("Close", null)
+            .show()
+    }
+
+    /** Preview dialog: current custom image (if any) + the `:wallpaper status` line.
+     * Device check required: preview rendering cannot be proven by JVM tests. */
+    fun showWallpaperPreviewDialog(activity: Activity, currentConfig: LauncherConfig) {
+        val container = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 32, 48, 32)
+        }
+        val statusView = TextView(activity).apply {
+            text = wallpaperStatus(currentConfig)
+        }
+        container.addView(statusView)
+        val active = resolveActiveCustomImage(currentConfig.customWallpaperPath)
+        if (active != null) {
+            val bmp = decodeSampledBitmap(active, 1080, 2400)
+            if (bmp != null) {
+                container.addView(ImageView(activity).apply { setImageBitmap(bmp) })
+            } else {
+                container.addView(TextView(activity).apply { text = "Custom image could not be decoded: ${active.name}" })
+            }
+        } else {
+            container.addView(TextView(activity).apply { text = "No custom image — system wallpaper or pure OLED is active." })
+        }
+        AlertDialog.Builder(activity)
+            .setTitle("Wallpaper Preview")
+            .setView(container)
+            .setPositiveButton("Close", null)
+            .show()
+    }
+
+    private fun showWallpaperFitPicker(
+        activity: Activity,
+        currentConfig: LauncherConfig,
+        onUpdateConfig: (LauncherConfig) -> Unit
+    ) {
+        val fits = WallpaperState.Fit.values()
+        val names = fits.map { if (it == WallpaperState.Fit.CENTER_CROP) "Centre-crop (fill screen)" else "Fit-centre (whole image, letterboxed)" }.toTypedArray()
+        MaterialAlertDialogBuilder(activity)
+            .setTitle("Wallpaper Fit (current: ${currentConfig.wallpaperFit})")
+            .setItems(names) { _, which ->
+                onUpdateConfig(currentConfig.copy(wallpaperFit = fits[which].name))
+                Toast.makeText(activity, "Wallpaper fit: ${fits[which].name}", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Back") { _, _ ->
+                showWallpaperStudioDialog(activity, currentConfig, onUpdateConfig)
+            }
             .show()
     }
 
@@ -285,7 +340,12 @@ class WallpaperMicroService(private val context: Context) {
             "✨ Surface Overlay Shader (${current.overlayShader.name})",
             "🎛 Dock Style (${current.dockStyle.name})",
             "🎨 Primary Accent Color (${current.accentPrimaryHex})",
-            "🌑 Surface Base Color (${current.surfacePrimaryHex})"
+            "🌑 Surface Base Color (${current.surfacePrimaryHex})",
+            "🌑 Surface Elevated Color (${current.surfaceElevatedHex})",
+            "🔤 Text Primary Color (${current.textPrimaryHex})",
+            "🔤 Text Secondary Color (${current.textSecondaryHex})",
+            "⬛ Border Hairline Color (${current.borderHairlineHex})",
+            "⚠ Accent Warning Color (${current.accentWarnHex})"
         )
 
         MaterialAlertDialogBuilder(activity)
@@ -296,13 +356,43 @@ class WallpaperMicroService(private val context: Context) {
                     1 -> showShaderPicker(activity, currentConfig, onUpdateConfig)
                     2 -> showDockStylePicker(activity, currentConfig, onUpdateConfig)
                     3 -> showColorEditDialog(activity, "Primary Accent", current.accentPrimaryHex) { newHex ->
-                        val updatedTheme = current.copy(accentPrimaryHex = newHex, isBuiltIn = false)
+                        val updatedTheme = current.copy(accentPrimaryHex = newHex, isBuiltIn = false, id = ThemeEngine.CUSTOM_ID)
                         val configManager = ConfigManager(context)
                         val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
                         onUpdateConfig(updated)
                     }
                     4 -> showColorEditDialog(activity, "Surface Base", current.surfacePrimaryHex) { newHex ->
-                        val updatedTheme = current.copy(surfacePrimaryHex = newHex, isBuiltIn = false)
+                        val updatedTheme = current.copy(surfacePrimaryHex = newHex, isBuiltIn = false, id = ThemeEngine.CUSTOM_ID)
+                        val configManager = ConfigManager(context)
+                        val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
+                        onUpdateConfig(updated)
+                    }
+                    5 -> showColorEditDialog(activity, "Surface Elevated", current.surfaceElevatedHex) { newHex ->
+                        val updatedTheme = current.copy(surfaceElevatedHex = newHex, isBuiltIn = false, id = ThemeEngine.CUSTOM_ID)
+                        val configManager = ConfigManager(context)
+                        val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
+                        onUpdateConfig(updated)
+                    }
+                    6 -> showColorEditDialog(activity, "Text Primary", current.textPrimaryHex) { newHex ->
+                        val updatedTheme = current.copy(textPrimaryHex = newHex, isBuiltIn = false, id = ThemeEngine.CUSTOM_ID)
+                        val configManager = ConfigManager(context)
+                        val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
+                        onUpdateConfig(updated)
+                    }
+                    7 -> showColorEditDialog(activity, "Text Secondary", current.textSecondaryHex) { newHex ->
+                        val updatedTheme = current.copy(textSecondaryHex = newHex, isBuiltIn = false, id = ThemeEngine.CUSTOM_ID)
+                        val configManager = ConfigManager(context)
+                        val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
+                        onUpdateConfig(updated)
+                    }
+                    8 -> showColorEditDialog(activity, "Border Hairline", current.borderHairlineHex) { newHex ->
+                        val updatedTheme = current.copy(borderHairlineHex = newHex, isBuiltIn = false, id = ThemeEngine.CUSTOM_ID)
+                        val configManager = ConfigManager(context)
+                        val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
+                        onUpdateConfig(updated)
+                    }
+                    9 -> showColorEditDialog(activity, "Accent Warning", current.accentWarnHex) { newHex ->
+                        val updatedTheme = current.copy(accentWarnHex = newHex, isBuiltIn = false, id = ThemeEngine.CUSTOM_ID)
                         val configManager = ConfigManager(context)
                         val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
                         onUpdateConfig(updated)
@@ -328,7 +418,7 @@ class WallpaperMicroService(private val context: Context) {
             .setItems(names) { _, which ->
                 val chosen = levels[which]
                 val current = ThemeEngine.currentTheme
-                val updatedTheme = current.copy(scrimLevel = chosen, isBuiltIn = false)
+                val updatedTheme = current.copy(scrimLevel = chosen, isBuiltIn = false, id = ThemeEngine.CUSTOM_ID)
                 val configManager = ConfigManager(context)
                 val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
                 onUpdateConfig(updated)
@@ -349,7 +439,7 @@ class WallpaperMicroService(private val context: Context) {
             .setItems(names) { _, which ->
                 val chosen = shaders[which]
                 val current = ThemeEngine.currentTheme
-                val updatedTheme = current.copy(overlayShader = chosen, isBuiltIn = false)
+                val updatedTheme = current.copy(overlayShader = chosen, isBuiltIn = false, id = ThemeEngine.CUSTOM_ID)
                 val configManager = ConfigManager(context)
                 val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
                 onUpdateConfig(updated)
@@ -370,7 +460,7 @@ class WallpaperMicroService(private val context: Context) {
             .setItems(names) { _, which ->
                 val chosen = styles[which]
                 val current = ThemeEngine.currentTheme
-                val updatedTheme = current.copy(dockStyle = chosen, isBuiltIn = false)
+                val updatedTheme = current.copy(dockStyle = chosen, isBuiltIn = false, id = ThemeEngine.CUSTOM_ID)
                 val configManager = ConfigManager(context)
                 val updated = ThemeEngine.applyTheme(updatedTheme, currentConfig, configManager, this, activity)
                 onUpdateConfig(updated)
