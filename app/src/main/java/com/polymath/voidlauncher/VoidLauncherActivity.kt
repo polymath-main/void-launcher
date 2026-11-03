@@ -959,15 +959,16 @@ class VoidLauncherActivity : AppCompatActivity() {
             if (slot != null) {
                 slotView.visibility = View.VISIBLE
 
+                // impl-02 step 2: dock rows have a single TextView child (the
+                // label). The old second-child subtitle assignment was dead
+                // code — subtitles are not rendered on home (UI v2 spec cut
+                // them). DockSlot.subtitle stays in the model: the editor
+                // and settings still display it; home just does not.
                 val labelView = (slotView as? LinearLayout)?.getChildAt(0) as? TextView
-                val subtitleView = (slotView as? LinearLayout)?.getChildAt(1) as? TextView
 
                 labelView?.text = "[${slot.index}] ${slot.label}"
                 labelView?.setTextColor(c.textPrimaryInt)
                 labelView?.setTextSize(TypedValue.COMPLEX_UNIT_SP, config.dockFontSizeSp)
-
-                subtitleView?.text = slot.subtitle
-                subtitleView?.setTextColor(c.textMutedInt)
             } else {
                 slotView.visibility = View.GONE
             }

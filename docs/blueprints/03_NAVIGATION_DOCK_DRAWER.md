@@ -1,7 +1,7 @@
 # Blueprint 03 — Navigation, Dock Slots, App Drawer & VFS Explorer
 
 ## 1. Domain Scope
-Covers application discovery, Bare-Integer `[1..7]` fast routing, interactive Dock Slot customization, the 85%-width Right App Drawer with A–Z scrubbing, and the built-in VFS File Explorer.
+Covers application discovery, Bare-Integer `[1..7]` fast routing, interactive Dock Slot customization, the Right App Drawer (85% width by default, user-configurable via `drawerWidthPercent`, 50–100) with A–Z scrubbing, and the built-in VFS File Explorer.
 
 ## 2. Micro-Service & Module Inventory
 
@@ -12,7 +12,7 @@ Covers application discovery, Bare-Integer `[1..7]` fast routing, interactive Do
 | `FileOperationsMicroService` | [`FileOperationsMicroService.kt`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/core/services/FileOperationsMicroService.kt) | File context menu: Set Image as Wallpaper, Open in VoidTerm, Text Preview, Copy Path, Rename, Delete, and Create Folder. |
 | `AppIndexer` | [`AppIndexer.kt`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/core/AppIndexer.kt) | Queries `CATEGORY_LAUNCHER` activities, caches icons, builds A–Z section offsets, and performs prefix/substring fuzzy matching. |
 | `BareIntegerRouter` / `VoidAction` | [`BareIntegerRouter.kt`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/core/BareIntegerRouter.kt) | Maps digits `1..7` and `DockSlot` descriptors to `VoidAction` (`OPEN_VOIDTERM`, `OPEN_FILES`, `OPEN_DRAWER`, `OPEN_BROWSER`, `OPEN_DIALER`, `OPEN_SETTINGS`, `LAUNCH_PACKAGE`, `RUN_VOID_COMMAND`). |
-| `CompoundGestureEngine` | [`CompoundGestureEngine.kt`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/core/CompoundGestureEngine.kt) | Recognizes single-finger swipes, double-tap, long-press, two-finger swipes, pinch-in/out, and 28dp left/right/bottom edge swipes. |
+| `CompoundGestureEngine` | [`CompoundGestureEngine.kt`](file:///data/data/com.termux/files/home/Projects/void-launcher/app/src/main/java/com/polymath/voidlauncher/core/CompoundGestureEngine.kt) | Recognizes single-finger swipes, double-tap, long-press, two-finger swipes, pinch-in/out, and 24dp left/right edge swipes (bottom zone is 2x the edge zone, 48dp). |
 
 ## 3. Home Modes & Spatial Layout
 - **COCKPIT**: Telemetry HUD bar + Intent line + Notification line + `[1..7]` Dock + collapsible `[123]` keypad + Omni-Bar.

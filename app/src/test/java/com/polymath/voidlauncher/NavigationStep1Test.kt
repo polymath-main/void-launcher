@@ -106,6 +106,15 @@ class NavigationStep1Test {
     }
 
     @Test
+    fun dockSubtitleIsNotRenderedOnHome() {
+        // impl-02 step 2: the dead getChildAt(1) subtitle assignment is
+        // gone; DockSlot.subtitle survives only in the model/editor.
+        val body = functionBody(activityText(), "private fun rebuildDockSlots()")
+        assertFalse("rebuildDockSlots must not reference a subtitle view", body.contains("subtitleView"))
+        assertFalse("rebuildDockSlots must not read getChildAt(1)", body.contains("getChildAt(1)"))
+    }
+
+    @Test
     fun keypadIsGeneratedFromConfiguredSlotsNotADialer() {
         val body = functionBody(activityText(), "private fun rebuildKeypad()")
         assertTrue("keypad must iterate configured slots sorted by index", body.contains("config.dockSlots.sortedBy { it.index }"))

@@ -78,7 +78,7 @@ Every time `VoidLauncherActivity.onResume()` triggers, `ConfigManager.loadConfig
 ## 5. Right-Edge App Drawer & A-Z Scrubber
 
 - **Drawer Layout**: Collapsible vertical overlay anchored to the right edge with user-defined width (`drawer_width_percent`, default 85%).
-- **Edge Transparency & Gradient**: Supports user-configurable `drawer_alpha` (0.0 to 1.0) and `drawer_edge_transparent` (subtle gradient fade on the leading edge).
+- **Edge Transparency**: Supports user-configurable `drawer_alpha` (0.0 to 1.0). The drawer background is a flat argb colour; `drawer_edge_transparent` is stored in config but is not currently read when drawing the drawer, so no gradient fade is rendered (impl-02 step 2 correction — the old "subtle gradient fade" claim did not match code).
 - **Alphabetical Scrubbing**: `AlphabetScrubberView` maps vertical touch coordinates directly to letter indices in `AppIndexer.getSectionPositions()`, smoothly scrolling to target packages with haptic feedback.
 
 ---
