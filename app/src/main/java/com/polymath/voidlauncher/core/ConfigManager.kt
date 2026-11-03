@@ -16,7 +16,13 @@ import java.io.File
  * Manages VoidLauncher visual & behavioral configuration (v2.0).
  *
  * Config resolution order (first found wins):
- *   1. External user override: ~/.voidlauncher/config.json
+ *   1. External user override: VoidPaths.HOME/config.json, i.e. the
+ *      app-owned external-files config dir
+ *      (context.getExternalFilesDir("config")), falling back to
+ *      filesDir/config and only then to ~/.voidlauncher when init()
+ *      never ran. The old "~/.voidlauncher/config.json" wording
+ *      described only the fallback, not the primary path (area 07
+ *      step 1 doc fix; the code path in VoidPaths is authoritative).
  *   2. App-internal data:      /data/data/<pkg>/files/config.json
  *   3. Bundled default:        assets/default_config.json
  *   4. Hardcoded Kotlin defaults
