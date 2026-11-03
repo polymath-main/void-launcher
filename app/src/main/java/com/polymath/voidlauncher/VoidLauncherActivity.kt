@@ -65,6 +65,8 @@ import com.polymath.voidlauncher.core.NotifIntelligence
 import com.polymath.voidlauncher.core.PersonaManager
 import com.polymath.voidlauncher.core.PowerProfileAdaptor
 import com.polymath.voidlauncher.core.TelemetryMonitor
+import com.polymath.voidlauncher.core.TelemetryHistory
+import com.polymath.voidlauncher.core.ThermalStatusLabel
 import com.polymath.voidlauncher.core.ThemeEngine
 import com.polymath.voidlauncher.core.ThermalGuardian
 import com.polymath.voidlauncher.core.VoidGestureDetector
@@ -122,6 +124,8 @@ class VoidLauncherActivity : AppCompatActivity() {
     private lateinit var thermalGuardian: ThermalGuardian
     private lateinit var configSyncService: ConfigSyncService
     private lateinit var powerProfileAdaptor: PowerProfileAdaptor
+    // impl-05 step 6c: display/history only — never a guard input.
+    private val telemetryHistory = TelemetryHistory()
     private lateinit var notifIntelligence: NotifIntelligence
     private lateinit var personaManager: PersonaManager
     private lateinit var glyphChoreographer: GlyphChoreographer
@@ -1600,6 +1604,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                 intervalProvider = intervalProvider
             ).collectLatest { snap ->
                 val powerLevel = powerProfileAdaptor.evaluate(snap, config.thermalLimitCelsius)
+                telemetryHistory.add(snap)
 
                 binding.tvClock.text = cockpitTimeFormat.format(java.util.Date()) + config.clockSuffix
                 binding.tvBatteryTemp.text = "▲ ${if (snap.batteryPercent < 0) "?" else snap.batteryPercent.toString()}% [${snap.batteryTemperatureC}°C]" + if (thermalGuardian.isThrottled || snap.batteryTemperatureC >= config.thermalLimitCelsius) " ⚠ THROTTLED" else ""
@@ -1726,11 +1731,37 @@ class VoidLauncherActivity : AppCompatActivity() {
         if (thermalGuardian.thermallyCancelledTaskIds.isNotEmpty()) {
             lines.append("\n[THERMAL CANCELLED]: ${thermalGuardian.thermallyCancelledTaskIds.joinToString()}")
         }
+        // impl-05 step 6b: power level + poll interval in :status (the OS
+        // thermal status below is DISPLAY-ONLY — it never feeds the guard).
+        val statusSnap = telemetryMonitor.captureSnapshot(config.thermalLimitCelsius)
+        val statusLevel = powerProfileAdaptor.evaluate(statusSnap, config.thermalLimitCelsius)
+        lines.append("\n[POWER]: ${statusLevel.label} poll ${powerProfileAdaptor.getRecommendedPollIntervalMs()}ms")
+        lines.append("\n[OS THERMAL STATUS]: ${osThermalStatusLabel()} (display only, not a guard input)")
+        lines.append("\n[TELEMETRY HISTORY]: ${telemetryHistory.size} snapshots")
         for (task in running) lines.append("\n- [RUNNING] ${task.title}")
         if (!config.nodeOsLegacyImportEnabled) {
             lines.append("\n[NodeOS legacy import: off — opt-in via config]")
         }
         showTerminalOutput(lines.toString())
+    }
+
+    /**
+     * impl-05 step 6a: OS thermal status as a display-only second signal.
+     * Coarse OS status, not a sensor reading; never wired into the guard
+     * without a threshold decision and a soak period. UNKNOWN when the API
+     * is unavailable (below API 29) or throws.
+     */
+    private fun osThermalStatusLabel(): String {
+        return try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+                ThermalStatusLabel.fromCode(pm.currentThermalStatus)
+            } else {
+                "UNKNOWN"
+            }
+        } catch (_: Exception) {
+            "UNKNOWN"
+        }
     }
 
     private fun refreshIndexAsync() {
@@ -2082,7 +2113,7 @@ class VoidLauncherActivity : AppCompatActivity() {
             command == "power" -> {
                 val snap = telemetryMonitor.captureSnapshot(config.thermalLimitCelsius)
                 val lvl = powerProfileAdaptor.evaluate(snap, config.thermalLimitCelsius)
-                showTerminalOutput("[POWER PROFILE]: ${lvl.label}\nBattery: ${snap.batteryPercent}% (battery temp ${snap.batteryTemperatureC}°C — battery sensor, not SoC temp)\nPoll Cadence: ${powerProfileAdaptor.getRecommendedPollIntervalMs()}ms")
+                showTerminalOutput("[POWER PROFILE]: ${lvl.label}\nBattery: ${snap.batteryPercent}% (battery temp ${snap.batteryTemperatureC}°C — battery sensor, not SoC temp)\nPoll Cadence: ${powerProfileAdaptor.getRecommendedPollIntervalMs()}ms\nThermal: ${if (thermalGuardian.isThrottled) "THROTTLED" else "OK"} · OS thermal status: ${osThermalStatusLabel()} (display only)")
             }
             command == "focus" -> {
                 val activeBlock = focusScheduler.checkAndApplySchedule()
