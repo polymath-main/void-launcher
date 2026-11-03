@@ -86,4 +86,24 @@
         android:ellipsize="end"
         tools:text="CI run #41227203692 passed for polymath-main/void-launcher with zero errors." />
 
+    <!-- impl-06 step 10: score reason + action taps, GONE until the
+         row is long-pressed (detail view, not row clutter). -->
+    <TextView
+        android:id="@+id/tvNotifReason"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:fontFamily="monospace"
+        android:textColor="@color/text_muted"
+        android:textSize="10sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/layoutNotifActions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:orientation="vertical"
+        android:visibility="gone" />
+
 </LinearLayout>

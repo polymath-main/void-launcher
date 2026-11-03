@@ -1830,7 +1830,10 @@ class VoidLauncherActivity : AppCompatActivity() {
                 binding.notifPermissionPrompt.visibility = View.GONE
 
                 // Notification Intelligence priority scoring & filtering (F-11)
-                val filtered = notifIntelligence.scoreAndFilter(
+                // impl-06 step 10: scored results carry the "why" reason
+                // through to the adapter's long-press detail view.
+                // Scoring numbers are unchanged (see NotifIntelligence).
+                val filtered = notifIntelligence.scoreWithReasons(
                     items = rawList,
                     whitelist = config.notifWhitelistPackages,
                     blacklist = config.notifBlacklistPackages,

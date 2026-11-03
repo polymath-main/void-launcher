@@ -131,6 +131,19 @@ class VoidNotificationListenerService : NotificationListenerService() {
 
                 val isOngoing = (notif.flags and Notification.FLAG_ONGOING_EVENT) != 0
 
+                // impl-06 step 10: map the notification's own actions
+                // (verified available on android.app.Notification).
+                // They are rendered as taps only, never auto-fired.
+                val actions = try {
+                    notif.actions?.mapNotNull { action ->
+                        val actionTitle = action.title?.toString()?.trim().orEmpty()
+                        if (actionTitle.isEmpty()) null
+                        else com.polymath.voidlauncher.model.NotifAction(actionTitle, action.actionIntent)
+                    } ?: emptyList()
+                } catch (_: Exception) {
+                    emptyList()
+                }
+
                 NotificationItem(
                     key = sbn.key,
                     packageName = pkg,
@@ -140,7 +153,8 @@ class VoidNotificationListenerService : NotificationListenerService() {
                     text = text,
                     postTimeMs = sbn.postTime,
                     isOngoing = isOngoing,
-                    contentIntent = notif.contentIntent
+                    contentIntent = notif.contentIntent,
+                    actions = actions
                 )
             }.sortedByDescending { it.postTimeMs }
 
