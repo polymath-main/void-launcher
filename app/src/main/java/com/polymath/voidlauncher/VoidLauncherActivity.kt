@@ -365,6 +365,11 @@ class VoidLauncherActivity : AppCompatActivity() {
                     onSaved = { focusScheduler.loadSchedule(config.focusSchedulePath) }
                 )
         }
+        // Area 07 step 4: Settings entry point for the area-06 SAF
+        // legacy import picker (routes to it, does not duplicate it).
+        if (intent.getBooleanExtra("void_legacy_import", false)) {
+            legacyImportLauncher.launch(null)
+        }
     }
 
     // impl-06 step 6: Settings "OPEN WIDGETS FOLDER" route. The main

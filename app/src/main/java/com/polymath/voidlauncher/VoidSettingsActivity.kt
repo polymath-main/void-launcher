@@ -13,8 +13,10 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.polymath.voidlauncher.core.ConfigManager
+import com.polymath.voidlauncher.core.ConfigSyncService
 import com.polymath.voidlauncher.core.FileManager
 import com.polymath.voidlauncher.core.ThemeEngine
 import com.polymath.voidlauncher.core.VoidNotificationListenerService
@@ -29,6 +31,7 @@ class VoidSettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityVoidSettingsBinding
     private lateinit var configManager: ConfigManager
+    private lateinit var configSyncService: ConfigSyncService
     private lateinit var fileManager: FileManager
     private var currentConfig: LauncherConfig = LauncherConfig()
     private var pendingThemeId: String = "void"
@@ -45,6 +48,59 @@ class VoidSettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         configManager = ConfigManager(this)
+        // Area 07 step 4: SAF pickers. CreateDocument/OpenDocument
+    // are the missing UI from plan gap G-04; the stream work is
+    // ConfigSyncService's existing importConfig/exportConfig.
+    private val exportFileLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            val ok = contentResolver.openOutputStream(uri)?.use { configSyncService.exportConfig(it) } ?: false
+            if (ok) {
+                Toast.makeText(this, "Exported current config. Warning: a config file can reveal directory paths and package names — share carefully.", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "Export failed — no store config file exists, nothing was written.", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private val importFileLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            val ok = contentResolver.openInputStream(uri)?.use { configSyncService.importConfig(it) } ?: false
+            if (ok) {
+                currentConfig = configManager.loadConfig()
+                savedConfigAtLoad = currentConfig
+                populateUiFromConfig(currentConfig)
+                val warnings = configManager.lastValidationWarnings
+                val warnText = if (warnings.isEmpty()) "" else " Warnings (${warnings.size}): " +
+                    warnings.take(3).joinToString("; ") { "${it.key}: ${it.message}" }
+                Toast.makeText(this, "Imported config and reloaded.$warnText", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "Import failed — store untouched (not a JSON object or unreadable file).", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Import failed — store untouched: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Area 07 step 4: SAF import/export/restore are driven
+        // through the existing stream primitives. The observer is
+        // NOT registered here — the main Activity owns the
+        // FileObserver; this instance is only a stream driver, and
+        // its reload callback re-reads + repopulates the form.
+        configSyncService = ConfigSyncService(this) {
+            runOnUiThread {
+                currentConfig = configManager.loadConfig()
+                savedConfigAtLoad = currentConfig
+                populateUiFromConfig(currentConfig)
+            }
+        }
         fileManager = FileManager(this)
         currentConfig = configManager.loadConfig()
         savedConfigAtLoad = currentConfig
@@ -172,6 +228,10 @@ class VoidSettingsActivity : AppCompatActivity() {
         val homeModes = arrayOf("COCKPIT", "STILL", "MINIMAL", "FILES")
         val homeAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, homeModes)
         binding.spnHomeMode.adapter = homeAdapter
+
+        // Area 07 step 4: wallpaper fit (area 03 schema key).
+        val fitAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, arrayOf("CENTER_CROP", "FIT_CENTER"))
+        binding.spnWallpaperFit.adapter = fitAdapter
 
         val gestureActions = arrayOf(
             "NONE", "OPEN_DRAWER", "OPEN_FILES", "OPEN_SEARCH",
@@ -321,6 +381,20 @@ class VoidSettingsActivity : AppCompatActivity() {
         binding.switchNodeOsLegacyImport.isChecked = cfg.nodeOsLegacyImportEnabled
         binding.etWorkflowJsonPath.setText(cfg.workflowJsonPath)
         binding.etNodeosDbPath.setText(cfg.nodeosDbPath)
+
+        // Area 07 step 4: advanced rows owed from areas 01/03/05/06.
+        binding.etShellTimeoutSeconds.setText(cfg.shellTimeoutSeconds.toString())
+        binding.etShellMaxOutputChars.setText(cfg.shellMaxOutputChars.toString())
+        binding.etAgentTaskTimeoutSeconds.setText(cfg.agentTaskTimeoutSeconds.toString())
+        binding.switchNotificationsCountLineOnly.isChecked = cfg.notificationsCountLineOnly
+        selectGestureAction(binding.spnWallpaperFit, cfg.wallpaperFit)
+        val wallpaperMode = when {
+            cfg.useSystemWallpaper -> "system"
+            cfg.customWallpaperPath.isNotBlank() -> "custom image"
+            else -> "OLED (no wallpaper)"
+        }
+        binding.tvWallpaperStatus.text = "Wallpaper: $wallpaperMode · scrim ${cfg.wallpaperDimScrimAlpha} · fit ${cfg.wallpaperFit}" +
+            (if (cfg.customWallpaperPath.isNotBlank()) " · ${cfg.customWallpaperPath}" else "")
 
         refreshSystemStatus()
     }
@@ -476,9 +550,39 @@ class VoidSettingsActivity : AppCompatActivity() {
 
         binding.btnExportJson.setOnClickListener {
             // Cycle 3 fix: export the CURRENT (last-saved) config, never
-            // defaults over the user's config.
+            // defaults over the user's config. Renamed in area 07
+            // step 4 to SAVE TO STORE — this is a store save, not a
+            // picker export; EXPORT FILE… below is the picker export.
             configManager.exportCurrentConfig(currentConfig)
-            Toast.makeText(this, "Exported current config to ${VoidPaths.CONFIG}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Saved current config to store ${VoidPaths.CONFIG}", Toast.LENGTH_LONG).show()
+        }
+
+        // Area 07 step 4: SAF import/export + backup restore.
+        binding.btnExportFile.setOnClickListener {
+            exportFileLauncher.launch("voidlauncher-config.json")
+        }
+        binding.btnImportFile.setOnClickListener {
+            importFileLauncher.launch(arrayOf("application/json", "text/*"))
+        }
+        binding.btnRestoreBackup.setOnClickListener {
+            if (configSyncService.restoreBackup()) {
+                currentConfig = configManager.loadConfig()
+                savedConfigAtLoad = currentConfig
+                populateUiFromConfig(currentConfig)
+                Toast.makeText(this, "Restored last backup (config.json.bak).", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "No backup found — nothing restored.", Toast.LENGTH_LONG).show()
+            }
+        }
+        // Area 07 step 4: Settings entry point for the area-06
+        // SAF legacy import (folder picker in the main Activity).
+        // This does not duplicate the legacy service; it routes to it.
+        binding.btnLegacyImportFiles.setOnClickListener {
+            val intent = Intent(this, com.polymath.voidlauncher.VoidLauncherActivity::class.java).apply {
+                putExtra("void_legacy_import", true)
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
         }
     }
 
@@ -560,7 +664,18 @@ class VoidSettingsActivity : AppCompatActivity() {
             workflowJsonPath = binding.etWorkflowJsonPath.text.toString().trim()
                 .ifEmpty { currentConfig.workflowJsonPath },
             nodeosDbPath = binding.etNodeosDbPath.text.toString().trim()
-                .ifEmpty { currentConfig.nodeosDbPath }
+                .ifEmpty { currentConfig.nodeosDbPath },
+            // Area 07 step 4: advanced rows. Shell timeout is
+            // clamped to the area-01 config range (5–300s); output
+            // cap to 1 KiB–256 KiB; agent timeout is non-negative.
+            shellTimeoutSeconds = (binding.etShellTimeoutSeconds.text.toString().toLongOrNull()
+                ?: currentConfig.shellTimeoutSeconds).coerceIn(5L, 300L),
+            shellMaxOutputChars = (binding.etShellMaxOutputChars.text.toString().toIntOrNull()
+                ?: currentConfig.shellMaxOutputChars).coerceIn(1024, 262144),
+            agentTaskTimeoutSeconds = (binding.etAgentTaskTimeoutSeconds.text.toString().toLongOrNull()
+                ?: currentConfig.agentTaskTimeoutSeconds).coerceAtLeast(0L),
+            notificationsCountLineOnly = binding.switchNotificationsCountLineOnly.isChecked,
+            wallpaperFit = binding.spnWallpaperFit.selectedItem?.toString() ?: currentConfig.wallpaperFit
         )
     }
 

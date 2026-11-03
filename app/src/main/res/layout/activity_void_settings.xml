@@ -1621,6 +1621,203 @@
                     android:text="RESET DATA ➔" />
             </LinearLayout>
 
+            <!-- Area 07 step 4: advanced rows (fields owed from
+                 areas 01/03/05/06) + SAF import/export + backup
+                 restore + legacy import entry. -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="@color/void_crimson"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:text="10. ADVANCED &amp; FILE EXPORT" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="@drawable/bg_cockpit_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:text="Shell timeout (s, area 01):" />
+                    <EditText
+                        android:id="@+id/etShellTimeoutSeconds"
+                        android:layout_width="80dp"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:inputType="number"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:text="30" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:text="Shell max output chars:" />
+                    <EditText
+                        android:id="@+id/etShellMaxOutputChars"
+                        android:layout_width="80dp"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:inputType="number"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:text="16384" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:text="Agent task timeout (s, area 06):" />
+                    <EditText
+                        android:id="@+id/etAgentTaskTimeoutSeconds"
+                        android:layout_width="80dp"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:inputType="number"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11sp"
+                        android:text="60" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Notifications: count line only (area 05, default off)" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchNotificationsCountLineOnly"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="false" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:text="Wallpaper fit (area 03):" />
+                    <Spinner
+                        android:id="@+id/spnWallpaperFit"
+                        android:layout_width="140dp"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvWallpaperStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:text="Wallpaper status:" />
+
+                <TextView
+                    android:id="@+id/btnExportFile"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/cyan_accent"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:text="EXPORT FILE… (SAF PICKER) ➔" />
+                <TextView
+                    android:id="@+id/btnImportFile"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/cyan_accent"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:text="IMPORT FILE… (SAF PICKER) ➔" />
+                <TextView
+                    android:id="@+id/btnRestoreBackup"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/amber_warn"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:text="RESTORE LAST BACKUP (config.json.bak) ➔" />
+                <TextView
+                    android:id="@+id/btnLegacyImportFiles"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_digit_btn"
+                    android:gravity="center"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/cyan_accent"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:text="IMPORT LEGACY FILES… (SAF) ➔" />
+            </LinearLayout>
+
             <!-- Reset & Export Buttons -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -1657,7 +1854,7 @@
                     android:fontFamily="monospace"
                     android:textColor="@color/cyan_accent"
                     android:textSize="11sp"
-                    android:text="EXPORT CONFIG" />
+                    android:text="SAVE TO STORE" />
             </LinearLayout>
 
         </LinearLayout>

@@ -194,7 +194,18 @@ class ConfigManager(private val context: Context) {
     private fun readExternalConfig(): JSONObject? {
         // Primary: app-owned config folder
         readJsonFile(File(EXTERNAL_CONFIG_FILE))?.let { return it }
-        // Migration: legacy location (older shared dir)
+        // Migration: legacy location (older shared dir).
+        // Area 07 step 4, plan G-06 DECISION (recorded, not left
+        // ambiguous): this auto-read is KEPT as the intended
+        // migration path for the legacy CONFIG FILE ONLY. It is
+        // read-only (never written back to the legacy path), and
+        // gating it behind nodeOsLegacyImportEnabled would silently
+        // drop existing users' legacy configs on upgrade. The
+        // opt-in gate applies instead to NEW legacy reads — the
+        // NodeOS card, bridge, and SAF file import, all of which
+        // already check nodeOsLegacyImportEnabled. File migration
+        // (the opt-in migrator / SAF tree picker) stays opt-in
+        // and user-initiated; it is never auto-run.
         for (legacy in VoidPaths.LEGACY_CONFIG_FILES) {
             readJsonFile(File(legacy))?.let {
                 Log.i(TAG, "Migrating legacy config from $legacy")
