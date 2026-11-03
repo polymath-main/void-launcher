@@ -1306,6 +1306,8 @@ class VoidLauncherActivity : AppCompatActivity() {
             binding.etDrawerSearch.setText("")
             val allApps = appIndexer.getAllApps()
             applyDrawerFilter(allApps)
+            // impl-02 step 5: dim scrubber letters with no app section.
+            binding.alphabetScrubber.setAvailableLetters(appIndexer.getSectionPositions().keys)
             binding.rightDrawerLayout.visibility = View.VISIBLE
             binding.btnDrawerTabHandle.text = "›"
             binding.filesBrowserLayout.visibility = View.GONE
@@ -1598,6 +1600,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                 if (isDrawerOpen) {
                     // Keeps an active drawer search filter across refresh.
                     applyDrawerFilter(all)
+                    binding.alphabetScrubber.setAvailableLetters(appIndexer.getSectionPositions().keys)
                 }
             }
         }

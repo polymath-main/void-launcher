@@ -37,6 +37,24 @@ class AlphabetScrubberView @JvmOverloads constructor(
     private var selectedIndex = -1
     private var onLetterSelectedListener: ((Char) -> Unit)? = null
 
+    // impl-02 step 5: letters with no installed app section, as reported
+    // by AppIndexer.getSectionPositions(). Null = unknown (before the
+    // first index load): draw everything normally, never dim on a guess.
+    private var availableLetters: Set<Char>? = null
+
+    private val dimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF71717A.toInt()
+        alpha = 77
+        textSize = 22f
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.MONOSPACE
+    }
+
+    fun setAvailableLetters(letters: Set<Char>) {
+        availableLetters = letters
+        invalidate()
+    }
+
     fun setOnLetterSelectedListener(listener: (Char) -> Unit) {
         onLetterSelectedListener = listener
     }
@@ -48,6 +66,8 @@ class AlphabetScrubberView @JvmOverloads constructor(
 
     fun setTextColor(colorInt: Int) {
         textPaint.color = colorInt
+        dimPaint.color = colorInt
+        dimPaint.alpha = 77
         invalidate()
     }
 
@@ -61,7 +81,12 @@ class AlphabetScrubberView @JvmOverloads constructor(
 
         for (i in letters.indices) {
             val y = i * letterHeight + letterHeight * 0.75f
-            val paint = if (i == selectedIndex) activePaint else textPaint
+            val available = availableLetters
+            val paint = when {
+                i == selectedIndex -> activePaint
+                available != null && letters[i] !in available -> dimPaint
+                else -> textPaint
+            }
             canvas.drawText(letters[i].toString(), centerX, y, paint)
         }
     }
