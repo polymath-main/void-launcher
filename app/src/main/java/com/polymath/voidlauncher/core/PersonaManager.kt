@@ -50,6 +50,26 @@ class PersonaManager(private val context: Context) {
             workspacePath = VoidPaths.WORKSPACE,
             glyphPatternName = "FOCUS_MODE_ON"
         )
+
+        val DEFAULT_AGENT = PersonaProfile(
+            id = "agent",
+            label = "[AGENT]",
+            subtitle = "Autonomous VoidShell & Agents",
+            accentColor = "#00FF66",
+            secondaryColor = "#FFB000",
+            workspacePath = VoidPaths.WORKSPACE,
+            glyphPatternName = "AGENT_RUNNING"
+        )
+
+        val DEFAULT_CLIENT = PersonaProfile(
+            id = "client",
+            label = "[CLIENT]",
+            subtitle = "Client Workspaces & Deliverables",
+            accentColor = "#525252",
+            secondaryColor = "#D6D1C4",
+            workspacePath = VoidPaths.WORKSPACE,
+            glyphPatternName = "FOCUS_MODE_ON"
+        )
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -59,6 +79,8 @@ class PersonaManager(private val context: Context) {
         registerProfile(DEFAULT_VOID)
         registerProfile(DEFAULT_MAIN)
         registerProfile(DEFAULT_STILL)
+        registerProfile(DEFAULT_AGENT)
+        registerProfile(DEFAULT_CLIENT)
         loadExternalProfiles()
     }
 

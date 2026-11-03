@@ -6,15 +6,18 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.polymath.voidlauncher.core.ThemeEngine
 import com.polymath.voidlauncher.model.AppEntry
+import com.polymath.voidlauncher.model.DockStyle
 import com.polymath.voidlauncher.model.DockSlot
 import com.polymath.voidlauncher.model.LauncherConfig
 import com.polymath.voidlauncher.model.defaultDockSlots
+import java.util.Locale
 
 /**
  * Micro-service managing interactive Bare-Integer Dock Slot [1..7] assignment,
  * app binding, built-in quick actions, renaming, and reset flows across
- * both Home and Settings screens.
+ * both Home and Settings screens, formatted according to the active [DockStyle].
  */
 class DockSlotMicroService(private val activity: Activity) {
 
@@ -27,18 +30,48 @@ class DockSlotMicroService(private val activity: Activity) {
         Triple("SETTINGS", "Launcher Config", "open_settings")
     )
 
+    /**
+     * Formats a slot label & subtitle matching the active theme's [DockStyle].
+     */
+    fun formatSlotDisplay(
+        slot: DockSlot,
+        style: DockStyle = ThemeEngine.currentTheme.dockStyle
+    ): Pair<String, String> {
+        val label = when (style) {
+            DockStyle.NUMERIC_BRACKET -> "[${slot.index}] ${slot.label}"
+            DockStyle.ASCII_TTY -> "> 0${slot.index} ${slot.label.lowercase(Locale.US)}"
+            DockStyle.EDITORIAL_SERIF -> "${slot.index} · ${slot.label.lowercase(Locale.US).replaceFirstChar { it.uppercase() }}"
+            DockStyle.CHAMFERED_HUD -> "// 0${slot.index} // ${slot.label.uppercase(Locale.US)}"
+            DockStyle.CAD_WIREFRAME -> "[0${slot.index}/07] ${slot.label.uppercase(Locale.US)}"
+        }
+        val sub = slot.subtitle.ifBlank { slot.action }
+        return Pair(label, sub)
+    }
+
     fun showSlotPickerForApp(
         entry: AppEntry,
         config: LauncherConfig,
         onCommit: (LauncherConfig) -> Unit
     ) {
+        val style = ThemeEngine.currentTheme.dockStyle
         val slotLabels = (1..7).map { index ->
             val current = config.dockSlots.firstOrNull { it.index == index }
-            "Slot $index — ${current?.label ?: "Empty"}"
+            if (current != null) {
+                val formatted = formatSlotDisplay(current, style)
+                "${formatted.first} — ${formatted.second}"
+            } else {
+                when (style) {
+                    DockStyle.CAD_WIREFRAME -> "[0$index/07] EMPTY_SLOT"
+                    DockStyle.CHAMFERED_HUD -> "// 0$index // (EMPTY)"
+                    DockStyle.ASCII_TTY -> "> 0$index [empty]"
+                    DockStyle.EDITORIAL_SERIF -> "$index · Available"
+                    DockStyle.NUMERIC_BRACKET -> "Slot $index — Empty"
+                }
+            }
         }.toTypedArray()
 
         MaterialAlertDialogBuilder(activity)
-            .setTitle("Add ${entry.label} to dock")
+            .setTitle("Add ${entry.label} to Dock")
             .setItems(slotLabels) { _, which ->
                 val index = which + 1
                 val newSlot = DockSlot(
@@ -51,6 +84,7 @@ class DockSlotMicroService(private val activity: Activity) {
                 onCommit(upsertSlot(config, newSlot))
                 Toast.makeText(activity, "${entry.label} added to dock slot $index", Toast.LENGTH_SHORT).show()
             }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
@@ -61,7 +95,11 @@ class DockSlotMicroService(private val activity: Activity) {
         onCommit: (LauncherConfig) -> Unit
     ) {
         val current = config.dockSlots.firstOrNull { it.index == slotIndex }
-        val currentSummary = current?.let { "${it.label} (${it.action})" } ?: "Empty"
+        val currentSummary = current?.let {
+            val formatted = formatSlotDisplay(it)
+            "${formatted.first} (${it.action})"
+        } ?: "Empty"
+
         val options = arrayOf(
             "📱 Assign Installed App…",
             "⚡ Assign Quick Action…",
@@ -97,12 +135,20 @@ class DockSlotMicroService(private val activity: Activity) {
         onCommit: (LauncherConfig) -> Unit
     ) {
         val cfg = configProvider()
+        val style = ThemeEngine.currentTheme.dockStyle
         val slotLabels = (1..7).map { idx ->
             val slot = cfg.dockSlots.firstOrNull { it.index == idx }
             if (slot != null) {
-                "[$idx] ${slot.label} — ${slot.subtitle.ifBlank { slot.action }}"
+                val formatted = formatSlotDisplay(slot, style)
+                "${formatted.first} — ${formatted.second}"
             } else {
-                "[$idx] Empty"
+                when (style) {
+                    DockStyle.CAD_WIREFRAME -> "[0$idx/07] EMPTY"
+                    DockStyle.CHAMFERED_HUD -> "// 0$idx // [EMPTY]"
+                    DockStyle.ASCII_TTY -> "> 0$idx ---"
+                    DockStyle.EDITORIAL_SERIF -> "$idx · Empty"
+                    DockStyle.NUMERIC_BRACKET -> "[$idx] Empty"
+                }
             }
         }.toTypedArray()
 
@@ -129,7 +175,7 @@ class DockSlotMicroService(private val activity: Activity) {
         appsProvider: () -> List<AppEntry>,
         onCommit: (LauncherConfig) -> Unit
     ) {
-        val apps = appsProvider().ifEmpty { queryInstalledAppsFallback() }.sortedBy { it.label.lowercase() }
+        val apps = appsProvider().ifEmpty { queryInstalledAppsFallback() }.sortedBy { it.label.lowercase(Locale.US) }
         if (apps.isEmpty()) {
             Toast.makeText(activity, "App index is still loading…", Toast.LENGTH_SHORT).show()
             return
@@ -141,7 +187,7 @@ class DockSlotMicroService(private val activity: Activity) {
                 val chosen = apps[which]
                 val newSlot = DockSlot(
                     index = slotIndex,
-                    label = chosen.label.uppercase(),
+                    label = chosen.label.uppercase(Locale.US),
                     subtitle = chosen.packageName,
                     packageName = chosen.packageName,
                     action = "launch_package"
@@ -236,7 +282,7 @@ class DockSlotMicroService(private val activity: Activity) {
                     AppEntry(label = label, packageName = pkg, activityName = actName)
                 }
                 .distinctBy { it.packageName }
-                .sortedBy { it.label.lowercase() }
+                .sortedBy { it.label.lowercase(Locale.US) }
         } catch (_: Exception) {
             emptyList()
         }

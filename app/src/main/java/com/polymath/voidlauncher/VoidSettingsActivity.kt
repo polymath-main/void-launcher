@@ -352,6 +352,7 @@ class VoidSettingsActivity : AppCompatActivity() {
                 onUpdateConfig = { updated ->
                     currentConfig = updated
                     binding.switchUseWallpaper.isChecked = updated.useSystemWallpaper
+                    populateUiFromConfig(updated)
                     configManager.saveConfig(currentConfig)
                 }
             )
