@@ -54,13 +54,10 @@ class CommandPalette(context: Context) : SQLiteOpenHelper(context, DB_NAME, null
      * version must add its own incremental branch here, never DROP.
      */
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        // impl-04 step 4: statements come from CommandPaletteMigration
+        // (pure, JVM-tested policy) — never inline DROP TABLE here.
         if (oldVersion < 2) {
-            db.execSQL(
-                "DELETE FROM $TABLE_HISTORY WHERE $COL_IS_SNIPPET = 1 AND $COL_ALIAS <> '' AND " +
-                    "$COL_ID NOT IN (SELECT MAX($COL_ID) FROM $TABLE_HISTORY " +
-                    "WHERE $COL_IS_SNIPPET = 1 AND $COL_ALIAS <> '' GROUP BY UPPER($COL_ALIAS))"
-            )
-            db.execSQL("CREATE INDEX IF NOT EXISTS idx_snippet_alias ON $TABLE_HISTORY ($COL_ALIAS);")
+            for (sql in CommandPaletteMigration.V1_TO_V2) db.execSQL(sql)
         }
     }
 

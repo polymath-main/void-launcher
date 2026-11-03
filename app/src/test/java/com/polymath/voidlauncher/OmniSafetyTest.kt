@@ -2,6 +2,7 @@ package com.polymath.voidlauncher
 
 import android.content.Context
 import com.polymath.voidlauncher.core.CommandGuide
+import com.polymath.voidlauncher.core.CommandPaletteMigration
 import com.polymath.voidlauncher.core.MacroName
 import com.polymath.voidlauncher.core.MacroRecorder
 import com.polymath.voidlauncher.core.SearchPattern
@@ -97,6 +98,13 @@ class OmniSafetyTest {
         val suggestions = CommandGuide.suggest("the")
         assertTrue(suggestions.contains("theme"))
         assertTrue(suggestions.contains("themes"))
+    }
+
+    @Test
+    fun migrationPolicyIsLossless() {
+        assertTrue(CommandPaletteMigration.isLossless(CommandPaletteMigration.V1_TO_V2))
+        assertTrue(CommandPaletteMigration.V1_TO_V2.any { it.contains("idx_snippet_alias") })
+        assertFalse(CommandPaletteMigration.isLossless(listOf("DROP TABLE history")))
     }
 
     @Test
