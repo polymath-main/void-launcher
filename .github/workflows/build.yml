@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -27,13 +27,33 @@ jobs:
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest --no-daemon
 
+      # Area 07 step 6: lint is non-blocking first (continue-on-error).
+      # Make it blocking only after a clean lint run is verified;
+      # landing it blocking unverified would break the working CI.
+      - name: Lint (non-blocking)
+        run: ./gradlew lintDebug --no-daemon
+        continue-on-error: true
+
+      - name: Version consistency check
+        run: bash scripts/check-version-consistency.sh
+
       - name: Assemble v3 Release & Debug APKs
         run: ./gradlew assembleRelease assembleDebug --no-daemon
 
-      - name: Upload v3 Release APK Artifact
+      - name: Publish SHA-256 checksums
+        run: |
+          sha256sum app/build/outputs/apk/release/*.apk app/build/outputs/apk/debug/*.apk > checksums.txt
+          cat checksums.txt
+
+      # Area 07 step 6: the "release" APK is debug-signed
+      # (app/build.gradle: signingConfig signingConfigs.debug).
+      # It is labelled debug-signed here, not described as a
+      # production release; real signing needs Shuvo's keystore
+      # decision (plan G-08) and is not invented in CI.
+      - name: Upload v3 Release (debug-signed) APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: void-launcher-v3.0.0-release
+          name: void-launcher-v3.0.0-release-debug-signed
           path: app/build/outputs/apk/release/*.apk
 
       - name: Upload v3 Debug APK Artifact
@@ -41,3 +61,16 @@ jobs:
         with:
           name: void-launcher-v3.0.0-debug
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: void-launcher-v3.0.0-checksums
+          path: checksums.txt
+
+      # Area 07 step 6, OPEN CI MILESTONE (not landed as a job):
+      # a single emulator smoke test (launch activity, assert it
+      # renders, change one setting, assert the store file changed)
+      # is not wired in because no emulator is available on this VM
+      # to verify it, and wiring an unverified emulator job risks
+      # breaking the working CI. Land it after one verified run.
