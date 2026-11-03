@@ -13,5 +13,7 @@ data class AgentTask(
     val outputPreview: String = "",
     val exitCode: Int = 0,
     /** How a cancelled task was cancelled: "user", "thermal", "" = n/a. */
-    val cancelReason: String = ""
+    val cancelReason: String = "",
+    // impl-06 step 7: per-task timeout in seconds; 0 = no timeout.
+    val timeoutSeconds: Long = 0
 )

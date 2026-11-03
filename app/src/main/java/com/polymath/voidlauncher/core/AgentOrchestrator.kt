@@ -31,6 +31,8 @@ class AgentOrchestrator(
     companion object {
         private const val TAG = "AgentOrchestrator"
         private const val PERSIST_LIMIT = 50
+        /** impl-06 step 7: default per-task timeout; 0 = no timeout. */
+        const val DEFAULT_TASK_TIMEOUT_SECONDS = 60L
     }
 
     /** Blank = no workflow.json sync. Set by the Activity to a Void-owned path. */
@@ -53,17 +55,37 @@ class AgentOrchestrator(
      * Registers a task in VoidProcessManager, syncs it to workflow.json
      * when configured, and dispatches execution through VoidShell off the UI thread.
      */
-    fun dispatchTask(title: String, command: String): AgentTask {
+    fun dispatchTask(
+        title: String,
+        command: String,
+        timeoutSeconds: Long = DEFAULT_TASK_TIMEOUT_SECONDS
+    ): AgentTask {
         val voidTask = processManager.submit(title, command)
         val task = AgentTask(
             id = voidTask.id,
             title = title,
             command = command,
             status = "running",
-            startedAt = voidTask.startedAt
+            startedAt = voidTask.startedAt,
+            timeoutSeconds = timeoutSeconds
         )
         memoryTasks[task.id] = task
         persistTasks()
+
+        // impl-06 step 7: timeout watchdog on the main handler. It
+        // fires ONCE; if the task already finished, timeout() returns
+        // false and this is a no-op (no cancellation bookkeeping
+        // needed). If still running, the handle kills the real process
+        // and the task becomes timed_out in every store at once.
+        // NOTE: this is a live-session watchdog, NOT a durable
+        // scheduler — process death ends it, as it ends the task.
+        // Durable scheduling is BLOCKED (see step 7 log note): no
+        // WorkManager/AlarmManager exists in this app, and building a
+        // Handler-delay "scheduler" that dies with the process and
+        // calling it scheduling is explicitly forbidden by the plan.
+        if (timeoutSeconds > 0) {
+            main.postDelayed({ finishTaskTimedOut(task.id) }, timeoutSeconds * 1000L)
+        }
 
         // 1. Update workflow.json (non-clobbering merge), only when a Void-owned path is configured.
         mergeWorkflowJson { json ->
@@ -145,6 +167,32 @@ class AgentOrchestrator(
         }
     }
 
+    /**
+     * impl-06 step 7: timeout completion path. The registry kill +
+     * status, the memory copy, persistence, and workflow.json are all
+     * updated together — a timed-out task is never left "running" in
+     * one store and "timed_out" in another. Surfaces via onTaskFailed
+     * (glyph + deck + HUD refresh) because a timeout is a failure.
+     */
+    private fun finishTaskTimedOut(taskId: String) {
+        val timedOut = processManager.timeout(taskId)
+        val existing = memoryTasks[taskId] ?: return
+        if (!timedOut && existing.status != "running") return
+        val updated = existing.copy(
+            status = "timed_out",
+            completedAt = System.currentTimeMillis()
+        )
+        memoryTasks[taskId] = updated
+        persistTasks()
+        mergeWorkflowJson { json ->
+            if (json.optString("id", "") == taskId) {
+                json.put("status", updated.status)
+                json.put("completed_at", updated.completedAt)
+            }
+        }
+        onTaskFailed?.invoke(updated)
+    }
+
     // impl-06 step 2: pollWorkflow() DELETED (plan step 2.2). It had no
     // caller in the Activity; the HUD's legacy reader is NodeOsBridge
     // and its Void reader is VoidProcessManager. Keeping a second
@@ -165,13 +213,14 @@ class AgentOrchestrator(
                     VoidTaskStatus.COMPLETED -> "completed"
                     VoidTaskStatus.FAILED -> "failed"
                     VoidTaskStatus.CANCELLED -> "cancelled"
-                    // TIMED_OUT arrives in step 7 (task timeouts); mapped there.
+                    VoidTaskStatus.TIMED_OUT -> "timed_out"
                 },
                 startedAt = voidTask.startedAt,
                 completedAt = voidTask.completedAt,
                 outputPreview = mem?.outputPreview ?: "",
                 exitCode = mem?.exitCode ?: 0,
-                cancelReason = mem?.cancelReason ?: ""
+                cancelReason = mem?.cancelReason ?: "",
+                timeoutSeconds = mem?.timeoutSeconds ?: 0
             )
         }
         val liveIds = live.map { it.id }.toSet()
@@ -268,6 +317,7 @@ class AgentOrchestrator(
                         put("exit_code", task.exitCode)
                         put("output_preview", task.outputPreview)
                         put("cancel_reason", task.cancelReason)
+                        put("timeout_seconds", task.timeoutSeconds)
                     }
                 )
             }
@@ -292,7 +342,8 @@ class AgentOrchestrator(
                     completedAt = obj.optLong("completed_at", 0L),
                     outputPreview = obj.optString("output_preview", ""),
                     exitCode = obj.optInt("exit_code", 0),
-                    cancelReason = obj.optString("cancel_reason", "")
+                    cancelReason = obj.optString("cancel_reason", ""),
+                    timeoutSeconds = obj.optLong("timeout_seconds", 0)
                 )
                 val reconciled = if (task.status == "running") {
                     task.copy(status = "interrupted", completedAt = System.currentTimeMillis())

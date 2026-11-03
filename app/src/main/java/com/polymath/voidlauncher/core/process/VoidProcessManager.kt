@@ -19,7 +19,11 @@ enum class VoidTaskStatus {
     RUNNING,
     COMPLETED,
     FAILED,
-    CANCELLED
+    CANCELLED,
+    // impl-06 step 7: a task killed by its own timeout, distinct from a
+    // user/thermal cancel — :tasks, the deck, and workflow.json all
+    // render "timed_out" for this status.
+    TIMED_OUT
 }
 
 data class VoidTask(
@@ -103,6 +107,25 @@ class VoidProcessManager {
         try { handle?.cancel() } catch (_: Exception) { }
         tasks[taskId] = task.copy(
             status = VoidTaskStatus.CANCELLED,
+            completedAt = System.currentTimeMillis()
+        )
+        return true
+    }
+
+    /**
+     * impl-06 step 7: times a task out. Like [cancel] it invokes the
+     * live handle first (so the real process stops), but marks
+     * TIMED_OUT instead of CANCELLED. Returns false if unknown or
+     * already finished — a watchdog firing after natural completion
+     * is a no-op, never an overwrite.
+     */
+    fun timeout(taskId: String): Boolean {
+        val task = tasks[taskId] ?: return false
+        if (task.status != VoidTaskStatus.RUNNING) return false
+        val handle = handles.remove(taskId)
+        try { handle?.cancel() } catch (_: Exception) { }
+        tasks[taskId] = task.copy(
+            status = VoidTaskStatus.TIMED_OUT,
             completedAt = System.currentTimeMillis()
         )
         return true

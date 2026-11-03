@@ -205,6 +205,10 @@ data class LauncherConfig(
 
     // ── Agent Orchestrator (F-08) ────────────────────────────
     val agentOrchestratorEnabled: Boolean = true,
+    // impl-06 step 7: per-task timeout in seconds for :task dispatches
+    // (dispatchTask's own default is also 60); 0 = no timeout.
+    // Settings UI for this key is area 07 follow-up (config-file only).
+    val agentTaskTimeoutSeconds: Long = 60,
 
     // ── Widgets (F-04) ───────────────────────────────────────
     val widgetsEnabled: Boolean = false,

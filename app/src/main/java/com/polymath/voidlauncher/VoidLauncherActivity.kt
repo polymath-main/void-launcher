@@ -2094,7 +2094,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                     val parts = args.split(" ", limit = 2)
                     val title = parts.getOrNull(0) ?: "Task"
                     val cmd = parts.getOrNull(1) ?: "echo 'no command'"
-                    val task = agentOrchestrator.dispatchTask(title, cmd)
+                    val task = agentOrchestrator.dispatchTask(title, cmd, config.agentTaskTimeoutSeconds)
                     glyphChoreographer.play("TASK_SUCCESS")
                     showTerminalOutput("[TASK DISPATCHED]: ${task.title}\nCMD: ${task.command}")
                 }

@@ -280,6 +280,7 @@ class ConfigManager(private val context: Context) {
             astGraphEnabled = json.optBoolean("ast_graph_enabled", false),
             astGraphNodeCap = json.optInt("ast_graph_node_cap", 80),
             agentOrchestratorEnabled = json.optBoolean("agent_orchestrator_enabled", true),
+            agentTaskTimeoutSeconds = json.optLong("agent_task_timeout_seconds", 60),
             widgetsEnabled = json.optBoolean("widgets_enabled", false),
             widgetsDirectory = json.optString("widgets_directory", VoidPaths.WIDGETS),
             focusSchedulerEnabled = json.optBoolean("focus_scheduler_enabled", true),
@@ -550,6 +551,7 @@ class ConfigManager(private val context: Context) {
         json.put("ast_graph_enabled", config.astGraphEnabled)
         json.put("ast_graph_node_cap", config.astGraphNodeCap)
         json.put("agent_orchestrator_enabled", config.agentOrchestratorEnabled)
+        json.put("agent_task_timeout_seconds", config.agentTaskTimeoutSeconds)
         json.put("widgets_enabled", config.widgetsEnabled)
         json.put("widgets_directory", config.widgetsDirectory)
         json.put("focus_scheduler_enabled", config.focusSchedulerEnabled)
