@@ -142,6 +142,13 @@ class VoidLauncherActivity : AppCompatActivity() {
     private lateinit var liveScriptEngine: LiveScriptEngine
     private lateinit var agentOrchestrator: AgentOrchestrator
     private lateinit var widgetRegistry: WidgetRegistry
+    // impl-06 step 9: SAF legacy import picker (system folder picker,
+    // no new permission). Property registration is the documented
+    // Activity Result pattern; the callback copies (never moves) the
+    // picked tree's workflow.json + agy_nodeos.db into Void paths.
+    private val legacyImportLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()
+    ) { uri -> if (uri != null) runLegacyImport(uri) }
     private lateinit var focusScheduler: FocusScheduler
     private lateinit var voidTermPanel: VoidTermPanel
     private lateinit var macroRecorder: MacroRecorder
@@ -2167,6 +2174,13 @@ class VoidLauncherActivity : AppCompatActivity() {
                         onSaved = { focusScheduler.loadSchedule(config.focusSchedulePath) }
                     )
             }
+            // impl-06 step 9: SAF legacy import (copy-only) + verify.
+            command == "legacy import" -> {
+                legacyImportLauncher.launch(null)
+            }
+            command == "legacy verify" -> {
+                verifyLegacyDb()
+            }
             command.startsWith("id ") -> {
                 val targetId = command.removePrefix("id ").trim()
                 val switched = personaManager.selectPersona(targetId)
@@ -2844,6 +2858,58 @@ class VoidLauncherActivity : AppCompatActivity() {
             val fallback = personaManager.selectPersona("void")
             if (fallback != null) applyPersonaSwitch(fallback)
         }
+    }
+
+    /**
+     * impl-06 step 9: SAF import completion + one-tap verify. Copying
+     * runs off the UI thread (a DB copy can be large); the result
+     * dialog reports exactly what was copied, what was missing, and
+     * offers Verify, which runs queryTopology() on the COPIED db and
+     * reports node/edge counts + top types, or a clear "not a NodeOS
+     * DB" error. Importing alone does NOT enable reading: the bridge
+     * stays blanked until the Settings legacy-import switch is on.
+     */
+    private fun runLegacyImport(treeUri: android.net.Uri) {
+        Thread {
+            val result = com.polymath.voidlauncher.core.services.LegacyImportService(this)
+                .importFromTree(
+                    treeUri,
+                    java.io.File(config.workflowJsonPath),
+                    java.io.File(config.nodeosDbPath)
+                )
+            runOnUiThread {
+                val sb = StringBuilder("[LEGACY IMPORT]\n")
+                sb.appendLine("workflow.json: ${if (result.copiedWorkflow) "copied" else "not found"}")
+                sb.appendLine("agy_nodeos.db: ${if (result.copiedDb) "copied" else "not found"}")
+                if (result.missing.isNotEmpty()) sb.appendLine("Missing in picked folder: ${result.missing.joinToString()}")
+                if (result.error != null) sb.appendLine("Error: ${result.error}")
+                sb.appendLine("Originals untouched (copy-only).")
+                if (!config.nodeOsLegacyImportEnabled) {
+                    sb.appendLine("Enable the legacy import switch in Settings to read these copies.")
+                }
+                if (result.copiedDb) {
+                    MaterialAlertDialogBuilder(this)
+                        .setTitle("Legacy import done")
+                        .setMessage(sb.toString().trimEnd())
+                        .setPositiveButton("Verify DB") { _, _ -> verifyLegacyDb() }
+                        .setNegativeButton("Close", null)
+                        .show()
+                } else {
+                    showTerminalOutput(sb.toString().trimEnd())
+                }
+            }
+        }.start()
+    }
+
+    /** impl-06 step 9: one-tap verify on the copied DB (also :legacy verify). */
+    private fun verifyLegacyDb() {
+        val snap = astGraphRenderer.queryTopology(config.nodeosDbPath)
+        if (!snap.isAlive) {
+            showTerminalOutput("[LEGACY VERIFY]: not a NodeOS DB (or unreadable): ${config.nodeosDbPath}")
+            return
+        }
+        val top = snap.typeBreakdown.take(5).joinToString(", ") { "${it.first}: ${it.second}" }
+        showTerminalOutput("[LEGACY VERIFY]: nodes=${snap.totalNodes} edges=${snap.totalEdges}\nTop types: $top")
     }
 
     private fun commitUpdatedDockConfig(updated: LauncherConfig) {
