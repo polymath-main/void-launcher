@@ -1602,7 +1602,7 @@ class VoidLauncherActivity : AppCompatActivity() {
                 val powerLevel = powerProfileAdaptor.evaluate(snap, config.thermalLimitCelsius)
 
                 binding.tvClock.text = cockpitTimeFormat.format(java.util.Date()) + config.clockSuffix
-                binding.tvBatteryTemp.text = "▲ ${if (snap.batteryPercent < 0) "?" else snap.batteryPercent.toString()}% [${snap.batteryTemperatureC}°C]"
+                binding.tvBatteryTemp.text = "▲ ${if (snap.batteryPercent < 0) "?" else snap.batteryPercent.toString()}% [${snap.batteryTemperatureC}°C]" + if (thermalGuardian.isThrottled || snap.batteryTemperatureC >= config.thermalLimitCelsius) " ⚠ THROTTLED" else ""
                 val usedGb = String.format(java.util.Locale.US, "%.1f", snap.ramUsedMb / 1024.0)
                 binding.tvMemory.text = "RAM: ${usedGb}G ${powerLevel.label}"
 
@@ -1713,6 +1713,19 @@ class VoidLauncherActivity : AppCompatActivity() {
         val running = voidProcessManager.getRunning()
         val all = voidProcessManager.getAll()
         val lines = StringBuilder("[VOID STATUS]: ${running.size} running / ${all.size} tracked")
+        // impl-05 step 4: throttle state is persistent in :status (the HUD
+        // token above is transient per tick; this line survives recovery).
+        // Thermally-cancelled tasks already surface in :tasks as "cancelled"
+        // via AgentOrchestrator.getAllTasks() mapping VoidProcessManager
+        // status; their ids are listed here too, for the record. No auto-retry.
+        if (thermalGuardian.isThrottled) {
+            lines.append("\n[THERMAL]: THROTTLED at ${thermalGuardian.currentTempC}°C (limit ${config.thermalLimitCelsius}°C)")
+        } else {
+            lines.append("\n[THERMAL]: OK")
+        }
+        if (thermalGuardian.thermallyCancelledTaskIds.isNotEmpty()) {
+            lines.append("\n[THERMAL CANCELLED]: ${thermalGuardian.thermallyCancelledTaskIds.joinToString()}")
+        }
         for (task in running) lines.append("\n- [RUNNING] ${task.title}")
         if (!config.nodeOsLegacyImportEnabled) {
             lines.append("\n[NodeOS legacy import: off — opt-in via config]")
