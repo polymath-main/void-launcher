@@ -307,7 +307,12 @@ class ConfigManager(private val context: Context) {
                 subtitle = obj.optString("subtitle", ""),
                 accentColor = obj.optString("accent", "#E11D48"),
                 secondaryColor = obj.optString("secondary", "#06B6D4"),
-                workspacePath = obj.optString("workspace", VoidPaths.WORKSPACE)
+                // impl-01 step 8: serializeConfig already wrote these
+                // two, but parse dropped them — a round-trip loss.
+                // Now parsed, so a saved persona loads back exactly.
+                surfaceColor = obj.optString("surface", "#080808"),
+                workspacePath = obj.optString("workspace", VoidPaths.WORKSPACE),
+                glyphPatternName = obj.optString("glyph_pattern", "DEFAULT")
             ))
         }
         return list
@@ -416,6 +421,11 @@ class ConfigManager(private val context: Context) {
         // Thermal & Guardian
         json.put("thermal_limit_celsius", config.thermalLimitCelsius.toDouble())
         json.put("thermal_guardian_enabled", config.thermalGuardianEnabled)
+        // impl-01 step 8 decision: thermal_kill_commands is KEPT as
+        // dead-but-parseable data (removing it would break old
+        // configs; removal is a major-version decision, plan 4.6 Q4).
+        // It is round-tripped so old configs lose nothing, but it is
+        // never executed — ThermalGuardian logs and ignores it.
         val thermalKills = JSONArray()
         for (cmd in config.thermalKillCommands) thermalKills.put(cmd)
         json.put("thermal_kill_commands", thermalKills)

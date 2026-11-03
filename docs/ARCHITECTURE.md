@@ -1,6 +1,6 @@
 # VoidLauncher — Architecture & Technical Specifications
 
-> **Version**: 1.1.0 (Hardened Sovereign Cockpit, Built-in Config Editor, VFS Files Browser, Right-Edge App Drawer with A-Z Scrubber, IME Insets Elevation)  
+> **Version**: 3.0.0 (Void-owned core runtime: streaming VoidShell, real task cancellation by handle, VoidRoots path vocabulary, single-buffer VoidTerm with named sessions, schema-versioned atomic config)  
 > **Target OS**: Android 16 (API 35/36) / Linux 5.15 aarch64 (Bionic libc)  
 > **Hardware Target**: Nothing Phone (2a) [A142] · Dimensity 7200 Pro · 12 GB RAM · AMOLED 120Hz  
 > **Repository**: [`https://github.com/polymath-main/void-launcher`](https://github.com/polymath-main/void-launcher)
@@ -22,6 +22,8 @@ com.polymath.voidlauncher/
 │   ├── NothingGlyphManager.kt         # Hardware Glyph LED controller
 │   ├── TelemetryMonitor.kt            # Coroutine flow probing battery, temp (<39°C) & RAM
 │   ├── VoidShellPort.kt             # VoidShell-backed ShellPort (no external terminal)
+│   ├── VoidRoots.kt                 # Three-root path vocabulary + project resolution (config home / files home / shell cwd)
+│   ├── VoidProcessManager.kt        # Task registry with real CancelHandles (thermal/agent cancel stops the process)
 │   └── LegacyTermuxMigrator.kt      # Opt-in COPY-only legacy import (not a runtime path)
 ├── model/
 │   ├── AppEntry.kt                    # Application descriptor, icon holder & section header

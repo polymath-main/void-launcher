@@ -7,14 +7,17 @@ import android.util.Log
 import java.io.File
 
 /**
- * App-owned storage paths.
+ * App-owned storage paths — the config home (impl-01 step 5/8).
  *
- * Everything lives under the app's own config folder so the launcher can always
- * read/write it without runtime permissions:
+ * Config lives under the app's external files "config" folder so the
+ * launcher can always read/write it without runtime permissions:
  *
- *   /sdcard/Android/data/<pkg>/files/config/config.json
+ *   <external-files>/config/config.json  (VoidPaths.CONFIG)
  *
- * The legacy shared location is kept read-only for one-time migration.
+ * This is NOT the files home (`filesDir/void`, see VoidRoots) and
+ * NOT the shell default cwd (`filesDir`): three distinct roots, see
+ * VoidRoots for the full vocabulary. The legacy shared location is
+ * kept read-only for one-time migration.
  */
 object VoidPaths {
     private const val TAG = "VoidPaths"
