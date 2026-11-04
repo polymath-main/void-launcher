@@ -148,4 +148,38 @@ harness, so its proof is the CI build on this branch (proof section
 below to be filled from that run), and on-device command behaviour
 remains unproven until the APK is installed and the commands typed.
 
-## Dispatch-fix proof (to be filled from the CI run on this branch)
+## Dispatch-fix proof
+
+- Branch: `feature/ui-dispatch-fix-1` (main untouched, no force-push).
+- CI build commit: `0e9cbec` (all dispatch fixes + DispatchFixTest
+  + dispatch-fix section above). This proof commit itself is docs-only
+  and cannot change the APK built from `0e9cbec`.
+- Build: GitHub Actions workflow `build.yml` via workflow_dispatch on
+  this branch. CI run 41757094299: **SUCCESS** — unit tests
+  BUILD SUCCESSFUL, assemble release + debug BUILD SUCCESSFUL,
+  checksums published, artifacts uploaded. (Lint step failed as
+  before and is marked non-blocking in the workflow; it does not
+  change the run conclusion.)
+  URL: https://github.com/polymath-main/void-launcher/actions/runs/41757094299
+- APKs from run 41757094299 (CI-published checksums; debug checksum
+  re-verified on the downloaded artifact):
+  - Release (debug-signed): SHA-256
+    `0b8c68b649a80f0ea55d40a10e80921e3a7ea0ca04eb56bebaa2153fc3c4877f`
+  - Debug: SHA-256
+    `686eb1fcb950b1df83c541bfd09df5b3f92834e1cab94bc7b656ab6622369a52`
+    (re-verified locally after download)
+  - Debug APK verified with aapt2: package
+    `com.polymath.voidlauncher.debug`, versionCode 5,
+    versionName `3.0.0-debug`, SDK 35/min 26.
+  - Manifest permission check: QUERY_ALL_PACKAGES, INTERNET,
+    ACCESS_NETWORK_STATE, VIBRATE, SET_WALLPAPER,
+    READ_EXTERNAL_STORAGE (maxSdk 32), MANAGE_EXTERNAL_STORAGE —
+    **no Termux permission, no RUN_COMMAND**.
+  - QuickJS native library still present for all three ABIs
+    (`libvoidquickjs.so` in arm64-v8a, armeabi-v7a, x86_64);
+    on-device JS execution remains unproven (see below).
+- Still unproven for this branch: no device testing on Shuvo's
+  Nothing Phone (2a); the fixed commands (`:themes list`, `:macros
+  list`, bare-arg usage lines, empty-slot messages) have been proven
+  to compile and, for the guide table, to be asserted by
+  `DispatchFixTest`, but have NOT been typed on a device.
