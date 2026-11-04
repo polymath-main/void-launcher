@@ -28,7 +28,9 @@ import org.junit.Test
  * persona/focus editor buttons, save status, JSON-only note,
  * group-reset buttons) → 81, and step 4 adds 10 more (advanced
  * rows + SAF buttons) → 91. No plan id was deleted. This count
- * is updated by later steps when they add ids.
+ * is updated by later steps when they add ids. UI audit fix 1
+ * adds 4 more (VoidTerm, macros, history, compound-gesture
+ * switches) → 95.
  */
 class ConfigStep1Test {
 
@@ -72,7 +74,7 @@ class ConfigStep1Test {
     fun settingsIdSetIsPlanIdsPlusArea0306Additions() {
         val text = settingsText()
         val ids = Regex("""android:id="@\+id/([^"]+)"""").findAll(text).map { it.groupValues[1] }.toSet()
-        assertEquals("settings id count after area 07 step 4", 91, ids.size)
+        assertEquals("settings id count after area 07 step 4 + ui-audit-fix-1 switches", 95, ids.size)
         val planIds = listOf(
             "btnConfigureNotifListener", "btnConfigureWallpaper", "btnCustomizeDockSlots",
             "btnExportJson", "btnGrantStorageSettings", "btnResetDefaults",
