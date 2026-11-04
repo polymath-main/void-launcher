@@ -42,6 +42,10 @@ object CommandGuide {
         Entry(listOf("power"), ":power", "Telemetry snapshot and power profile"),
         Entry(listOf("focus"), ":focus", "Apply the active focus schedule"),
         Entry(listOf("focus edit"), ":focus edit", "Edit the focus schedule without editing JSON"),
+        // ui-dispatch-fix-1: both were dispatched in the Activity
+        // (:legacy import / :legacy verify) but had no :help row.
+        Entry(listOf("legacy import"), ":legacy import", "Import NodeOS legacy data via SAF folder picker (copy-only)"),
+        Entry(listOf("legacy verify"), ":legacy verify", "Verify the imported NodeOS legacy database"),
         Entry(listOf("mode"), ":mode <COCKPIT|STILL|MINIMAL|FILES>", "Switch home mode"),
         Entry(listOf("still", "cockpit", "minimal"), ":still | :cockpit | :minimal", "Direct mode switches"),
         Entry(listOf("run"), ":run <cmd>", "Run a shell command via VoidShell"),
@@ -59,7 +63,10 @@ object CommandGuide {
         Entry(listOf("deck", "widgets"), ":deck", "Open the widget deck"),
         Entry(listOf("cmd", "cc", "search"), ":cmd", "Open the command center"),
         Entry(listOf("reload"), ":reload", "Reload config from disk"),
-        Entry(listOf("void-js"), ":void-js list|run <name>|stop <name>", "QuickJS macros (impl-04 step 7; engine availability is reported, not faked)"),
+        // ui-dispatch-fix-1: triggers/fire/trigger attach/detach
+        // were dispatched inside the :void-js branch but the row
+        // documented only list|run|stop.
+        Entry(listOf("void-js"), ":void-js list|run <name>|stop <name>|triggers <name>|fire <name> <trigger>|trigger attach|detach <name> <trigger>", "QuickJS macros (impl-04 step 7; engine availability is reported, not faked)"),
         Entry(listOf("audit"), ":audit", "Command audit log (impl-04 step 8)"),
         Entry(listOf("<alias>"), ":<alias>", "Run a saved snippet alias"),
         Entry(listOf("##"), "<cmd> ## <alias>", "Save an inline snippet alias"),

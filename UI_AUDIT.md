@@ -113,3 +113,39 @@ A gap is listed only where that check failed.
 - The new Settings switches and command-center chips have only been proven
   to compile and to be wired in source; their on-device tap behaviour is
   unverified until the APK is installed and tapped.
+
+## Dispatch fix (feature/ui-dispatch-fix-1, from feature/ui-audit-fix-1)
+
+All five late-audit dispatch gaps were verified in code first and fixed
+here; none was assumed. No default config was changed, no daemon or
+auto-run behaviour was added, and bare `:term` (opens the VoidTerm
+panel) is untouched.
+
+- `:themes <sub>` now dispatches as an alias for `:theme <sub>`
+  (previously only bare `:themes` was aliased; `:themes list` hit
+  UNKNOWN). Prefix stripping is `themes` first, then `theme`.
+- `:macros list` now lists macros, same as bare `:macros`.
+- `:help` now documents commands that were already dispatched but
+  undocumented: `:legacy import`, `:legacy verify`, and the
+  `:void-js triggers | fire | trigger attach | detach` forms. No
+  row was added for anything not dispatched.
+- Bare-arg `:eval`, `:task`, `:kill`, `:record`, `:play`, `:run`,
+  `:sh`, `:mode`, `:id`, `:work`, `:snippet` now print their
+  CommandGuide usage line instead of UNKNOWN. Usage strings are
+  looked up from the guide table, not duplicated, so table and
+  dispatch stay in sync.
+- Digits 6–7: default dock is slots 1–5 (unchanged). A typed bare
+  integer, a command-center integer, or a digit key routing to an
+  empty slot now says the slot is empty and points to Settings →
+  Customize dock slots, instead of doing nothing silently.
+  `BareIntegerRouter.routeInteger` already returned false for a
+  missing slot; its call sites previously ignored the result.
+
+Left out: nothing from the five gaps was left out. The new dispatch
+tests (`DispatchFixTest`) assert on the executed CommandGuide table
+only; Activity dispatch is Android-bound and cannot run in the JVM
+harness, so its proof is the CI build on this branch (proof section
+below to be filled from that run), and on-device command behaviour
+remains unproven until the APK is installed and the commands typed.
+
+## Dispatch-fix proof (to be filled from the CI run on this branch)

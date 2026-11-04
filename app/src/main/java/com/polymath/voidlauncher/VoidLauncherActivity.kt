@@ -1226,8 +1226,16 @@ class VoidLauncherActivity : AppCompatActivity() {
         }
         val integerCommand = q.toIntOrNull()
         if (integerCommand != null) {
-            bareIntegerRouter.routeInteger(integerCommand)
-            openCommandCenter(false)
+            // ui-dispatch-fix-1: routeInteger returns false for an
+            // empty slot (default dock is 1-5, so 6-7 are empty
+            // until added). That was a silent close before.
+            if (!bareIntegerRouter.routeInteger(integerCommand)) {
+                binding.tvCommandCenterOutput.text = "[DOCK SLOT EMPTY]: Slot $integerCommand is empty — add it in Settings → Customize dock slots."
+                binding.scrollCommandCenterOutput.visibility = View.VISIBLE
+                binding.rvCommandCenterApps.visibility = View.GONE
+            } else {
+                openCommandCenter(false)
+            }
             return
         }
         val bestMatch = appIndexer.findBestMatch(q)
@@ -2079,7 +2087,12 @@ class VoidLauncherActivity : AppCompatActivity() {
         // 1. Bare integer fast intercept
         val integerCommand = query.toIntOrNull()
         if (integerCommand != null) {
-            bareIntegerRouter.routeInteger(integerCommand)
+            // ui-dispatch-fix-1: see handleCommandCenterSubmit —
+            // an empty slot must say so instead of silently doing
+            // nothing (default dock is 1-5).
+            if (!bareIntegerRouter.routeInteger(integerCommand)) {
+                Toast.makeText(this, "Dock slot $integerCommand is empty — add it in Settings → Customize dock slots", Toast.LENGTH_SHORT).show()
+            }
             resetOmniInput()
             return
         }
@@ -2105,6 +2118,17 @@ class VoidLauncherActivity : AppCompatActivity() {
         when {
             command == "help" || command == "?" -> {
                 showTerminalOutput(commandHelpService.formatQuickGuide())
+            }
+            // ui-dispatch-fix-1: bare-arg forms of commands that take
+            // an argument used to fall through to UNKNOWN COMMAND.
+            // They now print the CommandGuide usage line instead.
+            // Bare forms that already have their own behaviour
+            // (:term opens the panel, :stop, :graph, etc.) are NOT
+            // in this set and are untouched.
+            command in setOf("eval", "task", "kill", "record", "play", "run", "sh", "mode", "id", "work", "snippet") -> {
+                val usage = com.polymath.voidlauncher.core.CommandGuide.ENTRIES
+                    .firstOrNull { it.names.contains(command) }?.usage ?: ":$command"
+                showTerminalOutput("Usage: $usage")
             }
             command == "wallpaper" || command == "wp" -> {
                 commandHelpService.handleWallpaperCommand(
@@ -2301,7 +2325,9 @@ class VoidLauncherActivity : AppCompatActivity() {
             }
             // F-09 History & Snippets
             // impl-04 step 3: macro management.
-            command == "macros" -> {
+            // ui-dispatch-fix-1: :macros list is the documented list
+            // form; it previously fell through to UNKNOWN COMMAND.
+            command == "macros" || command == "macros list" -> {
                 if (!config.macrosEnabled) {
                     showTerminalOutput("[MACRO GATE] Disabled (macros_enabled=false)")
                 } else {
@@ -2437,8 +2463,13 @@ class VoidLauncherActivity : AppCompatActivity() {
                     onShowOutput = { showTerminalOutput(it) }
                 )
             }
-            command.startsWith("theme ") -> {
-                val sub = command.removePrefix("theme ").trim()
+            // ui-dispatch-fix-1: :themes <sub> is an alias for
+            // :theme <sub>; it previously fell through to UNKNOWN
+            // COMMAND (only the bare :themes form was aliased).
+            // Strip "themes " first: removePrefix("theme ") alone
+            // would not match "themes list" (no space after theme).
+            command.startsWith("theme ") || command.startsWith("themes ") -> {
+                val sub = command.removePrefix("themes ").removePrefix("theme ").trim()
                 commandHelpService.handleThemeCommand(
                     subCommand = sub,
                     config = config,
@@ -2842,7 +2873,12 @@ class VoidLauncherActivity : AppCompatActivity() {
 
     private fun handleDigitKey(view: View, digit: Int) {
         haptic(view)
-        bareIntegerRouter.routeInteger(digit)
+        // ui-dispatch-fix-1: defensive twin of the omni/command-
+        // center paths — visible dock/keypad keys only exist for
+        // configured slots, but a missing slot must never be silent.
+        if (!bareIntegerRouter.routeInteger(digit)) {
+            Toast.makeText(this, "Dock slot $digit is empty — add it in Settings → Customize dock slots", Toast.LENGTH_SHORT).show()
+        }
         resetOmniInput()
     }
 
