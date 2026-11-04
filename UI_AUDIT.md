@@ -33,7 +33,7 @@ A gap is listed only where that check failed.
 | `:power`, `:focus`, `:focus edit`, `:mode`, `:still`, `:cockpit`, `:minimal` | Typing; `:power` chip existed; focus editor also via Settings | Real | None needed | Dispatch checked |
 | `:wallpaper`, `:theme` | Typing; wallpaper studio via Settings and file operations | Real | None needed | Dispatch checked |
 | `:work`, `:files`, `:apps`, `:settings`, `:clip`, `:nodeos`, `:hud`, `:deck`, `:cmd`, `:reload`, `:audit` | Typing; `:files`/`:settings` chips existed; `:deck` chip added | Real | None needed beyond the `:deck` chip | Dispatch checked |
-| `:void-js` list/run/stop/triggers/fire/attach/detach | Typing | Runner, manifest, sandbox, trigger store real; native engine was ABSENT from the impl-07 APK, so runs reported Unavailable | **Fixed (build-level, not device-proven):** cherry-picked `feature/quickjs-engine-real` commit `4a2cd9a` (already based on `f89838c`): vendored QuickJS 2024-01-13, `voidquickjs.c`, JNI `nativeRun` with adapters, CMake in `app/build.gradle`, NDK/CMake install step in CI. The availability gate stays: a build without the `.so` still reports Unavailable. | CI build below (does the `.so` build?); on-device JS execution still UNPROVEN |
+| `:void-js` list/run/stop/triggers/fire/attach/detach | Typing | Runner, manifest, sandbox, trigger store real; native engine was ABSENT from the impl-07 APK, so runs reported Unavailable | **Fixed (build-level, not device-proven):** cherry-picked `feature/quickjs-engine-real` commit `4a2cd9a` (already based on `f89838c`): vendored QuickJS 2024-01-13, `voidquickjs.c`, JNI `nativeRun` with adapters, CMake in `app/build.gradle`, NDK/CMake install step in CI. The availability gate stays: a build without the `.so` still reports Unavailable. | CI run 41751562650 green; `.so` verified present in the debug APK for all 3 ABIs with the JNI symbol; on-device JS execution still UNPROVEN |
 | JS triggers firing autonomously | Attach/detach/fire via `:void-js` only | Stored, never fired by any daemon | **Left open, deliberately:** no background daemon was built. Autonomous trigger firing needs Shuvo's explicit approval (it would run user scripts without him present). | Recorded here, not built |
 | Widget deck, per-widget retry tap, action approval dialog | `:deck`, STILL swipe-right gesture | Real (`WidgetRegistry`), gated by Widgets switch (existed) | None needed | Code path checked; CI build |
 | Files browser: chips, search/sort, create file/folder, Open-with, wallpaper/theme from file, Open in VoidTerm | Files browser UI | Real | None needed | Code path checked; CI build |
@@ -54,14 +54,53 @@ A gap is listed only where that check failed.
   branch, and this branch does not decide them.
 - No background daemon, auto-send, auto-post, or auto-run behaviour was added.
 
-## Proof (to be filled by the CI run on this branch)
+## Proof
 
-- Branch: `feature/ui-audit-fix-1`
-- Commits: (filled after push, before reporting)
-- Build: GitHub Actions workflow `build.yml` via workflow_dispatch on this
-  branch, because the workflow only auto-runs on `main` and `feature/v3-ui`.
-- Result, run URL, APK package/version/checksums, manifest permission check:
-  (filled after the CI run — do not read this file as proof until filled.)
+- Branch: `feature/ui-audit-fix-1` (main untouched, no force-push).
+- CI build commit: `98bbf13` (fixes + QuickJS merge + id-count fix +
+  CONFIG_BIGNUM fix). The final commit on this branch after CI only
+  fills in this proof section (a docs-only change; it cannot change
+  the APK built from `98bbf13`).
+- Build: GitHub Actions workflow `build.yml` via workflow_dispatch on
+  this branch, because the workflow only auto-runs on `main` and
+  `feature/v3-ui`. Local Gradle on this VM is not viable (Gradle
+  daemon protocol failure, plus no NDK/CMake locally), so CI is the
+  real build proof here, per the code-change proof skill.
+- CI history on this branch (re-dispatches were build fixes only):
+  - Run 41750193173: FAILED at unit tests — 281 tests, 1 failed
+    (`ConfigStep1Test` exact settings-id count 91 vs 95 after the
+    4 new switches). Main code compiled.
+  - Run 41750644796: unit tests PASSED, assemble FAILED at
+    `buildCMakeDebug[arm64-v8a]` — undefined `bfdec_normalize_and_
+    round` / `mp_pow_dec`. Root cause: the Android CMakeLists
+    omitted `CONFIG_BIGNUM`, which upstream QuickJS builds with by
+    default. Fixed by defining it (no host-API change).
+  - Run 41751562650: **SUCCESS** — conclusion `success`, 7m20s, all
+    steps green (unit tests, lint non-blocking, version check,
+    assemble release + debug, checksums, artifact uploads).
+    URL: https://github.com/polymath-main/void-launcher/actions/runs/41751562650
+- APKs from run 41751562650 (CI-published checksums, debug checksum
+  re-verified on the downloaded artifact):
+  - Release (debug-signed): SHA-256
+    `07f4e77c9007ccc108f48773cfd9dcd23ee667fdc943ca2fdaac3b9f0b1f0d99`
+  - Debug: SHA-256
+    `82ee6c9cbc16b3623017e70eb7e9ac48cbf3e7917e39abf564bcc544ba2d4c06`
+    (9.2 MB, verified locally after download)
+  - Debug APK verified with aapt2: package
+    `com.polymath.voidlauncher.debug`, versionCode 5,
+    versionName `3.0.0-debug`, SDK 35/min 26.
+  - Manifest permission check: QUERY_ALL_PACKAGES, INTERNET,
+    ACCESS_NETWORK_STATE, VIBRATE, SET_WALLPAPER,
+    READ_EXTERNAL_STORAGE (maxSdk 32), MANAGE_EXTERNAL_STORAGE —
+    **no Termux permission, no RUN_COMMAND**.
+  - QuickJS native library present in the debug APK for all three
+    ABIs: `lib/arm64-v8a/libvoidquickjs.so`,
+    `lib/armeabi-v7a/libvoidquickjs.so`,
+    `lib/x86_64/libvoidquickjs.so`; the arm64 `.so` contains the
+    JNI symbol
+    `Java_com_polymath_voidlauncher_core_js_QuickJsEngine_nativeRun`.
+    This proves the library ships; it does NOT prove a macro runs
+    on a device (see still-unproven list).
 
 ## Still unproven (plainly)
 
