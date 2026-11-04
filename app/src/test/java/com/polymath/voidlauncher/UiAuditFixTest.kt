@@ -33,7 +33,8 @@ class UiAuditFixTest {
         for ((id, field) in listOf(
             "switchVoidTerm" to "voidTermEnabled",
             "switchMacrosEnabled" to "macrosEnabled",
-            "switchCommandHistoryEnabled" to "commandHistoryEnabled"
+            "switchCommandHistoryEnabled" to "commandHistoryEnabled",
+            "switchCompoundGestures" to "compoundGesturesEnabled"
         )) {
             assertTrue("$id missing from settings layout", layout.contains("android:id=\"@+id/$id\""))
             assertTrue("$id must load from config", activity.contains("binding.$id.isChecked = cfg.$field"))

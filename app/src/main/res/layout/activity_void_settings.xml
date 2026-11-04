@@ -1169,6 +1169,32 @@
                     android:id="@+id/spnGestureLongPress"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content" />
+
+                <!-- UI audit fix 1b: the compound-gestures master flag
+                     was reset by Settings (system group) but had no
+                     control of its own. Pinch/edge/two-finger gestures
+                     still cannot be remapped from Settings — only
+                     enabled/disabled here; that stays an open gap. -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/text_primary"
+                        android:textSize="11.5sp"
+                        android:text="Compound Gestures (pinch / edge / two-finger)" />
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchCompoundGestures"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true" />
+                </LinearLayout>
             </LinearLayout>
 
             <!-- SECTION: HARDWARE & ADVANCED -->

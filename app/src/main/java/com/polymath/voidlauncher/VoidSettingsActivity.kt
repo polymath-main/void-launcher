@@ -363,6 +363,7 @@ class VoidSettingsActivity : AppCompatActivity() {
         selectGestureAction(binding.spnGestureSwipeRight, cfg.gestureSwipeRight)
         selectGestureAction(binding.spnGestureDoubleTap,  cfg.gestureDoubleTap)
         selectGestureAction(binding.spnGestureLongPress,  cfg.gestureLongPress)
+        binding.switchCompoundGestures.isChecked = cfg.compoundGesturesEnabled
 
         binding.etFilesDefaultPath.setText(cfg.filesDefaultPath)
         binding.switchFilesShowHidden.isChecked = cfg.filesShowHidden
@@ -663,6 +664,7 @@ class VoidSettingsActivity : AppCompatActivity() {
             gestureSwipeRight = binding.spnGestureSwipeRight.selectedItem?.toString() ?: "OPEN_FILES",
             gestureDoubleTap  = binding.spnGestureDoubleTap.selectedItem?.toString()  ?: "TOGGLE_MINIMAL",
             gestureLongPress  = binding.spnGestureLongPress.selectedItem?.toString()  ?: "OPEN_SETTINGS",
+            compoundGesturesEnabled = binding.switchCompoundGestures.isChecked,
             filesDefaultPath = filesPath,
             filesShowHidden = binding.switchFilesShowHidden.isChecked,
             thermalLimitCelsius = thermal,
