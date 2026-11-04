@@ -1581,6 +1581,10 @@ class VoidLauncherActivity : AppCompatActivity() {
         binding.chipCmdGraph.setOnClickListener { handleCommandCenterChip(":graph") }
         binding.chipCmdPower.setOnClickListener { handleCommandCenterChip(":power") }
         binding.chipCmdNotif.setOnClickListener { handleCommandCenterChip(":notif") }
+        binding.chipCmdDeck.setOnClickListener { handleCommandCenterChip(":deck") }
+        binding.chipCmdTerm.setOnClickListener { handleCommandCenterChip(":term") }
+        binding.chipCmdMacros.setOnClickListener { handleCommandCenterChip(":macros") }
+        binding.chipCmdHelp.setOnClickListener { handleCommandCenterChip(":help") }
         binding.chipCmdSettings.setOnClickListener { handleCommandCenterChip(":settings") }
 
         binding.etCommandCenterInput.addTextChangedListener(object : TextWatcher {
@@ -2370,7 +2374,12 @@ class VoidLauncherActivity : AppCompatActivity() {
                 }
                 showTerminalOutput(sb.toString().trimEnd())
             }
-            // F-14 Embedded Terminal Command
+            // F-14 Embedded Terminal Command. Bare :term opens the
+            // panel (previously it fell through to UNKNOWN COMMAND,
+            // so the new :term chip and a typed :term did nothing).
+            command == "term" -> {
+                openVoidTerm()
+            }
             command.startsWith("term ") -> {
                 if (!config.voidTermEnabled) {
                     showTerminalOutput("[VOIDTERM GATE] Disabled (voidterm_enabled=false)")

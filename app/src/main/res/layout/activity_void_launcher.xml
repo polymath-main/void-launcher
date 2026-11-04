@@ -1444,6 +1444,65 @@
                     android:textSize="12sp"
                     android:text=":notif" />
 
+                <!-- UI audit fix 2: tap entries for core features that
+                     previously required typing the command. Same 48dp /
+                     12sp chip style as the existing eight. -->
+                <TextView
+                    android:id="@+id/chipCmdDeck"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:background="@drawable/bg_chip_filter"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:text=":deck" />
+
+                <TextView
+                    android:id="@+id/chipCmdTerm"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:background="@drawable/bg_chip_filter"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:text=":term" />
+
+                <TextView
+                    android:id="@+id/chipCmdMacros"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:background="@drawable/bg_chip_filter"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:text=":macros" />
+
+                <TextView
+                    android:id="@+id/chipCmdHelp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:background="@drawable/bg_chip_filter"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:layout_marginEnd="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/text_primary"
+                    android:textSize="12sp"
+                    android:text=":help" />
+
                 <TextView
                     android:id="@+id/chipCmdSettings"
                     android:layout_width="wrap_content"

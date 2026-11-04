@@ -394,6 +394,10 @@ class VoidSettingsActivity : AppCompatActivity() {
         binding.switchAstGraph.isChecked = cfg.astGraphEnabled
         binding.etAstNodeCap.setText(cfg.astGraphNodeCap.toString())
         binding.switchFocusScheduler.isChecked = cfg.focusSchedulerEnabled
+        // UI audit fix 1: gates that previously had no Settings control.
+        binding.switchVoidTerm.isChecked = cfg.voidTermEnabled
+        binding.switchMacrosEnabled.isChecked = cfg.macrosEnabled
+        binding.switchCommandHistoryEnabled.isChecked = cfg.commandHistoryEnabled
         binding.tvFocusSchedulePath.text = "Focus schedule path (read-only; editor in step 8):\n${cfg.focusSchedulePath}"
         binding.switchNodeOsLegacyImport.isChecked = cfg.nodeOsLegacyImportEnabled
         binding.etWorkflowJsonPath.setText(cfg.workflowJsonPath)
@@ -677,6 +681,10 @@ class VoidSettingsActivity : AppCompatActivity() {
             astGraphNodeCap = (binding.etAstNodeCap.text.toString().toIntOrNull()
                 ?: currentConfig.astGraphNodeCap).coerceAtLeast(1),
             focusSchedulerEnabled = binding.switchFocusScheduler.isChecked,
+            // UI audit fix 1: persist the previously control-less gates.
+            voidTermEnabled = binding.switchVoidTerm.isChecked,
+            macrosEnabled = binding.switchMacrosEnabled.isChecked,
+            commandHistoryEnabled = binding.switchCommandHistoryEnabled.isChecked,
             // Legacy import switch + paths: enabling writes NOTHING to
             // those files — the Activity only reads them when the flag
             // is on (copy-only import itself is step 9's SAF picker).
@@ -766,7 +774,10 @@ class VoidSettingsActivity : AppCompatActivity() {
                 agentOrchestratorEnabled = defaults.agentOrchestratorEnabled,
                 astGraphEnabled = defaults.astGraphEnabled,
                 astGraphNodeCap = defaults.astGraphNodeCap,
-                focusSchedulerEnabled = defaults.focusSchedulerEnabled
+                focusSchedulerEnabled = defaults.focusSchedulerEnabled,
+                voidTermEnabled = defaults.voidTermEnabled,
+                macrosEnabled = defaults.macrosEnabled,
+                commandHistoryEnabled = defaults.commandHistoryEnabled
             )
             else -> built.copy(
                 filesDefaultPath = defaults.filesDefaultPath,
